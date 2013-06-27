@@ -1,0 +1,9 @@
+# normal /share/lustre/archive/SA084N/illumina_exoncapture/HS2095/sequence/SA084N_HS2095_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA084/illumina_exoncapture/HS2188/sequence/SA084_HS2188_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+14 73828759 GERMLINE
+17 37509269 GERMLINE
+19 4506098 SOMATIC
+3 52703093 SOMATIC
+2 109730641 SOMATIC
+X 64875743 SOMATIC

@@ -1,0 +1,11 @@
+# normal /share/lustre/archive/SA222N/illumina_exoncapture/HS2584/sequence/SA222N_HS2584_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA222/illumina_exoncapture/HS2583/sequence/SA222_HS2583_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 151224587 SOMATIC
+1 154436275 SOMATIC
+1 166058872 SOMATIC
+9 136453415 SOMATIC
+2 73721818 SOMATIC
+2 74327688 SOMATIC
+20 41522131 SOMATIC
+6 148803187 SOMATIC

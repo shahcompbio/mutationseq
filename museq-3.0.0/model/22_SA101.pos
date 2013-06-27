@@ -1,0 +1,15 @@
+# normal /share/lustre/archive/SA101N/illumina_exoncapture/HS2075/sequence/SA101N_HS2075_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA101/illumina_exoncapture/HS1656/sequence/SA101_HS1656_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 24949653 WILDTYPE
+17 10369890 SOMATIC
+16 56353625 WILDTYPE
+18 46688552 SOMATIC
+1 18935010 SOMATIC
+1 100276433 SOMATIC
+1 19469559 WILDTYPE
+3 170316426 SOMATIC
+2 210864038 SOMATIC
+2 25819164 WILDTYPE
+6 27907087 SOMATIC
+8 95003494 SOMATIC

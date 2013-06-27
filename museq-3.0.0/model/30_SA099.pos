@@ -1,0 +1,7 @@
+# normal /share/lustre/archive/SA099N/illumina_exoncapture/HS2073/sequence/SA099N_HS2073_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA099/illumina_exoncapture/HS1652/sequence/SA099_HS1652_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 107619959 WILDTYPE
+10 102047352 GERMLINE
+2 131238061 SOMATIC
+2 128742228 GERMLINE

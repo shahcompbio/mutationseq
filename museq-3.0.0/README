@@ -1,0 +1,48 @@
+mutationSeq-2 alpha
+===================
+
+This package will build the bam/fasta traversal engine.  This requires:
+
+* Python 2.7 header files
+* zlib headers
+
+To extract and classify features using scikits-learn you will want to install:
+
+* numpy
+* scipy
+* scikits-learn
+
+I have exclusively used Python 2.7 for development and testing.
+
+For this 'alpha' release note that:
+
+* there is no install mechanism
+* defining features is tedious and ugly
+
+
+Installing
+----------
+
+python setup.py build
+
+Copy the compiled pybam.so file from build/ to somewhere visible to the
+mutationSeq script you want to run.  The path of this README is fine if you
+would like to try out the included 'train.py' and 'classify.py' scripts
+
+
+Example
+-------
+
+Using 'example.pos' as a template you can indentify known events in a
+normal/tumour pair:
+
+train.py normal.bam tumour.bam reference.fasta example.pos
+
+This will yield a 'model.npz' in the working directory.
+
+Using this model, another normal/tumour pair can be classified:
+
+classify.py normal.bam tumour.bam reference.fasta
+
+Which will read model.npz and classify a random position of chromosome or whole chromosome for the given
+pair.

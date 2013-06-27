@@ -1,0 +1,7 @@
+# normal /share/lustre/archive/SA217N/illumina_exoncapture/HS2406/sequence/SA217N_HS2406_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA217/illumina_exoncapture/HS2405/sequence/SA217_HS2405_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+9 67923388 WILDTYPE
+8 146003535 SOMATIC
+13 23769756 SOMATIC
+4 191111275 WILDTYPE

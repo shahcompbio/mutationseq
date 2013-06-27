@@ -1,0 +1,13 @@
+# normal /share/lustre/archive/SA099N/illumina_exoncapture/HS2073/sequence/SA099N_HS2073_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA099/illumina_exoncapture/HS1652/sequence/SA099_HS1652_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 112259987 WILDTYPE
+12 55859441 SOMATIC
+19 62709973 SOMATIC
+19 54331814 GERMLINE
+2 170074959 SOMATIC
+5 140483421 GERMLINE
+4 71728934 SOMATIC
+4 157058801 SOMATIC
+7 140099605 SOMATIC
+X 128887902 SOMATIC

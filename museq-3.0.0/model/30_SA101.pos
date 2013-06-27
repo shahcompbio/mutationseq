@@ -1,0 +1,7 @@
+# normal /share/lustre/archive/SA101N/illumina_exoncapture/HS2075/sequence/SA101N_HS2075_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA101/illumina_exoncapture/HS1656/sequence/SA101_HS1656_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 59437362 GERMLINE
+10 15679254 SOMATIC
+6 32119214 GERMLINE
+16 15030281 GERMLINE

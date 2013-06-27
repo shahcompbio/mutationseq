@@ -1,0 +1,7 @@
+# normal /share/lustre/archive/SA104N/illumina_exoncapture/HS2078/sequence/SA104N_HS2078_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA104/illumina_exoncapture/HS1662/sequence/SA104_HS1662_2_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 40813901 GERMLINE
+20 31711439 WILDTYPE
+22 35663574 WILDTYPE
+16 79768997 GERMLINE
