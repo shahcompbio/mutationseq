@@ -1,23 +1,10 @@
-import os
 import sys
-import pybam
-import numpy
-import scipy
-import features
-import Nfeatures
 import argparse
-
-from collections import deque
-from sklearn.ensemble import RandomForestClassifier
-from math import log10
-from string import Template
 from datetime import datetime
-from warnings import warn
-
-mutationSeq_version="3.0.0"
-bases = ('A', 'C', 'G', 'T', 'N')
 
 #chromosomes = [str(x) for x in range(1, 23)] + ["X", "Y"]
+mutationSeq_version="3.0.0"
+
 parser = argparse.ArgumentParser(description='''classify a dataset''')
 parser.add_argument("samples", nargs='*', help='''
                     A list of colon delimited sample names; normal:normal.bam
@@ -26,19 +13,33 @@ parser.add_argument("--out", default=None, help="Save output to file")
 parser.add_argument("--threshold", default=0.5, help="set threshold for positive call", type=float)
 parser.add_argument("--interval", default=None, help="classify given chromosome[:start-end] range")
 parser.add_argument("--export", default=None, help="save exported feature vector")
-parser.add_argument("--scale", action="store_true", default=False, help="scale feature vector")
-parser.add_argument("--normalized", default=False, action="store_true", help="If you want to test with normalized features(the number of features are also different from non-deep)")
+#parser.add_argument("--scale", action="store_true", default=False, help="scale feature vector")
+parser.add_argument("--normalized", default=False, action="store_true",
+                    help="If you want to test with normalized features(the number of features are also different from non-deep)")
 parser.add_argument("--verbose", action="store_true", default=False)
-parser.add_argument("--version", action="store_true",default=False, help="Version of the MutationSeq")
+parser.add_argument("--version", action="version", version=mutationSeq_version)
 parser.add_argument("--purity", default=70, help="pass sample purity to features")
-parser.add_argument("--config", default="metadata.config", help="Specify the path/to/metadata.config file used to add meta information to the output file")
+parser.add_argument("--config", default="metadata.config",
+                    help="Specify the path/to/metadata.config file used to add meta information to the output file")
 args = parser.parse_args()
 
-if args.version:
-    print "Version: ", mutationSeq_version
-    exit(1)  
+print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " importing required modules"
+## Import required modules here to save time when only checking version or help
+import os
+import pybam
+import numpy
+import scipy
+import features
+import Nfeatures
+from collections import deque
+from sklearn.ensemble import RandomForestClassifier
+from math import log10
+from string import Template
+from warnings import warn
+##
 
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq-" + mutationSeq_version + " started"
+bases = ('A', 'C', 'G', 'T', 'N')
 samples = {}
 for sample in args.samples:
     samples[sample.split(':')[0]] = sample.split(':')[1]
@@ -204,6 +205,7 @@ if args.out:
 
 for chrom in targets:
 #for chrom in chromosomes:
+    out_str = []
     batch = []
     coords = []
     strings = []
@@ -333,7 +335,7 @@ for chrom in targets:
     info_strs = i
 
     print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering results"
-    out_str = []
+#    out_str = []
     for coord, result, string, info in zip(coords, model.predict_proba(batch), strings, info_strs):
         if result[1] >= args.threshold:
             try:
@@ -343,8 +345,12 @@ for chrom in targets:
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
             out_str.append(str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str)
 
-out.write("\n".join(out_str))
-out.close()
+print >> sys.stderr, datetime.now.strftime("%H:%M:%S") + " Started writing to " + args.out
+if len(out_str) > 0: #to prevent from when a single non-somatic position returns no out_str
+    out.write("\n".join(out_str))
+    out.close()
+else:
+    print >> sys.stderr, "***No position has been nominated (does not satisfy initial criteria for Somatic calls )"
 
 total_batch = numpy.array(total_batch)
 if args.export:

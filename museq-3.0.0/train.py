@@ -124,7 +124,7 @@ parser = argparse.ArgumentParser(description='''train a model''')
 parser.add_argument("input_files", metavar='FILE', nargs='*', default=[sys.stdin],
                     type=argparse.FileType('r'), help= "A list of space delimited samples: chromosom position label, the file has a header of normal, tumour and reference file names")
 
-parser.add_argument("--scale", action="store_true", default=False, help="scale feature vector")
+#parser.add_argument("--scale", action="store_true", default=False, help="scale feature vector")
 parser.add_argument("--version", default=None, help="Version of the MutationSeq")
 parser.add_argument("--normalized", default=False, action="store_true", help="If you want to train with normalized features")
 parser.add_argument("--C", default=False, action="store_true", help="If you want to test on deep data you need to change containation rate")

@@ -94,6 +94,11 @@ pybam_BamIter_next(pybam_BamIter *self) {
         self->buffer->fetch_start = start;
         self->buffer->fetch_stop = stop;
         self->pileup = bam_plbuf_init(pileup_func, self);
+	//self->pileup->flag_mask &= 772; // disable the BAM_FDUP
+	if(self->df){
+	  bam_plbuf_set_mask(self->pileup, 772);
+	  bam_plp_set_maxcnt(self->pileup->iter, 60000); // increase the max depth size 
+	}
         bam_fetch(self->bam->fd->x.bam, self->bam->idx, self->tid,
                   start, stop, (void *)self, fetch_f);
      
@@ -202,9 +207,11 @@ Bam_counts(pybam_BamObject *self, PyObject *args) {
     int tid, start, stop;
     char *s; 
     uint32_t right_bound; 
+    int df; // deep_flag
     start = 0;
     stop = 0;
-    if (!PyArg_ParseTuple(args, "s|ii", &s, &start, &stop)) return NULL;
+    df = o;
+    if (!PyArg_ParseTuple(args, "s|(ii)i", &s, &start, &stop, &df)) return NULL;
     PyObject *index = PyDict_GetItemString((PyObject *)self->tids, s);
     tid = PyInt_AS_LONG(index);
     if (stop == 0) {
@@ -238,6 +245,7 @@ Bam_counts(pybam_BamObject *self, PyObject *args) {
     iter->start = start;
     iter->tid = tid;
     iter->stop = stop;
+    iter->deep_flag = df;
     return iter;
 }
 

@@ -69,6 +69,7 @@ typedef struct {
     PyObject *return_value;
     bam_plbuf_t *pileup;
     queue *buffer; // the buffer linked list
+    int deep_flag; 
 } pybam_BamIter;
 
 
