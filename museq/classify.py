@@ -14,6 +14,8 @@ parser.add_argument("samples", nargs='*', help='''
 parser.add_argument("--out", default=None, help="Save output to file")
 parser.add_argument("--threshold", default=0.5, help="set threshold for positive call", type=float)
 parser.add_argument("--interval", default=None, help="classify given chromosome[:start-end] range")
+parser.add_argument("--all", default=False, action="store_true",
+                    help= "force to print out even if the position(s) does not satisfy the initial criteria for Somatic calls")
 parser.add_argument("--export", default=None, help="save exported feature vector")
 parser.add_argument("--normalized", default=False, action="store_true",
                     help="If you want to test with normalized features(the number of features are also ifferent from non-deep)")
@@ -215,33 +217,36 @@ if args.out:
         print >> out, tmp_file,
     except:
         warn("Failed to load metadata file")
+
 out_str = []
 for chrom in targets:
+    print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading chromosome " + chrom 
 #for chrom in chromosomes:
     batch = []
     coords = []
     strings = []
     info_strs = []
-    print >> sys.stderr, "\treading chromosome", chrom
     positions = deque([])
+
     try:
         f.load(chrom)
     except:
         warn()
         print >> sys.stderr, "\treference does not have", chrom
         continue
-    print >> sys.stderr, "\tnominating mutation positions in tumour"
+    print >> sys.stderr, "\treading tumour data"
     if pos is None:
     	g = t.vector(chrom, deep_flag)        
     else:
         g = t.vector(chrom, deep_flag, l_pos, u_pos)
 
+    print >> sys.stderr, "\tnominating mutation positions in tumour"
     for tumour_data in g:
         position = tumour_data[0]
         ref_data = f.vector(int(position))
         
         ## Get tri-nucleotide, seems not really an efficient way, but tested it is indeed readlly fast
-        if tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2:
+        if tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2 or args.all:
             try:
                 pre_refBase = f.vector(int(position) - 1)[0]
             except:
@@ -303,7 +308,10 @@ for chrom in targets:
             alt = tumour_data[6]        
 
         ## Generate the values of info fields in the vcf output
-        info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0]), int(normal_data[ref_data[0] + 1][0]), int(normal_data[alt + 1][0])))
+        if alt != ref_data[0]:
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0]), int(normal_data[ref_data[0] + 1][0]), int(normal_data[alt + 1][0])))
+        else: # to take care of the non-somatic positions
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0, int(normal_data[ref_data[0] + 1][0]), 0))
 
         if len(positions) == 0:
             break
@@ -356,7 +364,12 @@ for chrom in targets:
                 phred_qual = 99
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
             out_str.append(str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str)
+        elif args.all:
+            phred_qual = 0
+            info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
+            out_str.append(str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str)
 
+            
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " Started writing to " + args.out
 if len(out_str) > 0: #to prevent from when a single non-somatic position returns no out_str
     out.write("\n".join(out_str))
