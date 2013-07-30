@@ -239,6 +239,7 @@ for chrom in targets:
     	g = t.vector(chrom, deep_flag)        
     else:
         g = t.vector(chrom, deep_flag, l_pos, u_pos)
+        args.all = True
 
     print >> sys.stderr, "\tnominating mutation positions in tumour"
     for tumour_data in g:
