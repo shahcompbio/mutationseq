@@ -32,8 +32,11 @@ if len(args.samples) != 4:
     exit(1)
     
 if args.out is None:
-    print >> sys.stderr, "--out is mandatory"
-    exit(1)
+    warn("--out is not specified, standard output is used to write the results")
+    out = sys.stdout
+else:
+    out = open(args.out, 'w')
+
     
 if args.config is None:
     warn("--config is not specified, no meta information used for the output VCF file")
@@ -69,7 +72,6 @@ labels = npz["arr_2"]
 model = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=-1, compute_importances=True)
 model.fit(train, labels)
 
-out = sys.stdout
 if not args.normalized:
     feature_set = features.feature_set
     coverage_features = features.coverage_features
@@ -95,8 +97,6 @@ if "npz" in samples:
     except:
         print >> sys.stderr, "\tCould not import npz feature vector"
         exit(1)
-    if args.out:
-        out = open(args.out, 'w')
     coords = npz["arr_1"]
     batch = npz["arr_0"]
     strings = npz["arr_2"]
@@ -199,10 +199,9 @@ coverage_data = (30, 30, int(args.purity), 1)
 total_batch = []
 total_coords = []
 total_strings = []
-if args.out:
-    out = open(args.out, 'w')
 
-    ## Add VCF format meta-information from metadata.cfg file to the output file
+## Add VCF format meta-information from metadata.cfg file to the output file
+if args.config:
     try:
         cfg_file = open(args.config, 'r')
         tmp_file = ""
