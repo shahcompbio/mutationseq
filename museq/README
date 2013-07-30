@@ -1,0 +1,25 @@
+===================
+=mutationSeq_3.0.1=
+===================
+
+What is new?
+------------
+The bug that made an empty output is fixed. Now, running the mutationSeq for a whole genome should output the desired results instead of "***No position has been nominated (does not satisfy initial criteria for Somatic calls )"
+
+Downlaod and usage
+------------------
+The package is available to academics under the terms of the GPL3. 
+Non-academic users should contact Dr. Patrick Rebstein at the BC Cancer Agency Technology Development Office for license agreements.
+
+Installation
+------------
+Please see the mutationSeq_3.0.0 user manual provided in the packege.
+
+Contact
+-------
+For more information please check Shah Lab for Computational Cancer Biology:
+http://compbio.bccrc.ca/
+
+or contact us via email:
+Jafar Taghiyar <jtaghiyar@bccrc>
+Dr. Sohrab Shah <sshah@bccrc.ca>
