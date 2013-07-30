@@ -355,7 +355,7 @@ for chrom in targets:
     strings = s
     info_strs = i
 
-    print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering results"
+    print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"
     for coord, result, string, info in zip(coords, model.predict_proba(batch), strings, info_strs):
         if result[1] >= args.threshold:
             try:
@@ -363,21 +363,12 @@ for chrom in targets:
             except:
                 phred_qual = 99
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
-#            out_str.append(str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str)
-            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.\
-            2f" % phred_qual + "\t" + "PASS" + "\t" + info_str
+            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str
         elif args.all:
             phred_qual = 0
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
-#            out_str.append(str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str)
-            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.\
-            2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
+            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
             
-#print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " Started writing to " + args.out
-#if len(out_str) > 0: #to prevent from when a single non-somatic position returns no out_str
-#    out.write("\n".join(out_str))
-#    out.close()
-#else:
 #    print >> sys.stderr, "***No position has been nominated (does not satisfy initial criteria for Somatic calls )"
 
 total_batch = numpy.array(total_batch)
