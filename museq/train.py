@@ -1,6 +1,6 @@
 import pybam
 import numpy
-import scipy
+#import scipy
 import features
 import Nfeatures
 import sys
@@ -9,12 +9,17 @@ import argparse
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import pickle
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn import tree
 
+def saveObject(obj, filename):
+    with open(filename, 'wb') as output:
+        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+        
 def extract_data(files_name):
     data={}	
     for case in files_name:
@@ -163,7 +168,7 @@ numpy.savez(args.out, version, feature, labels)
 
 model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
 model.fit(feature, labels)
-
+saveObject(model, "model2.npz")
 #features_file=open("features_name.txt", 'w')
 #for _feature in feature_set + coverage_features + extra_features:
     #print >> _feature[0]
