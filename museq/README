@@ -1,10 +1,17 @@
 ===================
-=mutationSeq_3.0.1=
+=mutationSeq_3.1.1=
 ===================
 
 What is new?
 ------------
-The bug that made an empty output is fixed. Now, running the mutationSeq for a whole genome should output the desired results instead of "***No position has been nominated (does not satisfy initial criteria for Somatic calls )"
+The following options are added (refer to user manual for more details):
+* -a/--all: force print out the result for each position even if it does not satisfy the initial criteria for somatic call.
+* -f/--positions_file: input a file containing a list of positions each of which is in a separate line.
+ 
+Also following minor changes done:
+* support for the single-letter equivalence for the options, e.g. -o or --out, -f or --positions_file, etc.
+* ability to have optional extra "chr" in the name of the chromosome in the input.
+* memory usage reduced by at most 1G.
 
 Downlaod and usage
 ------------------
@@ -13,7 +20,7 @@ Non-academic users should contact Dr. Patrick Rebstein at the BC Cancer Agency T
 
 Installation
 ------------
-Please see the mutationSeq_3.0.0 user manual provided in the packege.
+Please see the mutationSeq user manual provided in the packege.
 
 Contact
 -------

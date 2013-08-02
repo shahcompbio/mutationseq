@@ -4,7 +4,7 @@ from datetime import datetime
 import sys
 from warnings import warn
 
-mutationSeq_version="3.0.1"
+mutationSeq_version="3.1.1"
 
 parser = argparse.ArgumentParser(description='''classify a dataset''')
 parser.add_argument("samples", nargs='*', help='''
