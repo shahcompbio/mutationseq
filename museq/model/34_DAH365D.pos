@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/DAH365N/illumina_exoncapture/HS2463/sequence/DAH365N_HS2463_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/DAH365D/illumina_exoncapture/HS2459/sequence/DAH365D_HS2459_2_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/DAH365N/illumina_exoncapture/HS2463/bwa_aligned/DAH365N_HS2463_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/DAH365D/illumina_exoncapture/HS2459/bwa_aligned/DAH365D_HS2459_2_lanes_dupsFlagged.bam
 # reference /share/data/genomes/human_all.fasta
 1 18534005 SOMATIC
 1 110456920 SOMATIC

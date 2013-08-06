@@ -1,6 +1,6 @@
 #	contamination   35  39  75
-#	tumour	/share/lustre/archive/GASCOYNE/RG_15/illumina_wgss/A17752/sequence/RG_15_A17752_3_lanes_dupsFlagged.bam
-#	normal	/share/lustre/archive/GASCOYNE/RG_17/illumina_wgss/A17754/sequence/RG_17_A17754_3_lanes_dupsFlagged.bam
+#	tumour	/share/lustre/archive/GASCOYNE/RG_15/illumina_wgss/A17752/bwa_aligned/RG_15_A17752_3_lanes_dupsFlagged.bam
+#	normal	/share/lustre/archive/GASCOYNE/RG_17/illumina_wgss/A17754/bwa_aligned/RG_17_A17754_3_lanes_dupsFlagged.bam
 #	reference	/share/lustre/reference/genomes/GRCh37-lite.fa
 5	124080646	SOMATIC
 19	57065800	WILDTYPE
