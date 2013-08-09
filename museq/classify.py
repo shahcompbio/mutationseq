@@ -59,12 +59,14 @@ import pybam
 import numpy
 #import scipy
 #import pickle
+import resource
 import features
 import Nfeatures
 from collections import deque, defaultdict
 from sklearn.ensemble import RandomForestClassifier
 from math import log10
 from string import Template
+print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 #==============================================================================
 # helper functions
@@ -89,7 +91,7 @@ def parseTargetPos(poslist):
 def removeNanInf(coords, batch, strings, info_strs):
     b = []
     i = -1
-    for coord, l, string in zip(coords, batch, strings):
+    for l in batch:
         i = i + 1
         if numpy.isnan(l).any() or numpy.isinf(l).any():
             print >> sys.stderr, "\tnan/inf value removed"
@@ -101,21 +103,21 @@ def removeNanInf(coords, batch, strings, info_strs):
     batch = numpy.array(b)
     return batch
 
-def filterAndPrintResult(coords, batch, strings, info_strs):
-    for coord, result, string, info in zip(coords, model.predict_proba(batch), strings, info_strs):
+def filterAndPrintResult(coords, results, strings, info_strs):
+    for coord, result, string, info in zip(coords, results, strings, info_strs):
         if result[1] >= args.threshold:
             try:
                 phred_qual = -10 * log10(1 - result[1])
             except:
                 phred_qual = 99
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
-            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
+            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
             print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
             + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str
         elif args.all == "yes":
             phred_qual = 0
             info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
-            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[6]
+            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
             print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
             + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
 
@@ -143,7 +145,41 @@ def extractFeature(tumour_data, normal_data, ref_data):
     t_counts = (tumour_data[1][1], tumour_data[2][1], tumour_data[3][1],
                 tumour_data[4][1], tumour_data[5][1])
     features_tmp.append(n.xentropy(n_counts, t_counts))
-    return features_tmp    
+    return features_tmp   
+
+def nominateMutPos(tumour_data):
+    ref_data = f.vector(int(tumour_data[0])) # tumour_data[0] is position
+    return tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2 
+            
+def getPositions(tumour_data):
+    position = tumour_data[0]
+    ref_data = f.vector(int(position))
+    try:
+        pre_refBase = f.vector(int(position) - 1)[0]
+    except:
+        pre_refBase = 4
+    try:
+        nxt_refBase = f.vector(int(position) + 1)[0]
+    except:
+        nxt_refBase = 4
+    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
+    positions.append((position, tumour_data, ref_data, tri_nucleotide))
+
+def printMetaData():
+    try:
+        cfg_file = open(args.config, 'r')
+        tmp_file = ""
+        for l in cfg_file:
+            l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
+                                       REFERENCE=samples["reference"],
+                                       TUMOUR=samples["tumour"],
+                                       NORMAL=samples["normal"],
+				       THRESHOLD=args.threshold)
+            tmp_file += l
+        cfg_file.close()
+        print >> out, tmp_file,
+    except:
+        warn("Failed to load metadata file")
 
 #==============================================================================
 # start of the main body
@@ -169,10 +205,10 @@ except:
 #print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + "done"
 train = npz["arr_1"]
 labels = npz["arr_2"]
-model = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=-1, compute_importances=True)
-print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " model fitting started"
+model = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
+print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " fitting model"
 model.fit(train, labels)
-print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done model fitting"
+print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 # if npz["arr_0"] != version:
 #     print >> sys.stderr, "\tmismatched feature set versions:",
@@ -191,6 +227,7 @@ print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done model fitting"
 #==============================================================================
 # read in bam files
 #==============================================================================
+print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading bam files"
 try:
     n = pybam.Bam(samples["normal"])
 except:
@@ -206,6 +243,7 @@ try:
 except:
     print >> sys.stderr, "\tFailed to load reference"
     sys.exit(1)
+print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 #==============================================================================
 # parse the positions or the file of list of positions to get targets
@@ -231,31 +269,19 @@ elif args.positions_file:
 
 else:
     targets = set(n.targets) & set(t.targets)
-    
-#==============================================================================
-# add VCF format meta-information from metadata.cfg file to the output file
-#==============================================================================
-if args.config:
-    try:
-        cfg_file = open(args.config, 'r')
-        tmp_file = ""
-        for l in cfg_file:
-            l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
-                                       REFERENCE=samples["reference"],
-                                       TUMOUR=samples["tumour"],
-                                       NORMAL=samples["normal"],
-				       THRESHOLD=args.threshold)
-            tmp_file += l
-        cfg_file.close()
-        print >> out, tmp_file,
-    except:
-        warn("Failed to load metadata file")
+
+if len(target_positions.keys()) == 0:
+    for targ in targets:
+        target_positions[targ].append([None, None])
+
+if args.config: # add VCF format meta-information
+    printMetaData()
         
 #==============================================================================
 # run for each chromosome/position
 #==============================================================================
-for chrom in target_positions.keys(): # each key is a chromosomes
-    for pos in range(len(target_positions[chrom])):
+for chrom in target_positions.keys(): # each key is a chromosome
+    for pos in xrange(len(target_positions[chrom])):
         l_pos = target_positions[chrom][pos][0]
         u_pos = target_positions[chrom][pos][1]
         if l_pos is None:
@@ -274,74 +300,74 @@ for chrom in target_positions.keys(): # each key is a chromosomes
         info_strs = []
         positions = deque([])
         
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " loading reference for chromosome " + chrom
         try:
             f.load(chrom)
         except:
             message = "\treference does not have chromosome " + chrom
             warn(message)
             continue
-        print >> sys.stderr, "\treading tumour data"
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading tumour data"
         if l_pos is None:
             g = t.vector(chrom, deep_flag)        
         else:
             g = t.vector(chrom, deep_flag, l_pos, u_pos)
-            args.all = "yes"
-    
-        print >> sys.stderr, "\tnominating mutation positions in tumour"
-        for tumour_data in g:
-            position = tumour_data[0]
-            ref_data = f.vector(int(position))
+            if args.all is None:
+                args.all = "yes"
             
-            ## get tri-nucleotide context, seems not really an efficient way, but tested it is indeed readlly fast
-            if tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2 or args.all == "yes":
-                try:
-                    pre_refBase = f.vector(int(position) - 1)[0]
-                except:
-                    pre_refBase = 4
-                try:
-                    nxt_refBase = f.vector(int(position) + 1)[0]
-                except:
-                    nxt_refBase = 4
-                tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
-                positions.append((position, tumour_data, ref_data, tri_nucleotide))
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " nominating mutation positions in tumour"
+        if args.all == "yes":
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mapping"
+            map(getPositions, g)
+        else:
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering"
+            g = filter(nominateMutPos, g)
+            print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mapping"
+            map(getPositions, g)   
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         
         if len(positions) == 0:
             continue
         position, tumour_data, ref_data, tc = positions.popleft()
     
-        print >> sys.stderr, "\treading normal"  
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading normal"  
         if l_pos is None:
             g = n.vector(chrom, deep_flag)
         else:
             g = n.vector(chrom, deep_flag, l_pos, u_pos)
-    
+            
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         skip = False
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " extracting features"
+
+#==============================================================================
+#       feature extraction
+#==============================================================================        
         for normal_data in g:
             while (position < normal_data[0]):
                 if len(positions) == 0:
                     skip = True
                     break
                 position, tumour_data, ref_data, tc = positions.popleft()
-    
+            
             if skip:
                 break
             if normal_data[0] != position:
                 continue
             
-#==============================================================================
-#             feature extraction
-#==============================================================================
             features_tmp = extractFeature(tumour_data, normal_data, ref_data)
             batch.append(features_tmp)
             coords.append((position, ref_data[0], normal_data[6], normal_data[normal_data[6] + 1][0],
                            normal_data[7], normal_data[normal_data[7] + 1][0], normal_data[11],
                            tumour_data[6], tumour_data[tumour_data[6] + 1][0], tumour_data[7],
                            tumour_data[tumour_data[7] + 1][0], tumour_data[11]))
-            strings.append((chrom, bases[ref_data[0]], bases[normal_data[6]], bases[normal_data[7]], \
-            bases[tumour_data[6]], bases[tumour_data[7]], tc))       
+            strings.append((chrom, bases[ref_data[0]], tc))       
     
             ## find the ALT 
-            if bases[ref_data[0]]==bases[tumour_data[6]]:
+            if bases[ref_data[0]] == bases[tumour_data[6]]:
                 alt = tumour_data[7]
             else:
                 alt = tumour_data[6]        
@@ -355,23 +381,30 @@ for chrom in target_positions.keys(): # each key is a chromosomes
     
             if len(positions) == 0:
                 break
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
         batch = numpy.array(batch)
-    
+        
 #==============================================================================
 #       remove nan/inf values
 #==============================================================================
         print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " removing potential nan/inf values"
         batch = removeNanInf(coords, batch, strings, info_strs)
-    
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        
 #==============================================================================
 #       filter and print the results to out
 #==============================================================================
+        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " predicting probabilities"
+        results = model.predict_proba(batch)        
         print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"      
-        filterAndPrintResult(coords, batch, strings, info_strs)
+        filterAndPrintResult(coords, results, strings, info_strs)
+        print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        
     print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done printing"        
+    print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
 #        print >> sys.stderr, "***No position has been nominated (does not satisfy initial criteria for Somatic calls )"
 #==============================================================================
 # end of the main body
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done."
-    
+print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
