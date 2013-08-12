@@ -78,6 +78,7 @@ if args.config:
         tmp_file = ""
         for l in cfg_file:
             l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
+                                       VERSION=mutationSeq_version,
                                        REFERENCE=samples["reference"],
                                        TUMOUR=samples["tumour"],
                                        NORMAL=samples["normal"],
