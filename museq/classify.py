@@ -27,6 +27,7 @@ parser.add_argument("--version", action="version", version=mutationSeq_version)
 parser.add_argument("-p", "--purity", default=70, help="pass sample purity to features")
 parser.add_argument("-c", "--config", default=None,
                     help="Specify the path/to/metadata.config file used to add meta information to the output file")
+parser.add_argument("-d", "--deep", default=False, action="store_true", help="for deepseq data")
 args = parser.parse_args()
 
 #==============================================================================
@@ -62,6 +63,7 @@ import numpy
 import resource
 import features
 import Nfeatures
+import features_deep
 from collections import deque, defaultdict
 from sklearn.ensemble import RandomForestClassifier
 from math import log10
@@ -122,22 +124,34 @@ def filterAndPrintResult(coords, results, strings, info_strs):
             + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
 
 def extractFeature(tumour_data, normal_data, ref_data):
-    if not args.normalized:
-        feature_set = features.feature_set
-        coverage_features = features.coverage_features
-#        version = features.version
-#        c = (float(30), float(30), float(70), float(0))
-    else:
+##>>>>>
+    if args.normalized:
         feature_set = Nfeatures.feature_set
         coverage_features = Nfeatures.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0)) # can be used for args.verbose
 #        version = Nfeatures.version
-#        c = (float(10000), float(10000), float(70), float(0))
-
+        c = (float(30), float(30), int(args.purity), float(0))
+        
+    elif args.deep: 
+        feature_set = features_deep.feature_set
+        coverage_features = features_deep.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
+#        version = features_deep.version 
+        c = (float(10000), float(10000), int(args.purity), float(0))    
+        
+    else:
+        feature_set = features.feature_set
+        coverage_features = features.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
+#        version = features.version
+        c = (float(30), float(30), int(args.purity), float(0))
+   
     features_tmp = []
     for _, feature in feature_set:
         features_tmp.append(feature(tumour_data, normal_data, ref_data))
 
-    coverage_data = (30, 30, int(args.purity), 1)
+#    coverage_data = (30, 30, int(args.purity), 1)
+    coverage_data = c
     for _, feature in coverage_features:
         features_tmp.append(feature(tumour_data, normal_data, coverage_data))
     n_counts = (normal_data[1][1], normal_data[2][1], normal_data[3][1],
@@ -186,7 +200,10 @@ def printMetaData():
 # start of the main body
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq_" + mutationSeq_version + " started"
-deep_flag = 0
+if args.deep:
+    deep_flag = 1
+else:
+    deep_flag = 0
 bases = ('A', 'C', 'G', 'T', 'N')
 samples = {}
 for sample in args.samples:
