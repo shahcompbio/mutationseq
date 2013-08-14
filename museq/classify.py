@@ -105,7 +105,7 @@ def removeNanInf(coords, batch, strings, info_strs):
 
 def filterAndPrintResult(coords, results, strings, info_strs):
     for coord, result, string, info in zip(coords, results, strings, info_strs):
-        if result[1] >= args.threshold:
+        if result[1] >= args.threshold and coord[-1] <= 3:
             try:
                 phred_qual = -10 * log10(1 - result[1])
             except:
@@ -171,6 +171,7 @@ def printMetaData():
         tmp_file = ""
         for l in cfg_file:
             l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
+                                       VERSION=mutationSeq_version,
                                        REFERENCE=samples["reference"],
                                        TUMOUR=samples["tumour"],
                                        NORMAL=samples["normal"],
