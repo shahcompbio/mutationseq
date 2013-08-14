@@ -1,0 +1,10 @@
+# normal /share/lustre/archive/INX/INX428/D08H8ACXX_1_ATAATT.bam
+# tumour /share/lustre/archive/INX/INX429/D08H8ACXX_2_ATAATT.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+12 4424870 SOMATIC
+21 37420251 WILDTYPE
+17 36659710 SOMATIC
+17 5152817 SOMATIC
+17 7517822 SOMATIC
+3 180418785 SOMATIC
+8 103642191 WILDTYPE

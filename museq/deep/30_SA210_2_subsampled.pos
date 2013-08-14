@@ -1,0 +1,13 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_GGCACA.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_GGCACA.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 68603909 SOMATIC
+15 42566067 SOMATIC
+16 66477394 SOMATIC
+19 5659369 SOMATIC
+3 143700142 SOMATIC
+7 29001915 SOMATIC
+7 99547385 SOMATIC
+6 123411520 SOMATIC
+9 17779460 SOMATIC
+8 55703391 SOMATIC

@@ -1,0 +1,8 @@
+# normal /share/lustre/archive/INX/INX107/62RT7AAXX_4_TGAATG.bam
+# tumour /share/lustre/archive/INX/INX108/62RT7AAXX_5_TGAATG.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 206338936 WILDTYPE
+5 74057608 WILDTYPE
+12 10657367 SOMATIC
+20 37065819 SOMATIC
+8 101791075 WILDTYPE

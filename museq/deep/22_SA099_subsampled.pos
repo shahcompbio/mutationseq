@@ -1,0 +1,13 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_4_CAACTA.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_5_CAACTA.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 112259987 WILDTYPE
+12 55859441 SOMATIC
+19 62709973 SOMATIC
+19 54331814 GERMLINE
+2 170074959 SOMATIC
+5 140483421 GERMLINE
+4 71728934 SOMATIC
+4 157058801 SOMATIC
+7 140099605 SOMATIC
+X 128887902 SOMATIC

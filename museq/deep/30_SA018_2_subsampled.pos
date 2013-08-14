@@ -1,0 +1,5 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_ATCTAT.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_ATCTAT.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+17 7519131 SOMATIC
+7 150409788 GERMLINE

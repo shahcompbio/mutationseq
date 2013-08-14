@@ -1,0 +1,14 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AGATAG.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AGATAG.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 387564 SOMATIC
+15 41715607 SOMATIC
+14 20556809 SOMATIC
+17 71238113 SOMATIC
+18 46054162 SOMATIC
+18 41500164 WILDTYPE
+1 150017998 SOMATIC
+1 159446588 SOMATIC
+1 214436679 SOMATIC
+2 165184569 SOMATIC
+2 27445072 SOMATIC
