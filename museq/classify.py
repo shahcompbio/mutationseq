@@ -426,7 +426,7 @@ for chrom in target_positions.keys(): # each key is a chromosomes
     #==============================================================================
         print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"
         for coord, result, string, info in zip(coords, model.predict_proba(batch), strings, info_strs):
-            if result[1] >= args.threshold:
+            if result[1] >= args.threshold and coord[-1] <= 3:
                 try:
                     phred_qual = -10 * log10(1 - result[1])            
                 except:
