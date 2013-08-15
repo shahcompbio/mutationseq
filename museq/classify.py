@@ -3,31 +3,43 @@ from datetime import datetime
 import sys
 from warnings import warn
 
-mutationSeq_version="3.1.1"
+mutationSeq_version="3.2.1"
 
 #==============================================================================
 # making a UI 
 #==============================================================================
-parser = argparse.ArgumentParser(description='''classify a dataset''')
-parser.add_argument("samples", nargs='*', help='''
-                    A list of colon delimited sample names; normal:normal.bam
+parser = argparse.ArgumentParser(description = '''mutationSeq''')
+subparsers = parser.add_subparsers()
+
+## classify
+parser_classify = subparsers.add_parser("classify", help='''classify a dataset''')
+parser_classify.add_argument("samples", nargs='*', help='''
+                    a list of colon delimited sample names; normal:normal.bam
                     tumour:tumour.bam model:model.npz reference:reference.fasta''')
-parser.add_argument("-o", "--out", default=None, help="save output to file")
-parser.add_argument("-t", "--threshold", default=0.5, help="set threshold for positive call", type=float)
-parser.add_argument("-i", "--interval", default=None, help="classify given chromosome[:start-end] range")
-parser.add_argument("-a", "--all", default=None, 
+parser_classify.add_argument("-a", "--all", default=None, choices=["no", "yes"],
                     help= "force to print out even if the position(s) does not satisfy the initial criteria for Somatic calls")
-parser.add_argument("-f", "--positions_file", default=None, 
-                    help="input a file containing a list of positions each of which in a separate line, e.g. chr1:12345\nchr2:23456")
-parser.add_argument("--export", default=None, help="save exported feature vector")
-parser.add_argument("-n", "--normalized", default=False, action="store_true",
+#parser_classify.add_argument("--export", default=None, help="save exported feature vector")
+parser_classify.add_argument("-d", "--deep", default=False, action="store_true", help="for deepseq data")
+parser_classify.add_argument("-n", "--normalized", default=False, action="store_true",
                     help="If you want to test with normalized features(the number of features are also ifferent from non-deep)")
-parser.add_argument("-v", "--verbose", action="store_true", default=False)
-parser.add_argument("--version", action="version", version=mutationSeq_version)
-parser.add_argument("-p", "--purity", default=70, help="pass sample purity to features")
-parser.add_argument("-c", "--config", default=None,
-                    help="Specify the path/to/metadata.config file used to add meta information to the output file")
-parser.add_argument("-d", "--deep", default=False, action="store_true", help="for deepseq data")
+parser_classify.add_argument("-p", "--purity", default=70, help="pass sample purity to features")
+parser_classify.add_argument("-v", "--verbose", action="store_true", default=False)
+parser_classify.add_argument("--version", action="version", version=mutationSeq_version)
+parser_classify.add_argument("-t", "--threshold", default=0.5, help="set threshold for positive call", type=float)
+mandatory_options = parser_classify.add_argument_group("required arguments")
+mandatory_options.add_argument("-c", "--config", default=None, required=True, 
+                    help="specify the path/to/metadata.config file used to add meta information to the output file")
+mandatory_options.add_argument("-o", "--out", default=None, required=True, 
+                               help="specify the path/to/out.vcf to save output to a file")
+exgroup = parser_classify.add_mutually_exclusive_group()
+exgroup.add_argument("-i", "--interval", default=None, help="classify given chromosome[:start-end] range")
+exgroup.add_argument("-f", "--positions_file", default=None, 
+                   help="input a file containing a list of positions each of which in a separate line, e.g. chr1:12345\nchr2:23456")
+
+## train
+parser_train = subparsers.add_parser("train", help='''train a model''')
+parser_train.add_argument("--version", action='version', version="3.1.1")
+
 args = parser.parse_args()
 
 #==============================================================================
@@ -47,10 +59,6 @@ else:
     
 if args.config is None:
     warn("--config is not specified, no meta information used for the output VCF file")
-
-if args.all is not None and args.all not in ("yes", "no"):
-    print >> sys.stderr, "bad input for -a/--all, please specify only 'yes' or 'no'"
-    sys.exit(1)
 
 #==============================================================================
 # import required modules here to save time when only checking version or help
