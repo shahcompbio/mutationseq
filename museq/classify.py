@@ -8,8 +8,11 @@ mutationSeq_version="3.2.1"
 #==============================================================================
 # making a UI 
 #==============================================================================
-parser = argparse.ArgumentParser(description = '''mutationSeq''')
-subparsers = parser.add_subparsers()
+parser = argparse.ArgumentParser(prog='museq', description = '''mutationSeq:
+                                 a feature-based classifier for somatic mutation detection in
+                                 tumour-normal paired sequencing data''')
+parser.add_argument("--version", action='version', version="mutationSeq_" + mutationSeq_version)
+subparsers = parser.add_subparsers(title='valid subcommands')
 
 ## classify
 parser_classify = subparsers.add_parser("classify", help='''classify a dataset''')
@@ -24,7 +27,7 @@ parser_classify.add_argument("-n", "--normalized", default=False, action="store_
                     help="If you want to test with normalized features(the number of features are also ifferent from non-deep)")
 parser_classify.add_argument("-p", "--purity", default=70, help="pass sample purity to features")
 parser_classify.add_argument("-v", "--verbose", action="store_true", default=False)
-parser_classify.add_argument("--version", action="version", version=mutationSeq_version)
+parser_classify.add_argument("--version", action="version", version="classify_" + mutationSeq_version)
 parser_classify.add_argument("-t", "--threshold", default=0.5, help="set threshold for positive call", type=float)
 mandatory_options = parser_classify.add_argument_group("required arguments")
 mandatory_options.add_argument("-c", "--config", default=None, required=True, 
@@ -38,7 +41,7 @@ exgroup.add_argument("-f", "--positions_file", default=None,
 
 ## train
 parser_train = subparsers.add_parser("train", help='''train a model''')
-parser_train.add_argument("--version", action='version', version="3.1.1")
+parser_train.add_argument("--version", action='version', version="train_" + mutationSeq_version)
 
 args = parser.parse_args()
 
