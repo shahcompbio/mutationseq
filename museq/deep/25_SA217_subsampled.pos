@@ -1,0 +1,10 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AAGCGA.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AAGCGA.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+18 32552422 SOMATIC
+12 4525792 SOMATIC
+2 68947132 SOMATIC
+14 91979510 SOMATIC
+17 7517849 SOMATIC
+17 37525182 WILDTYPE
+17 30544505 GERMLINE

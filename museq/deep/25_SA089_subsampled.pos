@@ -1,0 +1,6 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_GATCAG.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_GATCAG.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 9582860 SOMATIC
+2 202060810 SOMATIC
+16 30575021 SOMATIC

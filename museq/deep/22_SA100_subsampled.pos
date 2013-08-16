@@ -1,0 +1,6 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_4_AGCGCT.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_5_AGCGCT.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+8 139728095 WILDTYPE
+20 30248787 GERMLINE
+17 6291547 GERMLINE

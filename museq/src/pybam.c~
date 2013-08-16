@@ -307,8 +307,8 @@ pileup_func(uint32_t tid, uint32_t pos, int n,
     for (r = 0; r < n; r++) {
         // append tuple to list
         length = alignment.b->core.l_qseq;
-        double tmp=(double)length; 
-        printf("length: %f\n", tmp);
+//         double tmp=(double)length; 
+//         printf("length: %f\n", tmp);
         //ops = b->core.n_cigar;
         alignment = pl[r];
         b = alignment.b;

@@ -1,0 +1,5 @@
+# normal /share/lustre/archive/INX/INX428/D08H8ACXX_1_ATCTAT.bam
+# tumour /share/lustre/archive/INX/INX429/D08H8ACXX_2_ATCTAT.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+17 7519131 SOMATIC
+7 150409788 GERMLINE

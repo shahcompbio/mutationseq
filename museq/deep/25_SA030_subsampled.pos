@@ -1,0 +1,16 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_CACCGG.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_CACCGG.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 63868399 WILDTYPE
+12 70702459 SOMATIC
+14 57781404 WILDTYPE
+22 15453170 SOMATIC
+19 18239109 SOMATIC
+19 58311475 WILDTYPE
+4 104052105 WILDTYPE
+3 32802517 WILDTYPE
+5 1325395 WILDTYPE
+6 42962058 WILDTYPE
+X 135786454 WILDTYPE
+X 152873075 WILDTYPE
+8 20116678 WILDTYPE

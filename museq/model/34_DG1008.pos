@@ -1,4 +1,4 @@
-# normal /share/lustre/archive/DG1008N/illumina_exoncapture/A04921/sequence/DG1008N_A04921_2_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/DG1008N/illumina_exoncapture/A04921/bwa_aligned/DG1008N_A04921_2_lanes_dupsFlagged.bam
 # tumour /share/lustre/archive/DG1008/illumina_exoncapture/A04922/bwa_aligned/DG1008_A04922_2_lanes_dupsFlagged_sort.bam
 # reference /share/data/genomes/human_all.fasta
 1 48974581 SOMATIC

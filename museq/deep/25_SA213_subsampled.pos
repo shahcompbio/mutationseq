@@ -1,0 +1,7 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_CTTGTA.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_CTTGTA.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 143642856 SOMATIC
+13 45620520 SOMATIC
+17 36896299 SOMATIC
+22 17504889 SOMATIC

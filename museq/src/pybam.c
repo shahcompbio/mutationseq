@@ -277,7 +277,6 @@ pileup_func(uint32_t tid, uint32_t pos, int n,
     if (n <= 4) {
         return 0;
     }
-
     int offset, distance, length, r;
     uint8_t quality, mapping, reverse;
     uint8_t base2;

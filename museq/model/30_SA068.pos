@@ -1,4 +1,4 @@
-# normal /share/lustre/archive/SA068N/illumina_exoncapture/HS2082/sequence/SA068N_HS2082_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/SA068/illumina_exoncapture/HS2169/sequence/SA068_HS2169_2_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA068N/illumina_exoncapture/HS2082/bwa_aligned/SA068N_HS2082_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA068/illumina_exoncapture/HS2169/bwa_aligned/SA068_HS2169_2_lanes_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 X 7772017 GERMLINE

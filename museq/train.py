@@ -168,7 +168,10 @@ numpy.savez(args.out, version, feature, labels)
 
 model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
 model.fit(feature, labels)
+
+print "saving the model with pickle ..."
 saveObject(model, "model2.npz")
+print "saving done!"
 #features_file=open("features_name.txt", 'w')
 #for _feature in feature_set + coverage_features + extra_features:
     #print >> _feature[0]

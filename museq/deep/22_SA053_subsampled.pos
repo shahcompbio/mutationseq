@@ -1,0 +1,9 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_4_CCAACA.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_5_CCAACA.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 56942028 GERMLINE
+9 98739306 GERMLINE
+2 24804706 SOMATIC
+2 27018373 SOMATIC
+5 63532452 SOMATIC
+17 7518264 SOMATIC

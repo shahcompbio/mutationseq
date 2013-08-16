@@ -1,0 +1,4 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_GAAACC.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_GAAACC.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+5 76682659 GERMLINE

@@ -1,0 +1,7 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AACCCC.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AACCCC.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+18 72778139 SOMATIC
+2 179690563 SOMATIC
+2 211956602 SOMATIC
+2 228590349 SOMATIC

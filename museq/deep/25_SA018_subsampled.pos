@@ -1,0 +1,7 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_TAGCTT.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_TAGCTT.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+12 116175861 SOMATIC
+12 124400356 WILDTYPE
+17 70120448 SOMATIC
+6 7176347 SOMATIC

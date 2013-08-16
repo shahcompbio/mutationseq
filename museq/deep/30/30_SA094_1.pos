@@ -1,0 +1,6 @@
+# normal /share/lustre/archive/INX/INX428/D08H8ACXX_1_AGTTCC.bam
+# tumour /share/lustre/archive/INX/INX429/D08H8ACXX_2_AGTTCC.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 26388564 SOMATIC
+17 7517804 SOMATIC
+16 18717633 SOMATIC

@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/SA217N/illumina_exoncapture/HS2406/sequence/SA217N_HS2406_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/SA217/illumina_exoncapture/HS2405/sequence/SA217_HS2405_2_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA217N/illumina_exoncapture/HS2406/bwa_aligned/SA217N_HS2406_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA217/illumina_exoncapture/HS2405/bwa_aligned/SA217_HS2405_2_lanes_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 13 18898614 WILDTYPE
 12 4525792 SOMATIC
