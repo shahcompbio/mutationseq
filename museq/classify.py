@@ -3,7 +3,7 @@ from datetime import datetime
 import sys
 from warnings import warn
 
-mutationSeq_version="3.2.1"
+mutationSeq_version="3.3.1"
 
 #==============================================================================
 # making a UI 
@@ -16,7 +16,8 @@ parser.add_argument("samples", nargs='*', help='''
                     tumour:tumour.bam model:model.npz reference:reference.fasta''')
 parser.add_argument("-a", "--all", default=None, choices=["no", "yes"], 
                     help= "force to print out even if the position(s) does not satisfy the initial criteria for Somatic calls")
-#parser.add_argument("--export", default=None, help="save exported feature vector")
+parser.add_argument("-e" , "--export", default=None, help="save exported feature vector to the specified path")
+parser.add_argument("-u", "--features_only", default=False, action="store_true", help="if true, only extracted features are exported")
 parser.add_argument("-d", "--deep", default=False, action="store_true", help="for deepseq data")
 parser.add_argument("-n", "--normalized", default=False, action="store_true",
                     help="If you want to test with normalized features(the number of features are also ifferent from non-deep)")
@@ -25,9 +26,9 @@ parser.add_argument("-v", "--verbose", action="store_true", default=False)
 parser.add_argument("--version", action="version", version=mutationSeq_version)
 parser.add_argument("-t", "--threshold", default=0.5, help="set threshold for positive call", type=float)
 mandatory_options = parser.add_argument_group("required arguments")
-mandatory_options.add_argument("-c", "--config", default=None, required=True, 
+mandatory_options.add_argument("-c", "--config", default=None, #required=True, 
                     help="specify the path/to/metadata.config file used to add meta information to the output file")
-mandatory_options.add_argument("-o", "--out", default=None, required=True, 
+mandatory_options.add_argument("-o", "--out", default=None, #required=True, 
                                help="specify the path/to/out.vcf to save output to a file")
 exgroup = parser.add_mutually_exclusive_group()
 exgroup.add_argument("-f", "--positions_file", default=None, 
@@ -43,16 +44,20 @@ if len(args.samples) != 4:
     print >> sys.stderr, "bad input, should follow: 'classify.py normal:<normal.bam> \
     tumour:<tumour.bam> reference:<ref.fasta> model:<model.npz> [--options]'"
     sys.exit(1)
-    
-if args.out is None:
-    warn("--out is not specified, standard output is used to write the results")
-    out = sys.stdout
-else:
-    out = open(args.out, 'w')
 
+if not args.features_only:
+    if args.out is None:
+        warn("--out is not specified, standard output is used to write the results")
+        out = sys.stdout
+    else:
+        out = open(args.out, 'w')
     
-if args.config is None:
-    warn("--config is not specified, no meta information used for the output VCF file")
+    if args.config is None:
+        warn("--config is not specified, no meta information used for the output VCF file")
+
+else: 
+    if args.export is None:
+        warn("-u/--features_only is used without -e/--export to specify a path to save the features")
 
 #==============================================================================
 # import required modules here to save time when only checking version or help
@@ -293,7 +298,7 @@ if len(target_positions.keys()) == 0:
     for targ in targets:
         target_positions[targ].append([None, None])
 
-if args.config: # add VCF format meta-information
+if args.config and not args.features_only: # add VCF format meta-information
     printMetaData()
         
 #==============================================================================
@@ -401,22 +406,28 @@ for chrom in target_positions.keys(): # each key is a chromosome
             if len(positions) == 0:
                 break
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
+        if args.export is not None:
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " exporting features"
+            with open(args.export, 'a') as expfile:
+                print >> expfile, ">>>" + chrom + ":" + str(l_pos) + "_" + str(u_pos)
+                print >> expfile, batch
         batch = numpy.array(batch)
         
 #==============================================================================
 #       remove nan/inf values
 #==============================================================================
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " removing potential nan/inf values"
-        batch = removeNanInf(coords, batch, strings, info_strs)
-        #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        if not args.features_only:
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " removing potential nan/inf values"
+            batch = removeNanInf(coords, batch, strings, info_strs)
+            #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         
 #==============================================================================
 #       filter and print the results to out
 #==============================================================================
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " predicting probabilities"
-        results = model.predict_proba(batch)        
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"      
-        filterAndPrintResult(coords, results, strings, info_strs)
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " predicting probabilities"
+            results = model.predict_proba(batch)        
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"      
+            filterAndPrintResult(coords, results, strings, info_strs)
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         
     print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done printing"        
