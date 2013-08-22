@@ -58,11 +58,18 @@ if not args.features_only:
 else: 
     if args.export is None:
         warn("-u/--features_only is used without -e/--export to specify a path to save the features")
-
+        expfile = sys.stdout
+    else:    
+        try:
+            expfile = open(args.export, 'w')       
+        except:
+            print >> sys.stderr, "\tFailed to open the export file for writing: " + args.export
+            expfile = sys.stdout
 #==============================================================================
 # import required modules here to save time when only checking version or help
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " importing required modules"
+import os
 import pybam
 import numpy
 #import scipy
@@ -202,6 +209,27 @@ def printMetaData():
     except:
         warn("Failed to load metadata file")
 
+def getFeatureNames():
+    feature_names = []
+    if args.normalized:
+        feature_set = Nfeatures.feature_set
+        coverage_features = Nfeatures.coverage_features
+        
+    elif args.deep: 
+        feature_set = features_deep.feature_set
+        coverage_features = features_deep.coverage_features
+        
+    else:
+        feature_set = features.feature_set
+        coverage_features = features.coverage_features
+
+    for i in xrange(len(feature_set)):
+        feature_names.append(feature_set[i][0])
+
+    for i in xrange(len(coverage_features)):
+        feature_names.append(coverage_features[i][0])
+
+    return feature_names
 #==============================================================================
 # start of the main body
 #==============================================================================
@@ -300,7 +328,9 @@ if len(target_positions.keys()) == 0:
 
 if args.config and not args.features_only: # add VCF format meta-information
     printMetaData()
-        
+
+if args.export is not None or args.features_only: # add feature names to each column of the exported file
+    print >> expfile, "CHR" + "\t" + "POS" +  "\t" + ('\t').join(getFeatureNames())
 #==============================================================================
 # run for each chromosome/position
 #==============================================================================
@@ -406,11 +436,13 @@ for chrom in target_positions.keys(): # each key is a chromosome
             if len(positions) == 0:
                 break
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
-        if args.export is not None:
+#==============================================================================
+#       export features
+#==============================================================================
+        if args.export is not None or args.features_only:
             print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " exporting features"
-            with open(args.export, 'a') as expfile:
-                print >> expfile, ">>>" + chrom + ":" + str(l_pos) + "_" + str(u_pos)
-                print >> expfile, batch
+            for p in xrange(u_pos-l_pos):
+                print >> expfile, chrom + "\t" + str(l_pos + p) + "\t" + ("\t").join(map(str,batch[p]))
         batch = numpy.array(batch)
         
 #==============================================================================
@@ -436,5 +468,10 @@ for chrom in target_positions.keys(): # each key is a chromosome
 #==============================================================================
 # end of the main body
 #==============================================================================
+try:
+    expfile.close()
+    out.close()
+except:
+    pass
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done."
 #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
