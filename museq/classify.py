@@ -3,7 +3,7 @@ from datetime import datetime
 import sys
 from warnings import warn
 
-mutationSeq_version="3.3.1"
+mutationSeq_version="3.4.1"
 
 #==============================================================================
 # making a UI 
