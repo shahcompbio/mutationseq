@@ -210,9 +210,8 @@ def extractFeature(tumour_data, ref_data, *arguments):
         if flags.single:
             features_tmp.append(feature(tumour_data, ref_data))
         else:
-            features_tmp.append(feature(tumour_data, normal_data, ref_data))            
+            features_tmp.append(feature(tumour_data, normal_data, ref_data))  
 
-#    coverage_data = (30, 30, int(args.purity), 1)
     coverage_data = c
     for _, feature in coverage_features:
         if flags.single:
@@ -244,25 +243,23 @@ def removeNanInf(coords, batch, strings, info_strs):
     batch = numpy.array(b)
     return batch
 
-def getInfoStr(alt, *arguments):
+def getInfoStr(alt, tumour_data, ref_base, *arguments):
     if len(arguments) != 0:
         normal_data = arguments[0]
-        
-    _, tumour_data, ref_data, _ = positions[0]
-   
-    if alt != ref_data[0]:
+
+    if alt != ref_base:
         if flags.single:
-            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0])))
+            info_strs.append((alt, int(tumour_data[ref_base + 1][0]), int(tumour_data[alt + 1][0])))
         else:
-            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0]),
-                              int(normal_data[ref_data[0] + 1][0]), int(normal_data[alt + 1][0])))
+            info_strs.append((alt, int(tumour_data[ref_base + 1][0]), int(tumour_data[alt + 1][0]),
+                              int(normal_data[ref_base + 1][0]), int(normal_data[alt + 1][0])))
     
     else: # take care of the non-somatic positions
         if flags.single:
-            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0))
+            info_strs.append((alt, int(tumour_data[ref_base + 1][0]), 0))
         else:
-            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0, 
-                              int(normal_data[ref_data[0] + 1][0]), 0))
+            info_strs.append((alt, int(tumour_data[ref_base + 1][0]), 0, 
+                              int(normal_data[ref_base + 1][0]), 0))
                               
 def getOutStr(**kwargs):
     if flags.type == "n":
@@ -525,7 +522,7 @@ for chrom in target_positions.keys(): # each key is a chromosome
     
                 ## find the ALT and generate the info_strs used for INFO column in the output
                 alt = getAlt(bases, ref_data[0], tumour_data[6], tumour_data[7])    
-                getInfoStr(alt)
+                getInfoStr(alt, tumour_data, ref_data[0])
                 
         else:
             if len(positions) == 0:
@@ -553,7 +550,7 @@ for chrom in target_positions.keys(): # each key is a chromosome
                 if normal_data[0] != position:
                     continue
                 ## feature extraction                
-                features_tmp = extractFeature(tumour_data, normal_data, ref_data)
+                features_tmp = extractFeature(tumour_data, ref_data, normal_data)
                 batch.append(features_tmp)
                 coords.append((position, ref_data[0], normal_data[6], normal_data[normal_data[6] + 1][0],
                                normal_data[7], normal_data[normal_data[7] + 1][0], normal_data[11],
@@ -563,7 +560,7 @@ for chrom in target_positions.keys(): # each key is a chromosome
         
                 ## find the ALT and generate the info_strs used for INFO column in the output
                 alt = getAlt(bases, ref_data[0], tumour_data[6], tumour_data[7])    
-                getInfoStr(alt, normal_data)
+                getInfoStr(alt, tumour_data, ref_data[0], normal_data)
                         
                 if len(positions) == 0:
                     break
@@ -576,12 +573,12 @@ for chrom in target_positions.keys(): # each key is a chromosome
             print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " exporting features"
             for p in xrange(u_pos-l_pos):
                 print >> expfile, chrom + "\t" + str(l_pos + p) + "\t" + ("\t").join(map(str,batch[p]))
-        batch = numpy.array(batch)
-        
+                
 #==============================================================================
 #       remove nan/inf values
 #==============================================================================
         if not args.features_only:
+            batch = numpy.array(batch)
             print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " removing potential nan/inf values"
             batch = removeNanInf(coords, batch, strings, info_strs)
             #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
