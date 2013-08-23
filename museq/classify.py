@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser(prog='mutationSeq', description = '''mutationSe
 parser.add_argument("samples", nargs='*', help='''
                     A list of colon delimited sample names; normal:normal.bam
                     tumour:tumour.bam model:model.npz reference:reference.fasta''')
+#parser.add_argument("-s", "--single", default=None, help="specify the bam file for single sample analysis")
 parser.add_argument("-a", "--all", default=None, choices=["no", "yes"], 
                     help= "force to print out even if the position(s) does not satisfy the initial criteria for Somatic calls")
 parser.add_argument("-e" , "--export", default=None, help="save exported feature vector to the specified path")
@@ -40,8 +41,8 @@ args = parser.parse_args()
 #==============================================================================
 # check the input 
 #==============================================================================
-if len(args.samples) != 4:
-    print >> sys.stderr, "bad input, should follow: 'classify.py normal:<normal.bam> \
+if len(args.samples) < 3:
+    print >> sys.stderr, "bad input, usage: 'classify.py normal:<normal.bam> \
     tumour:<tumour.bam> reference:<ref.fasta> model:<model.npz> [--options]'"
     sys.exit(1)
 
@@ -77,8 +78,9 @@ import numpy
 import resource
 import features
 import Nfeatures
+import features_single
 import features_deep
-from collections import deque, defaultdict
+from collections import deque, defaultdict, namedtuple
 from sklearn.ensemble import RandomForestClassifier
 from math import log10
 from string import Template
@@ -103,94 +105,6 @@ def parseTargetPos(poslist):
         return [target, l_pos, u_pos]
     except:
         return [target, None, None]
-        
-def removeNanInf(coords, batch, strings, info_strs):
-    b = []
-    i = -1
-    for l in batch:
-        i = i + 1
-        if numpy.isnan(l).any() or numpy.isinf(l).any():
-            print >> sys.stderr, "\tnan/inf value removed"
-            coords.pop(i)
-            strings.pop(i)
-            info_strs.pop(i)
-            continue
-        b.append(l)
-    batch = numpy.array(b)
-    return batch
-
-def filterAndPrintResult(coords, results, strings, info_strs):
-    for coord, result, string, info in zip(coords, results, strings, info_strs):
-        if result[1] >= args.threshold and coord[-1] <= 3:
-            try:
-                phred_qual = -10 * log10(1 - result[1])
-            except:
-                phred_qual = 99
-            info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
-            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
-            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
-            + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str
-        elif args.all == "yes":
-            phred_qual = 0
-            info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
-            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
-            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
-            + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
-
-def extractFeature(tumour_data, normal_data, ref_data):
-    if args.normalized:
-        feature_set = Nfeatures.feature_set
-        coverage_features = Nfeatures.coverage_features
-#        extra_features = (("xentropy", 0), ("SENTINEL", 0)) # can be used for args.verbose
-#        version = Nfeatures.version
-        c = (float(30), float(30), int(args.purity), float(0))
-        
-    elif args.deep: 
-        feature_set = features_deep.feature_set
-        coverage_features = features_deep.coverage_features
-#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
-#        version = features_deep.version 
-        c = (float(10000), float(10000), int(args.purity), float(0))    
-        
-    else:
-        feature_set = features.feature_set
-        coverage_features = features.coverage_features
-#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
-#        version = features.version
-        c = (float(30), float(30), int(args.purity), float(0))
-   
-    features_tmp = []
-    for _, feature in feature_set:
-        features_tmp.append(feature(tumour_data, normal_data, ref_data))
-
-#    coverage_data = (30, 30, int(args.purity), 1)
-    coverage_data = c
-    for _, feature in coverage_features:
-        features_tmp.append(feature(tumour_data, normal_data, coverage_data))
-    n_counts = (normal_data[1][1], normal_data[2][1], normal_data[3][1],
-                normal_data[4][1], normal_data[5][1])
-    t_counts = (tumour_data[1][1], tumour_data[2][1], tumour_data[3][1],
-                tumour_data[4][1], tumour_data[5][1])
-    features_tmp.append(n.xentropy(n_counts, t_counts))
-    return features_tmp   
-
-def nominateMutPos(tumour_data):
-    ref_data = f.vector(int(tumour_data[0])) # tumour_data[0] is position
-    return tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2 
-            
-def getPositions(tumour_data):
-    position = tumour_data[0]
-    ref_data = f.vector(int(position))
-    try:
-        pre_refBase = f.vector(int(position) - 1)[0]
-    except:
-        pre_refBase = 4
-    try:
-        nxt_refBase = f.vector(int(position) + 1)[0]
-    except:
-        nxt_refBase = 4
-    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
-    positions.append((position, tumour_data, ref_data, tri_nucleotide))
 
 def printMetaData():
     try:
@@ -218,6 +132,10 @@ def getFeatureNames():
     elif args.deep: 
         feature_set = features_deep.feature_set
         coverage_features = features_deep.coverage_features
+    
+    elif flags.single:
+        feature_set = features_single.feature_set
+        coverage_features = features_single.coverage_features
         
     else:
         feature_set = features.feature_set
@@ -230,19 +148,212 @@ def getFeatureNames():
         feature_names.append(coverage_features[i][0])
 
     return feature_names
+       
+def nominateMutPos(tumour_data):
+    ref_data = f.vector(int(tumour_data[0])) # tumour_data[0] is position
+    return tumour_data[5][0] - tumour_data[ref_data[0] + 1][0] > 2 
+            
+def getPositions(tumour_data):
+    position = tumour_data[0]
+    ref_data = f.vector(int(position))
+    try:
+        pre_refBase = f.vector(int(position) - 1)[0]
+    except:
+        pre_refBase = 4
+    try:
+        nxt_refBase = f.vector(int(position) + 1)[0]
+    except:
+        nxt_refBase = 4
+    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
+    positions.append((position, tumour_data, ref_data, tri_nucleotide))
+
+def getAlt(base, ref_nuc, major, minor):
+    if bases[ref_nuc] == bases[major]:
+        return minor
+    else:
+        return major   
+        
+def extractFeature(tumour_data, ref_data, *arguments):
+    if len(arguments) != 0:
+        normal_data = arguments[0]
+        
+    if args.normalized:
+        feature_set = Nfeatures.feature_set
+        coverage_features = Nfeatures.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0)) # can be used for args.verbose
+#        version = Nfeatures.version
+        c = (float(30), float(30), int(args.purity), float(0))
+        
+    elif args.deep: 
+        feature_set = features_deep.feature_set
+        coverage_features = features_deep.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
+#        version = features_deep.version 
+        c = (float(10000), float(10000), int(args.purity), float(0)) 
+    
+    elif flags.single:
+        feature_set = features_single.feature_set
+        coverage_features = features_single.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0)) 
+#        version = features_single.version
+        c = (float(30), float(30), int(args.purity), float(0))
+        
+    else:
+        feature_set = features.feature_set
+        coverage_features = features.coverage_features
+#        extra_features = (("xentropy", 0), ("SENTINEL", 0))
+#        version = features.version
+        c = (float(30), float(30), int(args.purity), float(0))
+   
+    features_tmp = []
+    for _, feature in feature_set:
+        if flags.single:
+            features_tmp.append(feature(tumour_data, ref_data))
+        else:
+            features_tmp.append(feature(tumour_data, normal_data, ref_data))            
+
+#    coverage_data = (30, 30, int(args.purity), 1)
+    coverage_data = c
+    for _, feature in coverage_features:
+        if flags.single:
+            features_tmp.append(feature(tumour_data, coverage_data))
+        else:
+            features_tmp.append(feature(tumour_data, normal_data, coverage_data))
+
+    t_counts = (tumour_data[1][1], tumour_data[2][1], tumour_data[3][1],
+                tumour_data[4][1], tumour_data[5][1])
+    if not flags.single:
+        n_counts = (normal_data[1][1], normal_data[2][1], normal_data[3][1],
+                    normal_data[4][1], normal_data[5][1])
+        features_tmp.append(n.xentropy(n_counts, t_counts))
+
+    return features_tmp   
+    
+def removeNanInf(coords, batch, strings, info_strs):
+    b = []
+    i = -1
+    for l in batch:
+        i = i + 1
+        if numpy.isnan(l).any() or numpy.isinf(l).any():
+            print >> sys.stderr, "\tnan/inf value removed"
+            coords.pop(i)
+            strings.pop(i)
+            info_strs.pop(i)
+            continue
+        b.append(l)
+    batch = numpy.array(b)
+    return batch
+
+def getInfoStr(alt, *arguments):
+    if len(arguments) != 0:
+        normal_data = arguments[0]
+        
+    _, tumour_data, ref_data, _ = positions[0]
+   
+    if alt != ref_data[0]:
+        if flags.single:
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0])))
+        else:
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0]),
+                              int(normal_data[ref_data[0] + 1][0]), int(normal_data[alt + 1][0])))
+    
+    else: # take care of the non-somatic positions
+        if flags.single:
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0))
+        else:
+            info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0, 
+                              int(normal_data[ref_data[0] + 1][0]), 0))
+                              
+def getOutStr(**kwargs):
+    if flags.type == "n":
+        rr = ";NR="
+        aa = ";NA="
+    else:
+        rr = ";TR="
+        aa = ";TA="
+        
+    if flags.single:
+        info_str = "PR=" + "%.3f" % kwargs["PR"] + rr + str(kwargs["RR"]) + aa + \
+        str(kwargs["AA"])+ ";TC=" + str(kwargs["TC"])
+    else:
+        info_str = "PR=" + "%.3f" % kwargs["PR"] + ";TR=" + str(kwargs["TR"]) + ";TA=" + \
+        str(kwargs["TA"])+ ";NR=" + str(kwargs["NR"]) + ";NA=" + str(kwargs["NA"])+ ";TC=" + str(kwargs["TC"])
+        
+    out_str = str(kwargs["CHROM"]) + "\t" + str(kwargs["POS"]) + "\t" + kwargs["ID"] + "\t" + \
+    kwargs["REF"] + "\t" + kwargs["ALT"] + "\t" + "%.2f" % kwargs["QUAL"] + "\t" + kwargs["FILTER"] + \
+    "\t" + info_str
+
+    return out_str
+            
+def filterAndPrintResult(coords, results, strings, info_strs):
+    for coord, result, string, info in zip(coords, results, strings, info_strs):
+        if result[1] >= args.threshold and coord[-1] <= 3:
+            try:
+                phred_qual = -10 * log10(1 - result[1])
+            except:
+                phred_qual = 99
+            
+#            info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
+#            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
+#            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
+#            + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "PASS" + "\t" + info_str
+            if flags.single:
+                print >> out, getOutStr(PR=result[1], RR=info[1], AA=info[2],
+                                        TC=string[2], CHROM=string[0], POS=coord[0],
+                                        ID=".", REF=string[1], ALT=bases[info[0]],
+                                        QUAL = phred_qual, FILTER="PASS")
+            else:
+                print >> out, getOutStr(PR=result[1], TR=info[1], TA=info[2], NR=info[3],
+                                        NA=info[4], TC=string[2], CHROM=string[0], POS=coord[0],
+                                        ID=".", REF=string[1], ALT=bases[info[0]],
+                                        QUAL = phred_qual, FILTER="PASS")
+        
+        elif args.all == "yes":
+            phred_qual = 0
+            if flags.single:
+                print >> out, getOutStr(PR=result[1], RR=info[1], AA=info[2],
+                                        TC=string[2], CHROM=string[0], POS=coord[0],
+                                        ID=".", REF=string[1], ALT=bases[info[0]],
+                                        QUAL = phred_qual, FILTER="FAIL")
+            else:
+                print >> out, getOutStr(PR=result[1], TR=info[1], TA=info[2], NR=info[3],
+                                        NA=info[4], TC=string[2], CHROM=string[0], POS=coord[0],
+                                        ID=".", REF=string[1], ALT=bases[info[0]],
+                                        QUAL = phred_qual, FILTER="FAIL")
+       
+#            info_str = "PR=" + "%.3f" % result[1] + ";TR=" + str(info[1]) + ";TA=" + str(info[2]) + \
+#            ";NR=" + str(info[3]) + ";NA=" + str(info[4]) + ";TC=" + string[2]
+#            print >> out, str(string[0]) + "\t" + str(coord[0]) + "\t" + "." + "\t" + string[1] + "\t" \
+#            + bases[info[0]] + "\t"+ "%.2f" % phred_qual + "\t" + "FAIL" + "\t" + info_str
+     
 #==============================================================================
 # start of the main body
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq_" + mutationSeq_version + " started"
-if args.deep:
-    deep_flag = 1
-else:
-    deep_flag = 0
+
 bases = ('A', 'C', 'G', 'T', 'N')
 samples = {}
 for sample in args.samples:
     samples[sample.split(':')[0]] = sample.split(':')[1]
 
+## check whether it is single sample analysis and if it is a normal("n") or tumour("t") sample
+if "normal" not in samples:
+    single_flag = 1
+    single_type = "t"
+elif "tumour" not in samples:
+    single_flag = 1
+    single_type = "n"
+else:
+    single_flag = 0 
+    single_type = None
+    
+if args.deep:
+    deep_flag = 1
+else:
+    deep_flag = 0
+
+Flags = namedtuple("Flags", "deep, single, type")
+flags = Flags._make([deep_flag, single_flag, single_type])    
 #==============================================================================
 # fit a model
 #==============================================================================
@@ -280,16 +391,32 @@ model.fit(train, labels)
 # read in bam files
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading bam files"
-try:
-    n = pybam.Bam(samples["normal"])
-except:
-    print >> sys.stderr, "\tFailed to load normal"
-    sys.exit(1)
-try:
-    t = pybam.Bam(samples["tumour"])
-except:
-    print >> sys.stderr, "\tFailed to load tumour"
-    sys.exit(1)
+if flags.single:
+
+    if flags.type == "n":
+        type_name = "normal" 
+    else:
+        type_name = "tumour"
+        
+    try:
+        t = pybam.Bam(samples[type_name]) # single bam variable is treated the same as tumour bam variable
+    except:
+        print >> sys.stderr, "\tFailed to load " + type_name + " bam file"
+        sys.exit(1)
+
+else:
+    try:
+        n = pybam.Bam(samples["normal"])
+    except:
+        print >> sys.stderr, "\tFailed to load normal bam file"
+        sys.exit(1)
+
+    try:
+        t = pybam.Bam(samples["tumour"])
+    except:
+        print >> sys.stderr, "\tFailed to load tumour bam file"
+        sys.exit(1)
+
 try:
     f = pybam.Fasta(samples["reference"])
 except:
@@ -307,7 +434,6 @@ target_positions = defaultdict(list)
 if args.interval:
     tmp_tp = parseTargetPos(args.interval)
     target_positions[tmp_tp[0]].append([tmp_tp[1], tmp_tp[2]])
-
 elif args.positions_file:
     try:
         pos_file = open(args.positions_file, 'r')
@@ -318,9 +444,10 @@ elif args.positions_file:
     except:
         print >> sys.stderr, "\tFailed to load the positions file from " + args.positions_file
         sys.exit(1)
-
+elif flags.single:
+    targets = set(t.targets)
 else:
-    targets = set(n.targets) & set(t.targets)
+    targets = set(n.targets) & set(t.targets)    
 
 if len(target_positions.keys()) == 0:
     for targ in targets:
@@ -364,9 +491,9 @@ for chrom in target_positions.keys(): # each key is a chromosome
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading tumour data"
         if l_pos is None:
-            g = t.vector(chrom, deep_flag)        
+            g = t.vector(chrom, flags.deep)        
         else:
-            g = t.vector(chrom, deep_flag, l_pos, u_pos)
+            g = t.vector(chrom, flags.deep, l_pos, u_pos)
             if args.all is None:
                 args.all = "yes"
             
@@ -383,59 +510,65 @@ for chrom in target_positions.keys(): # each key is a chromosome
             map(getPositions, g)   
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         
-        if len(positions) == 0:
-            continue
-        position, tumour_data, ref_data, tc = positions.popleft()
-    
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading normal"  
-        if l_pos is None:
-            g = n.vector(chrom, deep_flag)
-        else:
-            g = n.vector(chrom, deep_flag, l_pos, u_pos)
-            
-        #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        skip = False
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " extracting features"
-
-#==============================================================================
-#       feature extraction
-#==============================================================================        
-        for normal_data in g:
-            while (position < normal_data[0]):
+        if flags.single:
+            while True:
                 if len(positions) == 0:
-                    skip = True
                     break
                 position, tumour_data, ref_data, tc = positions.popleft()
-            
-            if skip:
-                break
-            if normal_data[0] != position:
-                continue
-            
-            features_tmp = extractFeature(tumour_data, normal_data, ref_data)
-            batch.append(features_tmp)
-            coords.append((position, ref_data[0], normal_data[6], normal_data[normal_data[6] + 1][0],
-                           normal_data[7], normal_data[normal_data[7] + 1][0], normal_data[11],
-                           tumour_data[6], tumour_data[tumour_data[6] + 1][0], tumour_data[7],
-                           tumour_data[tumour_data[7] + 1][0], tumour_data[11]))
-            strings.append((chrom, bases[ref_data[0]], tc))       
+
+                ## feature extraction                
+                features_tmp = extractFeature(tumour_data, ref_data)
+                batch.append(features_tmp)
+                coords.append((position, ref_data[0], tumour_data[6], tumour_data[tumour_data[6] + 1][0], 
+                               tumour_data[7],tumour_data[tumour_data[7] + 1][0], tumour_data[11]))
+                strings.append((chrom, bases[ref_data[0]], tc))
     
-            ## find the ALT 
-            if bases[ref_data[0]] == bases[tumour_data[6]]:
-                alt = tumour_data[7]
-            else:
-                alt = tumour_data[6]        
-    
-            ## generate the values of info fields in the vcf output
-            if alt != ref_data[0]:
-                info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), int(tumour_data[alt + 1][0]), \
-                int(normal_data[ref_data[0] + 1][0]), int(normal_data[alt + 1][0])))
-            else: # take care of the non-somatic positions
-                info_strs.append((alt, int(tumour_data[ref_data[0] + 1][0]), 0, int(normal_data[ref_data[0] + 1][0]), 0))
-    
+                ## find the ALT and generate the info_strs used for INFO column in the output
+                alt = getAlt(bases, ref_data[0], tumour_data[6], tumour_data[7])    
+                getInfoStr(alt)
+                
+        else:
             if len(positions) == 0:
-                break
+                continue
+            position, tumour_data, ref_data, tc = positions.popleft()
+        
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading normal"  
+            if l_pos is None:
+                g = n.vector(chrom, flags.deep)
+            else:
+                g = n.vector(chrom, flags.deep, l_pos, u_pos)
+                
+            #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            skip = False
+            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " extracting features"      
+            for normal_data in g:
+                while (position < normal_data[0]):
+                    if len(positions) == 0:
+                        skip = True
+                        break
+                    position, tumour_data, ref_data, tc = positions.popleft()
+                
+                if skip:
+                    break
+                if normal_data[0] != position:
+                    continue
+                ## feature extraction                
+                features_tmp = extractFeature(tumour_data, normal_data, ref_data)
+                batch.append(features_tmp)
+                coords.append((position, ref_data[0], normal_data[6], normal_data[normal_data[6] + 1][0],
+                               normal_data[7], normal_data[normal_data[7] + 1][0], normal_data[11],
+                               tumour_data[6], tumour_data[tumour_data[6] + 1][0], tumour_data[7],
+                               tumour_data[tumour_data[7] + 1][0], tumour_data[11]))
+                strings.append((chrom, bases[ref_data[0]], tc))       
+        
+                ## find the ALT and generate the info_strs used for INFO column in the output
+                alt = getAlt(bases, ref_data[0], tumour_data[6], tumour_data[7])    
+                getInfoStr(alt, normal_data)
+                        
+                if len(positions) == 0:
+                    break
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss    
+                
 #==============================================================================
 #       export features
 #==============================================================================
