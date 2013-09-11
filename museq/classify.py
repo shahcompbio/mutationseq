@@ -55,17 +55,16 @@ if not args.features_only:
     
     if args.config is None:
         warn("--config is not specified, no meta information used for the output VCF file")
-
-else: 
-    if args.export is None:
-        warn("-u/--features_only is used without -e/--export to specify a path to save the features")
+ 
+if args.export is None:
+    warn("-u/--features_only is used without -e/--export to specify a path to save the features")
+    expfile = sys.stdout
+else:    
+    try:
+        expfile = open(args.export, 'w')       
+    except:
+        print >> sys.stderr, "\tFailed to open the export file for writing: " + args.export
         expfile = sys.stdout
-    else:    
-        try:
-            expfile = open(args.export, 'w')       
-        except:
-            print >> sys.stderr, "\tFailed to open the export file for writing: " + args.export
-            expfile = sys.stdout
 #==============================================================================
 # import required modules here to save time when only checking version or help
 #==============================================================================
@@ -84,6 +83,8 @@ from collections import deque, defaultdict, namedtuple
 from sklearn.ensemble import RandomForestClassifier
 from math import log10
 from string import Template
+
+import BamClass_newPybam
 #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 #==============================================================================
@@ -350,7 +351,9 @@ else:
     deep_flag = 0
 
 Flags = namedtuple("Flags", "deep, single, type")
-flags = Flags._make([deep_flag, single_flag, single_type])    
+flags = Flags._make([deep_flag, single_flag, single_type])
+
+    
 #==============================================================================
 # fit a model
 #==============================================================================
@@ -459,18 +462,22 @@ if args.export is not None or args.features_only: # add feature names to each co
 # run for each chromosome/position
 #==============================================================================
 for chrom in target_positions.keys(): # each key is a chromosome
+    bam = BamClass_newPybam.Bam(tumour_bam=samples["tumour"], normal_bam=samples["normal"], 
+                                reference=samples["reference"], chromosome=chrom)
+
     for pos in xrange(len(target_positions[chrom])):
         l_pos = target_positions[chrom][pos][0]
         u_pos = target_positions[chrom][pos][1]
-        if l_pos is None:
-            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + \
-            " reading chromosome " + chrom 
-        elif l_pos >= u_pos:
-            print >> sys.stderr, "bad input: lower bound is greater than or equal to upper bound in the interval"
-            continue
-        else:
-            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + \
-            " reading chromosome " + chrom + " at positions " + str(l_pos) + " to " + str(u_pos)
+        
+#        if l_pos is None:
+#            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + \
+#            " reading chromosome " + chrom 
+#        elif l_pos >= u_pos:
+#            print >> sys.stderr, "bad input: lower bound is greater than or equal to upper bound in the interval"
+#            continue
+#        else:
+#            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + \
+#            " reading chromosome " + chrom + " at positions " + str(l_pos) + " to " + str(u_pos)
     
         batch = []
         coords = []
@@ -478,14 +485,34 @@ for chrom in target_positions.keys(): # each key is a chromosome
         info_strs = []
         positions = deque([])
         
-        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " loading reference for chromosome " + chrom
-        try:
-            f.load(chrom)
-        except:
-            message = "\treference does not have chromosome " + chrom
-            warn(message)
-            continue
+#        
+#        print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " loading reference for chromosome " + chrom
+#        try:
+#            f.load(chrom)
+#        except:
+#            message = "\treference does not have chromosome " + chrom
+#            warn(message)
+#            continue
         #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
+        bam.setPosition(l_pos)
+        bam_iter = bam.getTumourTuplesIter()        
+        for tup in bam_iter:
+            position = tup[1]
+            ref_base = bam.getRefBase(position)
+            try:
+                pre_refBase = f.vector(int(position) - 1)[0]
+            except:
+                pre_refBase = 4
+            try:
+                nxt_refBase = f.vector(int(position) + 1)[0]
+            except:
+                nxt_refBase = 4
+            tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
+            positions.append((position, tumour_data, ref_data, tri_nucleotide))
+    
+    
+        
         print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " reading tumour data"
         if l_pos is None:
             g = t.vector(chrom, flags.deep)        
