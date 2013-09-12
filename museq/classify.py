@@ -45,12 +45,12 @@ else:
 # import required modules here to save time when only checking version or help
 #==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " importing required modules"
-import pybam
-import old_pybam
-import numpy
+#import pybam
+#import old_pybam
+#import numpy
 from collections import deque, defaultdict, namedtuple
-from sklearn.ensemble import RandomForestClassifier
-from math import log10
+#from sklearn.ensemble import RandomForestClassifier
+#from math import log10
 import BamClass_newPybam
 
 #==============================================================================
@@ -73,19 +73,19 @@ def parseTargetPos(poslist):
     except:
         return [target, None, None]
             
-def getPositions(tumour_data):
-    position = tumour_data[0]
-    ref_data = f.vector(int(position))
-    try:
-        pre_refBase = f.vector(int(position) - 1)[0]
-    except:
-        pre_refBase = 4
-    try:
-        nxt_refBase = f.vector(int(position) + 1)[0]
-    except:
-        nxt_refBase = 4
-    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
-    positions.append((position, tumour_data, ref_data, tri_nucleotide))
+#def getPositions(tumour_data):
+#    position = tumour_data[0]
+#    ref_data = f.vector(int(position))
+#    try:
+#        pre_refBase = f.vector(int(position) - 1)[0]
+#    except:
+#        pre_refBase = 4
+#    try:
+#        nxt_refBase = f.vector(int(position) + 1)[0]
+#    except:
+#        nxt_refBase = 4
+#    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
+#    positions.append((position, tumour_data, ref_data, tri_nucleotide))
 
 def getAlt(ref_base, major, minor):
     if ref_base == major:
@@ -98,7 +98,7 @@ def printResult(outstrs):
         info_str = "PR=0" + ";TR=" + outstr[-4] + ";TA=" + outstr[-3] + ";NR=" + outstr[-2] + ";NA=" + outstr[-1]
         phred_qual = 0
         print >> out, outstr[0] + "\t" + outstr[1] + "\t" + "." + "\t" + outstr[2] + "\t" +\
-              outstr[3] + "\t" + "0" + "\t" + outstr[4] + "\t" + info_str
+              outstr[3] + "\t" + "%.2f" % phred_qual + "\t" + outstr[4] + "\t" + info_str
 
 def makeNamedTuple(tuple):
     tuple = Tuple._make(tuple)

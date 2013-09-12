@@ -7,13 +7,13 @@ samtools = ['samtools/kstring.c','samtools/sam_header.c','samtools/razf.c',
             'samtools/bam_aux.c','samtools/bam_import.c',
             'samtools/bam_md.c','samtools/errmod.c']
 
-pybam = Extension('pybam',
-        sources = samtools + ['src/base.c','src/fasta.c','src/pybam.c','src/pybam_init.c'],
+old_pybam = Extension('old_pybam',
+        sources = samtools + ['src/base.c','src/fasta.c','src/old_pybam.c','src/old_pybam_init.c'],
         library_dirs = [],
         include_dirs = ['samtools/','samtools/bcftools','include/samtools'],
         libraries = ['m', 'z'])
 
-setup (name = 'pybam',
+setup (name = 'old_pybam',
         version = '0.1',
-        description = 'pybam',
-        ext_modules = [pybam])
+        description = 'old_pybam',
+        ext_modules = [old_pybam])
