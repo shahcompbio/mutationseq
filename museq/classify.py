@@ -19,10 +19,16 @@ parser.add_argument("--version", action="version", version=mutationSeq_version)
 mandatory_options = parser.add_argument_group("required arguments")
 mandatory_options.add_argument("-o", "--out", default=None, #required=True, 
                                help="specify the path/to/out.vcf to save output to a file")
+mandatory_options.add_argument("-c", "--config", default=None, #required=True,
+                               help="specify the path/to/metadata.config file used to add \
+                               meta information to the output file")
+                               
 exgroup = parser.add_mutually_exclusive_group()
 exgroup.add_argument("-f", "--positions_file", default=None, 
-                   help="input a file containing a list of positions each of which in a separate line, e.g. chr1:12345\nchr2:23456")
-exgroup.add_argument("-i", "--interval", default=None, help="classify given chromosome[:start-end] range")
+                     help="input a file containing a list of positions each of which in a \
+                     separate line, e.g. chr1:12345\nchr2:23456")
+exgroup.add_argument("-i", "--interval", default=None, 
+                     help="classify given chromosome[:start-end] range")
 
 args = parser.parse_args()
 
@@ -51,54 +57,46 @@ print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " importing required 
 from collections import deque, defaultdict, namedtuple
 #from sklearn.ensemble import RandomForestClassifier
 #from math import log10
+from string import Template
 import BamClass_newPybam
 
 #==============================================================================
 # helper functions
 #==============================================================================
 def parseTargetPos(poslist):
-    target = poslist.split(':')[0]
+    target = poslist.split('\t')[0]
     try:
         target = target.split('r')[1] #check if "chr" is used
     except:
         pass
     try:
-        pos = poslist.split(':')[1]
+        pos = poslist.split('\t')[1]
         l_pos = int(pos.split('-')[0])
         try:
             u_pos = int(pos.split('-')[1])
         except:
-            u_pos = int(l_pos) + 1
+            u_pos = int(l_pos)
         return [target, l_pos, u_pos]
     except:
         return [target, None, None]
-            
-#def getPositions(tumour_data):
-#    position = tumour_data[0]
-#    ref_data = f.vector(int(position))
-#    try:
-#        pre_refBase = f.vector(int(position) - 1)[0]
-#    except:
-#        pre_refBase = 4
-#    try:
-#        nxt_refBase = f.vector(int(position) + 1)[0]
-#    except:
-#        nxt_refBase = 4
-#    tri_nucleotide = bases[pre_refBase] + bases[ref_data[0]] + bases[nxt_refBase]
-#    positions.append((position, tumour_data, ref_data, tri_nucleotide))
 
 def getAlt(ref_base, major, minor):
     if ref_base == major:
+        print ref_base, major, minor
         return minor
     else:
+        print ref_base, major, minor
         return major           
 
 def printResult(outstrs):
     for outstr in outstrs:
-        info_str = "PR=0" + ";TR=" + outstr[-4] + ";TA=" + outstr[-3] + ";NR=" + outstr[-2] + ";NA=" + outstr[-1]
+        outstr = map(str, outstr)
+        outstr = OutStr._make(outstr)
+        info_str = "PR=0" + ";TR=" + outstr.TR + ";TA=" + outstr.TA +\
+        ";NR=" + outstr.NR + ";NA=" + outstr.NA + ";NI=" + outstr.NI + ";ND=" + outstr.ND
         phred_qual = 0
-        print >> out, outstr[0] + "\t" + outstr[1] + "\t" + "." + "\t" + outstr[2] + "\t" +\
-              outstr[3] + "\t" + "%.2f" % phred_qual + "\t" + outstr[4] + "\t" + info_str
+        print >> out, outstr.chrom + "\t" + outstr.pos + "\t" + "." + "\t" + outstr.ref + "\t" +\
+              outstr.alt + "\t" + "%.2f" % phred_qual + "\t" + outstr.filter + "\t" + info_str
 
 def makeNamedTuple(tuple):
     tuple = Tuple._make(tuple)
@@ -109,7 +107,24 @@ def cacheTuple(tuples_buffer, tuple):
 
 def cacheOutStr(outstr_buffer, outstr):
     outstr_buffer.append(outstr)
-    
+
+def printMetaData():
+    try:
+        cfg_file = open(args.config, 'r')
+        tmp_file = ""
+        for l in cfg_file:
+            l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
+                                       VERSION=mutationSeq_version,
+                                       REFERENCE="N\A", #samples["reference"],
+                                       TUMOUR=samples["tumour"],
+                                       NORMAL=samples["normal"],
+                                       THRESHOLD="N/A"#args.threshold
+                                       )
+            tmp_file += l
+        cfg_file.close()
+        print >> out, tmp_file,
+    except:
+        warn("Failed to load metadata file")
 #==============================================================================
 # start of the main body
 #==============================================================================
@@ -121,26 +136,28 @@ for sample in args.samples:
     samples[sample.split(':')[0]] = sample.split(':')[1]
 
 ## check whether it is single sample analysis and if it is a normal("n") or tumour("t") sample
-if "normal" not in samples:
-    single_flag = 1
-    single_type = "t"
-elif "tumour" not in samples:
-    single_flag = 1
-    single_type = "n"
-else:
-    single_flag = 0 
-    single_type = None
-    
-if args.deep:
-    deep_flag = 1
-else:
-    deep_flag = 0
-
-Flags = namedtuple("Flags", "deep, single, type")
-flags = Flags._make([deep_flag, single_flag, single_type])
+#if "normal" not in samples:
+#    single_flag = 1
+#    single_type = "t"
+#elif "tumour" not in samples:
+#    single_flag = 1
+#    single_type = "n"
+#else:
+#    single_flag = 0 
+#    single_type = None
+#    
+#if args.deep:
+#    deep_flag = 1
+#else:
+#    deep_flag = 0
+#
+#Flags = namedtuple("Flags", "deep, single, type")
+#flags = Flags._make([deep_flag, single_flag, single_type])
 
 Tuple = namedtuple("Tuple", "position, A_tuple, C_tuple, G_tuple, T_tuple, all_tuple,\
-                   major, minor, ambiguous_reads, insertion, entropy, deletion")
+                   major, minor, ambiguous_reads, insertion, entropy, deletion, ID")
+    
+OutStr = namedtuple("OutStr", "chrom, pos, ref, alt, filter, TR, TA, NR, NA, NI, ND")
 
 #==============================================================================
 # parse the positions or the file of list of positions to get targets
@@ -170,9 +187,11 @@ else:
 #==============================================================================
 # run for each chromosome/position
 #==============================================================================
+if args.config is not None:
+    printMetaData()
 bam = BamClass_newPybam.Bam(tumour_bam=samples["tumour"],
                             normal_bam=samples["normal"],
-                            reference=samples["reference"])
+                            reference =samples["reference"])
 
 for chrom in target_positions.keys(): # each key is a chromosome
     bam.setChromosome(chrom)
@@ -184,7 +203,7 @@ for chrom in target_positions.keys(): # each key is a chromosome
         if l_pos is None:
             print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + \
             " reading chromosome " + chrom 
-        elif l_pos >= u_pos:
+        elif l_pos > u_pos:
             print >> sys.stderr, "bad input: lower bound is greater than or equal to upper bound in the interval"
             continue
         else:
@@ -220,17 +239,17 @@ for chrom in target_positions.keys(): # each key is a chromosome
             ## generate the output strings
             ref_base = bam.getRefBase(tt.position)
             alt = getAlt(ref_base, tt.major, tt.minor)
-            if tt.insertion > 2 or tt.deletion > 2:
-                filter = "INDL"
+            if tt.insertion > 0 or tt.deletion > 0:
+                filter_flag = "INDL"
             else:
-                filter = "PASS"
+                filter_flag = "PASS"
             info_TR = tt[ref_base + 1][0]
             info_NR = nt[ref_base + 1][0]
             info_TA = tt[alt + 1][0]
             info_NA = nt[alt + 1][0]
-            cacheOutStr(outstr_buffer,
-                        (chrom, tt.position, bases[ref_base], bases[alt],
-                        filter, info_TR, info_TA, info_NR, info_NA))
+            outstr = OutStr._make([chrom, tt.position, bases[ref_base], bases[alt],
+                        filter_flag, info_TR, info_TA, info_NR, info_NA, tt.insertion, tt.deletion])
+            cacheOutStr(outstr_buffer, outstr)
             if len(tuples_buffer) == 0:
                 break
 
