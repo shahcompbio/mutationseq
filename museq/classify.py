@@ -2,7 +2,7 @@ import argparse
 mutationSeq_version="4.0.0"
 
 #==============================================================================
-# making a UI 
+# make a UI 
 #==============================================================================
 parser = argparse.ArgumentParser(prog='mutationSeq', 
                                  description = '''mutationSeq: a feature-based classifier 
@@ -60,54 +60,42 @@ else:
     out = open(args.out, 'w')
 
 samples = {}
-for sample in args.samples:
-    samples[sample.split(':')[0]] = sample.split(':')[1]
+for s in args.samples:
+    samples[s.split(':')[0]] = s.split(':')[1]
 
 #==============================================================================
 # import required modules here to save time when only checking version or help
 #==============================================================================
 from datetime import datetime
-from collections import deque, defaultdict, namedtuple
-from string import Template
 import BamClass_newPybam
 import bamutils
-#import features
-#import Nfeatures
-#import features_single
-#import features_deep
 
-#==============================================================================
-# start of the main body
-#==============================================================================
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq_" + mutationSeq_version + " started"
-
+#==============================================================================
+# beginning of the main body
+#==============================================================================
 bam = BamClass_newPybam.Bam(tumour=samples["tumour"], normal=samples["normal"], reference=samples["reference"])
 bam_helper = bamutils.BamUtils(bam, args)
 
 ## get target positions "chromosome:start-stop"
 target_positions = bam_helper.getPositions()
 
-## get nominated tuples from the tumour/normal bams for target positions 
+## get an iterator over tuples of the target positions of tumour/normal bam files
 tumour_tuples = bam_helper.getTumourTuple(target_positions)
 normal_tuples = bam_helper.getNormalTuple(target_positions)
 
 ## calculate features for the candidate positions
 features = bam_helper.getFeatures(tumour_tuples, normal_tuples)
 
+## predict the probabilities
 if len(features) != 0:
-    ## compute the probabilities
     probabilities = bam_helper.predict(features)
-    
-    ## generate the output string 
-    outstr = bam_helper.makeOutStr()
-    
-    ## print the output string to out
-    bam_helper.printResults(out, outstr)
+else:
+    probabilities = None
+        
+## print the output string to out
+bam_helper.printResults(out, probabilities)
 
-else: 
-    ## print N/A if there are no candidates
-    for i in xrange(pos.start, pos.stop):
-            print >> out, chrom + "\t" + str(i) + "\t" + "N/A\t" * 6 
 #==============================================================================
 # end of the main body
 #==============================================================================
@@ -117,53 +105,3 @@ try:
 except:
     pass
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done."
-        
-               
-        
-        
-        
-        
-
-        
-
-#==============================================================================
-#       export features
-#==============================================================================
-        if args.export is not None or args.features_only:
-            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " exporting features"
-            for p in xrange(u_pos-l_pos):
-                print >> expfile, chrom + "\t" + str(l_pos + p) + "\t" + ("\t").join(map(str,batch[p]))
-                
-#==============================================================================
-#       remove nan/inf values
-#==============================================================================
-        if not args.features_only:
-            batch = numpy.array(batch)
-            print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " removing potential nan/inf values"
-            batch = removeNanInf(coords, batch, strings, info_strs)
-            #print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        
-#==============================================================================
-#       filter and print the results to out
-#==============================================================================
-            if len(batch) != 0:            
-                print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " predicting probabilities"
-                results = model.predict_proba(batch)   
-                print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"      
-                filterAndPrintResult(coords, results, strings, info_strs)
-
-            else: 
-                results = None
-                print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " filtering and printing results"                          
-                for i in xrange(l_pos, u_pos):
-                    print >> out, chrom + "\t" + str(i) + "\t" + "N/A\t" * 6                
-#==============================================================================
-# end of the main body
-#==============================================================================
-try:
-#    expfile.close()
-    out.close()
-except:
-    pass
-print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done."
-
