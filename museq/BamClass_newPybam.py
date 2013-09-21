@@ -7,8 +7,8 @@ import newpybam as np # new pybam
 
 class Bam:
     def __init__(self, **kwargs):       
-        self.t_bam = kwargs.get("tumour_bam")
-        self.n_bam = kwargs.get("normal_bam")
+        self.t_bam = kwargs.get("tumour")
+        self.n_bam = kwargs.get("normal")
         self.ref   = kwargs.get("reference") 
         self.refBase = None # to store reference nucleotide for a position
         
@@ -30,34 +30,39 @@ class Bam:
     def getReferenceTuple(self, chromosome, position):
         """get reference tuple of chromosome:position"""
         
-        temp_tuple = self.fasta.get(chromosome, position)
+        temp_tuple = self.fasta.get(str(chromosome), int(position))
         self.refBase = temp_tuple[0]
+
+        # index ACGTN
+        if  self.refBase == "A":
+            self.refBase = 0
+        elif self.refBase == "C":
+            self.refBase = 1
+        elif self.refBase == "G":
+            self.refBase = 2
+        elif self.refBase == "T":
+            self.refBase = 3
+        else:
+            self.refBase = 4
+
+        ## replace the base with its index
+        temp_tuple = (self.refBase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
         return temp_tuple
             
     def getReferenceBase(self, chromosome, position):
         """get reference nucleotide of chromosom:position"""
 
         if  self.refBase is None:
-            self.refBase = self.getReferenceTuple(chromosome, position)[0]
+            self.refBase = self.getReferenceTuple(chromosome, int(position))[0]
 
-        # index ACGTN
-        if  self.refBase == "A":
-            return 0
-        elif self.refBase == "C":
-            return 1
-        elif self.refBase == "G":
-            return 2
-        elif self.refBase == "T":
-            return 3
-        else:
-            return 4
+        return self.refBase
     
     def getNormalTuple(self, chromosome, position):
-        self.n_pileup.jump(chromosome, position)
+        self.n_pileup.jump(chromosome, int(position))
         return self.n_pileup.next()
             
     def getTumourTuple(self, chromosome, position):
-        self.t_pileup.jump(chromosome, position)
+        self.t_pileup.jump(chromosome, int(position))
         return self.t_pileup.next()
 
     def getNormalChromosomeIds(self):

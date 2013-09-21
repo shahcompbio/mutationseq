@@ -45,13 +45,13 @@ class BamUtils:
         self.outstr_buffer = []
         
     def __parsePositions(self, positions_list):
-        chromosome = positions_list.split('\t')[0]
+        chromosome = positions_list.split(':')[0]
         try:
             chromosome = chromosome.split('r')[1] #check if "chr" is used
         except:
             pass
         try:
-            position = positions_list.split('\t')[1]
+            position = positions_list.split(':')[1]
             start = int(position.split('-')[0])
             try:
                 stop = int(position.split('-')[1])
@@ -195,6 +195,7 @@ class BamUtils:
         return features_buffer
     
     def __fitModel(self):
+        print "fitModel ..."
         try:
             npz = numpy.load(self.samples["model"])
         except:
@@ -211,7 +212,7 @@ class BamUtils:
     def getPositions(self):
         chromIds  = None
         target_positions = []
-        Pos = namedtuple(["Position", "chromosome, start, stop"])
+        Pos = namedtuple("Position", "chromosome, start, stop")
         
         if self.args.interval is not None:
             temp_tp = self.__parsePositions(self.args.interval)
@@ -317,18 +318,19 @@ class BamUtils:
     
     def printResults(self, out, probabilities=None):
         if probabilities is not None:
-            for i in range(len(probabilities)):
+            for p in probabilities:
                 ## outsrt: [chrom, pos, id, ref, alt, qual, filter, info]
-                outstr = self.outstr_buffer.pop(i)
+                self.outstr_buffer.reverse()
+                outstr = self.outstr_buffer.pop()
                 
                 ## outstr.info: [info_TR, info_TA, info_NR, info_NA, tt.insertion, tt.deletion]
-                info_str = "PR=" + "%.2f" % probabilities + ";TR=" + outstr.info[0] + \
+                info_str = "PR=" + "%.2f" % p + ";TR=" + outstr.info[0] + \
                             ";TA=" + outstr.info[1] + ";NR=" + outstr.info[2] + \
                             ";NA=" + outstr.info[3] + ";NI=" + outstr.info[4] + ";ND=" + outstr.info[5]
                 
                 ## caculate phred quality
                 try:
-                    phred_quality = -10 * log10(1 - probabilities[i])
+                    phred_quality = -10 * log10(1 - p)
                 except:
                     phred_quality = 99
                 
