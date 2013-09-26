@@ -85,18 +85,24 @@ class Bam:
             yield self.n_pileup.next()
             
     def getTumourTuple(self, chromosome, position=None):
+#        if position is None:
+#            self.t_pileup.jump(chromosome)
+#            while True:
+#                temp_tuple = self.t_pileup.next()
+#                if temp_tuple is None:
+#                    break
+#                else:
+#                    yield temp_tuple
+#        else:
+#            self.t_pileup.jump(chromosome, int(position))
+#            yield self.t_pileup.next()
         if position is None:
             self.t_pileup.jump(chromosome)
-            while True:
-                temp_tuple = self.t_pileup.next()
-                if temp_tuple is None:
-                    break
-                else:
-                    yield temp_tuple
         else:
             self.t_pileup.jump(chromosome, int(position))
-            yield self.t_pileup.next()
-
+        
+        return self.t_pileup.next()
+                    
     def getNormalRefNames(self):
         return self.n_pileup.refnames
     
@@ -104,11 +110,9 @@ class Bam:
         return self.t_pileup.refnames
         
     def getReferenceSequenceByBase(self, chromosomeId, position, windowLength=500):
-        print "getReferenceSequenceByBase"
         return self.fasta.getSequenceByBase(chromosomeId, position, windowLength)
         
     def getReferenceSequence(self, chromosomeId, position, windowLength=500):
-        print "getReferenceSequence"
         return self.fasta.getSequence(chromosomeId, position, windowLength)
 
 class BamUtils:
@@ -154,22 +158,6 @@ class BamUtils:
         except:
             return [chromosome, None, None]
         
-    def __getTuples(self, bam_type, target_positions):
-        """ iterator over tuples of target positions of a bam file"""
-        
-        if bam_type == "tumour":
-            func = self.bam.getTumourTuple
-        else:
-            func = self.bam.getNormalTuple
-            
-        for tp in target_positions: 
-            if tp.start is None:
-                return func(tp.chromosome)    
-            else:
-                for position in xrange(tp.start, tp.stop):
-                    temp_tuple = func(tp.chromosome, position)
-                    return temp_tuple
-    
     ## NOTE: COPIED FROM JEFF, MIGHT BE WRONG
     def __xEntropy(self, tumour_counts, normal_counts):
         total_tc = tumour_counts[4]
@@ -332,6 +320,22 @@ class BamUtils:
                 target_positions.append(temp_tp)
                 
         return target_positions
+    
+    def __getTuples(self, bam_type, target_positions):
+        """ iterator over tuples of target positions of a bam file"""
+        
+        if bam_type == "tumour":
+            func = self.bam.getTumourTuple
+        else:
+            func = self.bam.getNormalTuple
+            
+        for tp in target_positions: 
+            if tp.start is None:
+                yield func(tp.chromosome)    
+            else:
+                for position in xrange(tp.start, tp.stop):
+                    temp_tuple = func(tp.chromosome, position)
+                    yield temp_tuple
         
     def getTumourTuples(self, target_positions):
         """ return iterator over tuples of tumour bam file"""

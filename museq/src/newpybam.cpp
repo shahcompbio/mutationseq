@@ -236,7 +236,7 @@ public:
 			throw runtime_error("invalid ref name " + refName);
 		}
 
-		m_BamReader.Jump(refId);
+	    m_BamReader.SetRegion(BamRegion(refId, 0, refId+1, 1));
 		
 		RestartPileupEngine();
 	}
