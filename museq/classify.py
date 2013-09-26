@@ -103,14 +103,13 @@ for s in args.samples:
 # import required modules here to save time when only checking version or help
 #==============================================================================
 from datetime import datetime
-import BamClass_newPybam
 import bamutils
 
 print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq_" + mutationSeq_version + " started"
 #==============================================================================
 # beginning of the main body
 #==============================================================================
-bam = BamClass_newPybam.Bam(tumour=samples["tumour"], normal=samples["normal"], reference=samples["reference"])
+bam = bamutils.Bam(tumour=samples["tumour"], normal=samples["normal"], reference=samples["reference"])
 bam_helper = bamutils.BamUtils(bam, args)
 
 ## get target positions "chromosome:start-stop"
@@ -126,7 +125,7 @@ normal_tuples = bam_helper.getNormalTuples(target_positions)
 ## calculate features for the candidate positions
 print "getFeatures ..."
 features = bam_helper.getFeatures(tumour_tuples, normal_tuples)
-print features
+#print features
 
 ## predict the probabilities
 print "predict ..."
