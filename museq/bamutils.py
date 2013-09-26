@@ -5,6 +5,7 @@ Created on Wed Sep 18 11:22:08 2013
 @author: jtaghiyar
 """
 #import BamClass_newPybam
+import newpybam as np # new pybam
 import features
 import Nfeatures
 import features_single
@@ -17,6 +18,98 @@ from collections import namedtuple
 from sklearn.ensemble import RandomForestClassifier
 #from string import Template
 #from datetime import datetime
+
+class Bam:
+    def __init__(self, **kwargs):       
+        self.t_bam = kwargs.get("tumour")
+        self.n_bam = kwargs.get("normal")
+        self.ref   = kwargs.get("reference") 
+        self.refBase = None # to store reference nucleotide for a position
+        
+        if  self.n_bam is not None:
+            self.n_pileup = np.pileup() # make a pileup for normal bam
+            self.n_pileup.open(self.n_bam)
+    
+        if  self.t_bam is not None:
+            self.t_pileup = np.pileup() # make a pileup for tumour bam
+            self.t_pileup.open(self.t_bam)
+        
+        if  self.ref is not None:
+            self.__loadReference()
+        
+    def __loadReference(self):
+        self.fasta = np.fasta() # make a fasta object to laod reference
+        self.fasta.open(self.ref) 
+
+    def getReferenceTuple(self, chromosomeId, position):
+        """get reference tuple of chromosomeId:position"""
+        
+        temp_tuple = self.fasta.get(chromosomeId, int(position))
+        self.refBase = temp_tuple[0]
+
+        # index ACGTN
+        if  self.refBase == "A":
+            self.refBase = 0
+        elif self.refBase == "C":
+            self.refBase = 1
+        elif self.refBase == "G":
+            self.refBase = 2
+        elif self.refBase == "T":
+            self.refBase = 3
+        else:
+            self.refBase = 4
+
+        ## replace the base with its index
+        temp_tuple = (self.refBase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
+        return temp_tuple
+            
+    def getReferenceBase(self, chromosomeId, position):
+        """get reference nucleotide of chromosomId:position"""
+
+        if  self.refBase is None:
+            self.refBase = self.getReferenceTuple(chromosomeId, int(position))[0]
+
+        return self.refBase
+    
+    def getNormalTuple(self, chromosome, position=None):
+        if position is None:
+            self.n_pileup.jump(chromosome)
+            while True:
+                temp_tuple = self.n_pileup.next()
+                if temp_tuple is None:
+                    break
+                else:
+                    yield temp_tuple
+        else:
+            self.n_pileup.jump(chromosome, int(position))
+            yield self.n_pileup.next()
+            
+    def getTumourTuple(self, chromosome, position=None):
+        if position is None:
+            self.t_pileup.jump(chromosome)
+            while True:
+                temp_tuple = self.t_pileup.next()
+                if temp_tuple is None:
+                    break
+                else:
+                    yield temp_tuple
+        else:
+            self.t_pileup.jump(chromosome, int(position))
+            yield self.t_pileup.next()
+
+    def getNormalRefNames(self):
+        return self.n_pileup.refnames
+    
+    def getTumourRefNames(self):
+        return self.t_pileup.refnames
+        
+    def getReferenceSequenceByBase(self, chromosomeId, position, windowLength=500):
+        print "getReferenceSequenceByBase"
+        return self.fasta.getSequenceByBase(chromosomeId, position, windowLength)
+        
+    def getReferenceSequence(self, chromosomeId, position, windowLength=500):
+        print "getReferenceSequence"
+        return self.fasta.getSequence(chromosomeId, position, windowLength)
 
 class BamUtils:
     def __init__(self, bam, args):
@@ -71,18 +164,11 @@ class BamUtils:
             
         for tp in target_positions: 
             if tp.start is None:
-                position = 1
-                while True:
-                    temp_tuple = func(tp.chromosome, position)
-                    if temp_tuple is None:
-                        break
-                    else:
-                        position +=1 
-                        yield temp_tuple
+                return func(tp.chromosome)    
             else:
                 for position in xrange(tp.start, tp.stop):
                     temp_tuple = func(tp.chromosome, position)
-                    yield temp_tuple
+                    return temp_tuple
     
     ## NOTE: COPIED FROM JEFF, MIGHT BE WRONG
     def __xEntropy(self, tumour_counts, normal_counts):
@@ -210,7 +296,6 @@ class BamUtils:
         return model
         
     def getPositions(self):
-        chromIds  = None
         target_positions = []
         Pos = namedtuple("Position", "chromosome, start, stop")
         
@@ -235,16 +320,16 @@ class BamUtils:
         else:
             if self.flags.single:
                 ## read all the chromosome ID's
-                chromIds = self.bam.getTumourChromosomeIds() 
+                chrom_refname = self.bam.getTumourRefNames() 
             else:
                 ## read all the chromosome ID's
-                chromIds = set(self.bam.getTumourChromosomeIds()) & set(self.bam.getNormalChromosomeIds())    
+                chrom_refname = set(self.bam.getTumourRefNames()) & set(self.bam.getNormalRefNames())    
         
-            for cid in chromIds:
+            for crf in chrom_refname:
                 ## return only chromosome ID's
-                temp_tp = [cid, None, None]
+                temp_tp = [crf, None, None]
                 temp_tp = Pos._make(temp_tp)
-                target_positions.append(temp_tp) 
+                target_positions.append(temp_tp)
                 
         return target_positions
         
@@ -305,6 +390,10 @@ class BamUtils:
         
         ## make a numpy array required as an input to the random forest predictor
         features_buffer = numpy.array(features_buffer)
+        
+        ## make sure a list is returned         
+        if features_buffer is None:
+            features_buffer = 0
         
         return features_buffer
 
