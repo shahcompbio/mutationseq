@@ -24,7 +24,7 @@ class Bam:
         self.t_bam = kwargs.get("tumour")
         self.n_bam = kwargs.get("normal")
         self.ref   = kwargs.get("reference") 
-        self.refBase = None # to store reference nucleotide for a position
+        self.base = ['A', 'C', 'G', 'T', 'N']
         
         if  self.n_bam is not None:
             self.n_pileup = np.pileup() # make a pileup for normal bam
@@ -41,67 +41,58 @@ class Bam:
         self.fasta = np.fasta() # make a fasta object to laod reference
         self.fasta.open(self.ref) 
 
+    def getReferenceBase(self, chromosomeId, position):
+        return self.base[self.getReferenceTuple(chromosomeId, int(position))[0]]
+
     def getReferenceTuple(self, chromosomeId, position):
-        """get reference tuple of chromosomeId:position"""
-        
         temp_tuple = self.fasta.get(chromosomeId, int(position))
-        self.refBase = temp_tuple[0]
+        refBase = temp_tuple[0]
 
         # index ACGTN
-        if  self.refBase == "A":
-            self.refBase = 0
-        elif self.refBase == "C":
-            self.refBase = 1
-        elif self.refBase == "G":
-            self.refBase = 2
-        elif self.refBase == "T":
-            self.refBase = 3
+        if  refBase == "A":
+            refBase = 0
+        elif refBase == "C":
+            refBase = 1
+        elif refBase == "G":
+            refBase = 2
+        elif refBase == "T":
+            refBase = 3
         else:
-            self.refBase = 4
+            refBase = 4
 
-        ## replace the base with its index
-        temp_tuple = (self.refBase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
+        ## replace the base with its index (required for feature extraction in the BamUtils calss)
+        temp_tuple = (refBase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
         return temp_tuple
             
-    def getReferenceBase(self, chromosomeId, position):
-        """get reference nucleotide of chromosomId:position"""
-
-        if  self.refBase is None:
-            self.refBase = self.getReferenceTuple(chromosomeId, int(position))[0]
-
-        return self.refBase
-    
-    def getNormalTuple(self, chromosome, position=None):
-        if position is None:
-            self.n_pileup.jump(chromosome)
-            while True:
-                temp_tuple = self.n_pileup.next()
-                if temp_tuple is None:
-                    break
-                else:
-                    yield temp_tuple
-        else:
-            self.n_pileup.jump(chromosome, int(position))
-            yield self.n_pileup.next()
+    def getNormalTuples(self, target_positions):
+        for tp in target_positions: 
+            if tp.start is None:
+                self.n_pileup.jump(tp.chromosome)
+                while True:
+                    nt = self.n_pileup.next()    
+                    if nt is None:
+                        break
+                    else:
+                        yield nt
+            else:
+                for position in xrange(tp.start, tp.stop+1): # +1 to include tp.stop as well
+                    self.n_pileup.jump(tp.chromosome, position)
+                    yield self.n_pileup.next()
             
-    def getTumourTuple(self, chromosome, position=None):
-#        if position is None:
-#            self.t_pileup.jump(chromosome)
-#            while True:
-#                temp_tuple = self.t_pileup.next()
-#                if temp_tuple is None:
-#                    break
-#                else:
-#                    yield temp_tuple
-#        else:
-#            self.t_pileup.jump(chromosome, int(position))
-#            yield self.t_pileup.next()
-        if position is None:
-            self.t_pileup.jump(chromosome)
-        else:
-            self.t_pileup.jump(chromosome, int(position))
-        
-        return self.t_pileup.next()
+    def getTumourTuples(self, target_positions):
+        for tp in target_positions: 
+            if tp.start is None:
+                self.t_pileup.jump(tp.chromosome)
+                while True:
+                    tt = self.t_pileup.next()    
+                    if tt is None:
+                        break
+                    else:
+                        yield tt
+            else:
+                for position in xrange(tp.start, tp.stop+1): # +1 to include tp.stop as well
+                    self.t_pileup.jump(tp.chromosome, position)
+                    yield self.t_pileup.next()                    
                     
     def getNormalRefNames(self):
         return self.n_pileup.refnames
@@ -109,11 +100,11 @@ class Bam:
     def getTumourRefNames(self):
         return self.t_pileup.refnames
         
-    def getReferenceSequenceByBase(self, chromosomeId, position, windowLength=500):
-        return self.fasta.getSequenceByBase(chromosomeId, position, windowLength)
-        
     def getReferenceSequence(self, chromosomeId, position, windowLength=500):
         return self.fasta.getSequence(chromosomeId, position, windowLength)
+        
+    def getReferenceSequenceByBase(self, chromosomeId, position, windowLength=500):
+        return self.fasta.getSequenceByBase(chromosomeId, position, windowLength)
 
 class BamUtils:
     def __init__(self, bam, args):
@@ -320,32 +311,6 @@ class BamUtils:
                 target_positions.append(temp_tp)
                 
         return target_positions
-    
-    def __getTuples(self, bam_type, target_positions):
-        """ iterator over tuples of target positions of a bam file"""
-        
-        if bam_type == "tumour":
-            func = self.bam.getTumourTuple
-        else:
-            func = self.bam.getNormalTuple
-            
-        for tp in target_positions: 
-            if tp.start is None:
-                yield func(tp.chromosome)    
-            else:
-                for position in xrange(tp.start, tp.stop):
-                    temp_tuple = func(tp.chromosome, position)
-                    yield temp_tuple
-        
-    def getTumourTuples(self, target_positions):
-        """ return iterator over tuples of tumour bam file"""
-        
-        return self.__getTuples("tumour", target_positions)
-        
-    def getNormalTuples(self, target_positions):
-        """ return iterator over tuples of normal bam file"""
-        
-        return self.__getTuples("normal", target_positions)
     
     def getFeatures(self, tumour_tuples, normal_tuples):
         tuples_buffer   = deque()        
