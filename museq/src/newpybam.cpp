@@ -40,6 +40,12 @@ python::tuple CreatePileupTuple(const PileupPosition& pileupData)
 		const PileupAlignment& pa = (*pileupIter);
 		const BamAlignment& ba = pa.Alignment;
 		
+		// remove duplicates and vendor failed reads
+		if (ba.IsDuplicate() || ba.IsFailedQC())
+		{
+			continue;
+		}
+
 		// adjacent insertions and deletions
 		for (std::vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
 		{
@@ -275,20 +281,17 @@ public:
 			
 			if (!m_PileupQueue->Pileups.empty())
 			{
-				break;
+				return PopPileup();
 			}
 		}
-		
-		if (m_PileupQueue->Pileups.empty())
+		m_PileupEngine->Flush();
+
+		if (!m_PileupQueue->Pileups.empty())
 		{
-			return python::object();
+			return PopPileup();
 		}
 		
-		python::tuple tpl;
-		swap(tpl, m_PileupQueue->Pileups.front());
-		m_PileupQueue->Pileups.pop();
-		
-		return tpl;
+		return python::object();
 	}
 	
 	python::list RefNames;
@@ -305,6 +308,15 @@ private:
 		m_PileupEngine->AddVisitor(m_PileupQueue);
 	}
 	
+	python::object PopPileup()
+	{
+		python::tuple tpl;
+		swap(tpl, m_PileupQueue->Pileups.front());
+		m_PileupQueue->Pileups.pop();
+
+		return tpl;
+	}
+
 	BamReader m_BamReader;
 	
 	PileupEngine* m_PileupEngine;
