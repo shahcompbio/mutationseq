@@ -122,24 +122,22 @@ print "getTuples ..."
 tumour_tuples = bam_helper.getTumourTuples(target_positions)
 normal_tuples = bam_helper.getNormalTuples(target_positions)
 
-### calculate features for the candidate positions
-#print "getFeatures ..."
-#features = bam_helper.getFeatures(tumour_tuples, normal_tuples)
-##print features
-#
-### predict the probabilities
-#print "predict ..."
-#if len(features) != 0:
-#    probabilities = bam_helper.predict(features)
-#else:
-#    probabilities = None
-#        
-### print the output string to out
-#print "printResults ..."
-#bam_helper.printResults(out, probabilities)
-for tt in tumour_tuples:
-    print tt
-    
+## calculate features for the candidate positions
+print "getFeatures ..."
+features = bam_helper.getFeatures(tumour_tuples, normal_tuples)
+#print features
+
+## predict the probabilities
+print "predict ..."
+if len(features) != 0:
+    probabilities = bam_helper.predict(features)
+else:
+    probabilities = None
+        
+## print the output string to out
+print "printResults ..."
+bam_helper.printResults(out, probabilities)
+
 #==============================================================================
 # end of the main body
 #==============================================================================
