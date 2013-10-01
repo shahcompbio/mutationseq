@@ -42,13 +42,19 @@ class Bam:
         self.fasta.open(self.ref) 
 
     def getReferenceBase(self, chromosomeId, position):
-        return self.base[self.getReferenceTuple(chromosomeId, int(position))[0]]
+        return self.fasta.getBase(chromosomeId, int(position))
+        
+    def getTrinucleotideContext(self, chromosomeId, position):
+        tc = []
+        for i in range(-1,2):
+            tc.append(self.getReferenceBase(chromosomeId, position+i))
+        return ''.join(tc)
 
     def getReferenceTuple(self, chromosomeId, position):
         temp_tuple = self.fasta.get(chromosomeId, int(position))
         refBase = temp_tuple[0]
 
-        # index ACGTN
+        # index refBase
         if  refBase == "A":
             refBase = 0
         elif refBase == "C":
@@ -130,7 +136,9 @@ class BamUtils:
         self.flags = Flags._make([single_flag, single_type])
         self.bam  = bam
         self.args = args
+        self.base = ['A', 'C', 'G', 'T', 'N']
         self.outstr_buffer = []
+        self.chromosomeNames = {} # keep track of which chromosomeId is for which chromosomeName
         
     def __parsePositions(self, positions_list):
         chromosome = positions_list.split(':')[0]
@@ -231,13 +239,16 @@ class BamUtils:
             alt_base = tt.minor
         else:
             alt_base = tt.major
-         
+        
+        ## get tri-nucleotide context
+        tc = self.bam.getTrinucleotideContext(tt.chromosomeId, tt.position)
+
         ## generate informatio for the INFO column in the output
         TR = tt[ref_base + 1][0] # tumour to reference base count 
         NR = nt[ref_base + 1][0] # normal to reference base count 
         TA = tt[alt_base + 1][0] # tumour to alternative base count 
         NA = nt[alt_base + 1][0] # normal to alternative base count 
-        info = [TR, TA, NR, NA, tt.insertion, tt.deletion]
+        info = [TR, TA, NR, NA, tc, tt.insertion, tt.deletion]
         info = map(str, info) # change the int to string
         
         ## reserved to be filled later
@@ -245,7 +256,8 @@ class BamUtils:
         out_id = "."  # ID        
         
         OutStr = namedtuple("OutStr", "chrom, pos, id, ref, alt, qual, filter, info")
-        outstr = OutStr._make([tt.chromosomeId, tt.position, out_id, ref_base, alt_base, qual, filter_flag, info])
+        ## TODO: self.chromosomeNames not initialized 
+        outstr = OutStr._make([self.chromosomeNames[tt.chromosomeId], tt.position, out_id, ref_base, alt_base, qual, filter_flag, info])
         
         return outstr             
         
@@ -322,6 +334,7 @@ class BamUtils:
         for tt in tumour_tuples:
             tt = Tuple._make(tt)
             tuples_buffer.append(tt)
+            print tt
 
         ## return if there are no tuples for tumour
         if len(tuples_buffer) == 0:
@@ -371,7 +384,7 @@ class BamUtils:
         probabilities = model.predict_proba(features)
         
         ## return only probabilities
-        probabilities = [x[0] for x in probabilities] 
+        probabilities = [x[1] for x in probabilities] 
         return probabilities
     
     def printResults(self, out, probabilities=None):
@@ -384,7 +397,8 @@ class BamUtils:
                 ## outstr.info: [info_TR, info_TA, info_NR, info_NA, tt.insertion, tt.deletion]
                 info_str = "PR=" + "%.2f" % p + ";TR=" + outstr.info[0] + \
                             ";TA=" + outstr.info[1] + ";NR=" + outstr.info[2] + \
-                            ";NA=" + outstr.info[3] + ";NI=" + outstr.info[4] + ";ND=" + outstr.info[5]
+                            ";NA=" + outstr.info[3] + ",TC=" + outstr.info[4] + \
+                            ";NI=" + outstr.info[5] + ";ND=" + outstr.info[6]
                 
                 ## caculate phred quality
                 try:
@@ -392,8 +406,8 @@ class BamUtils:
                 except:
                     phred_quality = 99
                 
-                outstr = map(str, [outstr.chrom, outstr.pos, outstr.id, outstr.ref, outstr.alt,
-                          "%.2f" % phred_quality, outstr.filter, info_str])
+                outstr = map(str, [outstr.chrom, outstr.pos, outstr.id, self.base[outstr.ref], 
+                                   self.base[outstr.alt], "%.2f" % phred_quality, outstr.filter, info_str])
                 
                 print >> out, "\t".join(outstr)
         
