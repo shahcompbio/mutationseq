@@ -485,6 +485,20 @@ public:
 		return referenceSeq;
 	}
 
+	// get reference nucleotide at chromosomeId:position
+	char GetReferenceBase(int refId, int position)
+	{
+		// Interface is 1-based, bamtools is 0-based
+		position -= 1;
+		char referenceBase = 'N';
+			if (!m_Fasta.GetBase(refId, position, referenceBase))
+			{
+				throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position));
+			}
+
+		return referenceBase;
+	}
+
 private:
 	string GetReferenceSequence(int refId, int position)
 	{
@@ -668,6 +682,7 @@ BOOST_PYTHON_MODULE(newpybam)
 	
 	class_<PyFasta>("fasta", init<>())
 		.def("open", &PyFasta::Open)
+		.def("getBase", &PyFasta::GetReferenceBase)
 		.def("get", &PyFasta::GetPosition)
 		.def("getSequence", &PyFasta::GetSequence)
 		.def("getSequenceByBase", &PyFasta::GetSequenceByBase)
