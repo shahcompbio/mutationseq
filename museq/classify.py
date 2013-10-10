@@ -1,6 +1,14 @@
+import sys
+import bamutils
 import argparse
+import logging
+
 mutationSeq_version="4.0.0"
 
+logging.basicConfig(filename="mutationSeq_run.log", 
+                    format='%(asctime)s %(message)s', 
+                    #datefmt='%m/%d/%Y %I:%M:%S %p', 
+                    level=logging.DEBUG)
 #==============================================================================
 # make a UI 
 #==============================================================================
@@ -80,17 +88,14 @@ args = parser.parse_args()
 #==============================================================================
 # check the input 
 #==============================================================================
-import sys
-from warnings import warn
-
 if len(args.samples) < 3:
-    print >> sys.stderr, "bad input, usage: 'classify.py normal:<normal.bam> \
-    tumour:<tumour.bam> reference:<ref.fasta> model:<model.npz> [--options]'"
+    logging.error("""bad input, usage: 'classify.py normal:<normal.bam> 
+    tumour:<tumour.bam> reference:<ref.fasta> model:<model.npz> [--options]'""")
     sys.exit(1)
 
 #if not args.features_only:
 if args.out is None:
-    warn("--out is not specified, standard output is used to write the results")
+    logging.warning("--out is not specified, standard output is used to write the results")
     out = sys.stdout
 else:
     out = open(args.out, 'w')
@@ -99,13 +104,12 @@ samples = {}
 for s in args.samples:
     samples[s.split(':')[0]] = s.split(':')[1]
 
-#==============================================================================
-# import required modules here to save time when only checking version or help
-#==============================================================================
-from datetime import datetime
-import bamutils
-
-print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " mutationSeq_" + mutationSeq_version + " started"
+info_str = " mutationSeq_" + mutationSeq_version + " started\n" + \
+            " tumour:" + samples["tumour"] + \
+            " normal:" + samples["normal"] + \
+            " reference:" + samples["reference"] + \
+            " --interval " + args.interval
+logging.info(info_str)
 #==============================================================================
 # beginning of the main body
 #==============================================================================
@@ -113,37 +117,43 @@ bam = bamutils.Bam(tumour=samples["tumour"], normal=samples["normal"], reference
 bam_helper = bamutils.BamUtils(bam, args)
 
 ## get target positions "chromosome:start-stop"
-print "getPositions ..."
-target_positions = bam_helper.getPositions()
-print target_positions
+logging.info("getting positions ...")
+target_positions = bam_helper.get_positions()
 
 ## get an iterator over tuples of the target positions of tumour/normal bam files
-print "getTuples ..."
-tumour_tuples = bam_helper.getTumourTuples(target_positions)
-normal_tuples = bam_helper.getNormalTuples(target_positions)
+logging.info("getting tuples ...")
+tumour_tuples = bam.get_tumour_tuples(target_positions)
+normal_tuples = bam.get_normal_tuples(target_positions)
 
 ## calculate features for the candidate positions
-print "getFeatures ..."
-features = bam_helper.getFeatures(tumour_tuples, normal_tuples)
-#print features
+try:
+    logging.info("extracting features ...")
+    features = bam_helper.get_features(tumour_tuples, normal_tuples)
+
+except KeyboardInterrupt:
+    logging.info("pressed ctrl+c ...\n")
+    sys.exit(1)
 
 ## predict the probabilities
-print "predict ..."
+logging.info("fitting model and predict probabilities ...")
+
 if len(features) != 0:
     probabilities = bam_helper.predict(features)
 else:
     probabilities = None
         
 ## print the output string to out
-print "printResults ..."
-bam_helper.printResults(out, probabilities)
+info_str = "printting results to:" + str(args.out) 
+logging.info(info_str)
+
+bam_helper.print_results(out, probabilities)
 
 #==============================================================================
 # end of the main body
 #==============================================================================
 try:
-#    expfile.close()
+    #expfile.close()
     out.close()
 except:
     pass
-print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " done."
+logging.info("successfully completed.\n")

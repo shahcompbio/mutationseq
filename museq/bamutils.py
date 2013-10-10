@@ -24,101 +24,100 @@ class Bam:
         self.t_bam = kwargs.get("tumour")
         self.n_bam = kwargs.get("normal")
         self.ref   = kwargs.get("reference") 
-        self.base = ['A', 'C', 'G', 'T', 'N']
+        self.rmdup = kwargs.get("rmdup")
+        self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
+        ## check if duplicates need to be removed
+        if  self.rmdup is None:
+            self.rmdup = True
+            
+        ## make a pileup for normal bam
         if  self.n_bam is not None:
-            self.n_pileup = np.pileup() # make a pileup for normal bam
+            self.n_pileup = np.pileup()
             self.n_pileup.open(self.n_bam)
     
+        ## make a pileup for tumour bam
         if  self.t_bam is not None:
-            self.t_pileup = np.pileup() # make a pileup for tumour bam
+            self.t_pileup = np.pileup() 
             self.t_pileup.open(self.t_bam)
         
         if  self.ref is not None:
-            self.__loadReference()
+            self.__load_reference()
         
-    def __loadReference(self):
+    def __load_reference(self):
         self.fasta = np.fasta() # make a fasta object to laod reference
         self.fasta.open(self.ref) 
 
-    def getReferenceBase(self, chromosomeId, position):
-        return self.fasta.getBase(chromosomeId, int(position))
+    def get_reference_base(self, chromosomeId, position, index=False):
+        b = self.fasta.get_base(chromosomeId, int(position))
         
-    def getTrinucleotideContext(self, chromosomeId, position):
+        if index:
+            return self.base[b]
+        return b
+        
+    def get_trinucleotide_context(self, chromosomeId, position):
         tc = []
         for i in range(-1,2):
-            tc.append(self.getReferenceBase(chromosomeId, position+i))
+            tc.append(self.get_reference_base(chromosomeId, position+i))
         return ''.join(tc)
 
-    def getReferenceTuple(self, chromosomeId, position):
-        temp_tuple = self.fasta.get(chromosomeId, int(position))
+    def get_reference_tuple(self, chromosomeId, position):
+        temp_tuple = self.fasta.get_tuple(chromosomeId, int(position))
         refBase = temp_tuple[0]
 
         # index refBase
-        if  refBase == "A":
-            refBase = 0
-        elif refBase == "C":
-            refBase = 1
-        elif refBase == "G":
-            refBase = 2
-        elif refBase == "T":
-            refBase = 3
-        else:
-            refBase = 4
+        refBase = self.base[refBase]
 
         ## replace the base with its index (required for feature extraction in the BamUtils calss)
         temp_tuple = (refBase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
         return temp_tuple
             
-    def getNormalTuples(self, target_positions):
-        for tp in target_positions: 
-            if tp.start is None:
-                self.n_pileup.jump(tp.chromosome)
-                while True:
-                    nt = self.n_pileup.next()    
-                    if nt is None:
-                        break
-                    else:
-                        yield nt
-            else:
-                for position in xrange(tp.start, tp.stop+1): # +1 to include tp.stop as well
-                    self.n_pileup.jump(tp.chromosome, position)
-                    yield self.n_pileup.next()
-            
-    def getTumourTuples(self, target_positions):
-        for tp in target_positions: 
-            if tp.start is None:
-                self.t_pileup.jump(tp.chromosome)
-                while True:
-                    tt = self.t_pileup.next()    
-                    if tt is None:
-                        break
-                    else:
-                        yield tt
-            else:
-                for position in xrange(tp.start, tp.stop+1): # +1 to include tp.stop as well
-                    self.t_pileup.jump(tp.chromosome, position)
-                    yield self.t_pileup.next()                    
-                    
-    def getNormalRefNames(self):
+    def get_normal_refnames(self):
         return self.n_pileup.refnames
     
-    def getTumourRefNames(self):
+    def get_tumour_refnames(self):
         return self.t_pileup.refnames
         
-    def getReferenceSequence(self, chromosomeId, position, windowLength=500):
-        return self.fasta.getSequence(chromosomeId, position, windowLength)
+    def get_reference_sequence(self, chromosomeId, position, windowLength=500):
+        return self.fasta.get_sequence(chromosomeId, position, windowLength)
         
-    def getReferenceSequenceByBase(self, chromosomeId, position, windowLength=500):
-        return self.fasta.getSequenceByBase(chromosomeId, position, windowLength)
+    def get_reference_sequence_bybase(self, chromosomeId, position, windowLength=500):
+        return self.fasta.get_sequence_base(chromosomeId, position, windowLength)
+    
+    def get_normal_tuples(self, target_positions):
+        for tp in target_positions: 
+            if tp.start is None:
+                self.n_pileup.set_region(tp.chromosome)
+            else:
+                self.n_pileup.set_region(tp.chromosome, tp.start, tp.stop)
 
+            while True:
+                tt = self.n_pileup.get_tuple() 
+                if tt is None:
+                    break
+                else:
+                    yield tt
+            
+    def get_tumour_tuples(self, target_positions):
+        for tp in target_positions: 
+            if tp.start is None:
+                self.t_pileup.set_region(tp.chromosome)
+            else:
+                self.t_pileup.set_region(tp.chromosome, tp.start, tp.stop)
+
+            while True:
+                tt = self.t_pileup.get_tuple() 
+                if tt is None:
+                    break
+                else:
+                    yield tt
+            
 class BamUtils:
     def __init__(self, bam, args):
         self.samples = {}
         for s in args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
         
-            
         ## check if it is single sample analysis as well as type of the sample
         if "normal" not in self.samples:
             single_flag = True
@@ -138,9 +137,11 @@ class BamUtils:
         self.args = args
         self.base = ['A', 'C', 'G', 'T', 'N']
         self.outstr_buffer = []
-        self.chromosomeNames = {} # keep track of which chromosomeId is for which chromosomeName
         
-    def __parsePositions(self, positions_list):
+        ## get chromosome names and thier corresponding IDs
+        self.chromosome_names = self.bam.get_tumour_refnames()
+        
+    def __parse_positions(self, positions_list):
         chromosome = positions_list.split(':')[0]
         try:
             chromosome = chromosome.split('r')[1] #check if "chr" is used
@@ -158,7 +159,7 @@ class BamUtils:
             return [chromosome, None, None]
         
     ## NOTE: COPIED FROM JEFF, MIGHT BE WRONG
-    def __xEntropy(self, tumour_counts, normal_counts):
+    def __xentropy(self, tumour_counts, normal_counts):
         total_tc = tumour_counts[4]
         total_nc = normal_counts[4]
         ent = 0 # entropy
@@ -168,12 +169,12 @@ class BamUtils:
             base_probability_normal = normal_counts[i] / total_nc            
             if base_probability_tumour != 0:
                 if base_probability_normal == 0:
-                    ent -= -7 * base_probability_tumour ## WHAT IS IT?`
+                    ent -= -7 * base_probability_tumour
                 else:
                     ent -= log(base_probability_normal) * base_probability_tumour
         return ent
     
-    def __extractFeature(self, tumour_tuple, reference_tuple, normal_tuple=None):
+    def __extract_feature(self, tumour_tuple, reference_tuple, normal_tuple=None):
         if self.args.normalized:
             feature_set = Nfeatures.feature_set
             coverage_features = Nfeatures.coverage_features
@@ -222,16 +223,16 @@ class BamUtils:
             normal_counts = (normal_tuple.A_tuple[0], normal_tuple.C_tuple[0], 
                              normal_tuple.G_tuple[0], normal_tuple.T_tuple[0], normal_tuple.all_tuple[0])
 
-            features_buffer.append(self.__xEntropy(tumour_counts, normal_counts))
+            features_buffer.append(self.__xentropy(tumour_counts, normal_counts))
     
         return features_buffer
     
-    def __makeOutStr(self, tt, rt, nt):
+    def __make_outstr(self, tt, rt, nt):
         ## flag insertions and deletions 
         if tt.insertion > 0 or tt.deletion > 0:
             filter_flag = "INDL"
         else:
-            filter_flag = "PASS"
+            filter_flag = None
         
         ## find alternative base   
         ref_base = rt[0]
@@ -241,7 +242,7 @@ class BamUtils:
             alt_base = tt.major
         
         ## get tri-nucleotide context
-        tc = self.bam.getTrinucleotideContext(tt.chromosomeId, tt.position)
+        tc = self.bam.get_trinucleotide_context(tt.chromosomeId, tt.position)
 
         ## generate informatio for the INFO column in the output
         TR = tt[ref_base + 1][0] # tumour to reference base count 
@@ -253,26 +254,17 @@ class BamUtils:
         
         ## reserved to be filled later
         qual   = None # phred_quality
-        out_id = "."  # ID        
+        out_id = "."  # ID   
+        
+        ## get chromosome name of the given chromosome ID
+        chromosome_name = self.chromosome_names[tt.chromosomeId][1]
         
         OutStr = namedtuple("OutStr", "chrom, pos, id, ref, alt, qual, filter, info")
-        ## TODO: self.chromosomeNames not initialized 
-        outstr = OutStr._make([self.chromosomeNames[tt.chromosomeId], tt.position, out_id, ref_base, alt_base, qual, filter_flag, info])
+        outstr = OutStr._make([chromosome_name, tt.position, out_id, ref_base, alt_base, qual, filter_flag, info])
         
         return outstr             
         
-    def __removeNanInf(self, features_buffer):
-        ind = -1        
-        for f in features_buffer:
-            ind += 1
-            if numpy.isnan(numpy.sum(f)) or numpy.isinf(numpy.sum(f)):
-                features_buffer.pop(ind)
-                self.outstr_buffer.pop(ind)
-                
-        return features_buffer
-    
-    def __fitModel(self):
-        print "fitModel ..."
+    def __fit_model(self):
         try:
             npz = numpy.load(self.samples["model"])
         except:
@@ -286,12 +278,12 @@ class BamUtils:
         model.fit(train, labels)
         return model
         
-    def getPositions(self):
+    def get_positions(self):
         target_positions = []
         Pos = namedtuple("Position", "chromosome, start, stop")
         
         if self.args.interval is not None:
-            temp_tp = self.__parsePositions(self.args.interval)
+            temp_tp = self.__parse_positions(self.args.interval)
             temp_tp = Pos._make(temp_tp)
             target_positions.append(temp_tp) 
         
@@ -299,7 +291,7 @@ class BamUtils:
             try:
                 positions_file = open(self.args.positions_file, 'r')
                 for l in positions_file.readlines():
-                    temp_tp = self.__parsePositions(l.strip())
+                    temp_tp = self.__parse_positions(l.strip())
                     temp_tp = Pos._make(temp_tp)
                     target_positions.append(temp_tp)
                 positions_file.close()
@@ -309,41 +301,44 @@ class BamUtils:
                 sys.exit(1)
 
         else:
-            if self.flags.single:
-                ## read all the chromosome ID's
-                chrom_refname = self.bam.getTumourRefNames() 
-            else:
-                ## read all the chromosome ID's
-                chrom_refname = set(self.bam.getTumourRefNames()) & set(self.bam.getNormalRefNames())    
-        
-            for crf in chrom_refname:
+            for cname in self.chromosome_names: 
                 ## return only chromosome ID's
-                temp_tp = [crf, None, None]
+                temp_tp = [cname[0], None, None]
                 temp_tp = Pos._make(temp_tp)
                 target_positions.append(temp_tp)
                 
         return target_positions
     
-    def getFeatures(self, tumour_tuples, normal_tuples):
+    def get_features(self, tumour_tuples, normal_tuples):
         tuples_buffer   = deque()        
         features_buffer = []
         Tuple = namedtuple("Tuple", "position, A_tuple, C_tuple, G_tuple, T_tuple, all_tuple,\
                            major, minor, ambiguous_reads, insertion, entropy, deletion, chromosomeId")
                    
-        ## read all tumour tuples           
+        ## get tumour tuples           
         for tt in tumour_tuples:
+            if tt is None:
+                continue
             tt = Tuple._make(tt)
+
+            ## ignore tumour tuples with no/few variants compared to reference            
+            refBase = self.bam.get_reference_base(tt.chromosomeId, tt.position, index=True)
+            if tt.all_tuple[0] - tt[refBase + 1][0] < 3:
+                continue
+            
+            ## buffer tumour tuple to campare against normal tuples
             tuples_buffer.append(tt)
-            print tt
 
         ## return if there are no tuples for tumour
         if len(tuples_buffer) == 0:
-            return None
+            return []
         
         tt = tuples_buffer.popleft()
         
-        ## read all normal tuples
+        ## get normal tuples
         for nt in normal_tuples:
+            if nt is None:
+                continue
             nt = Tuple._make(nt)
             
             ## find positions where tuples for both tumour and normal exist
@@ -355,71 +350,77 @@ class BamUtils:
             if tt.position != nt.position:
                 continue
             
-            ## calculate features
-            rt = self.bam.getReferenceTuple(tt.chromosomeId, tt.position)
-            temp_features = self.__extractFeature(tt, rt, nt)
-            features_buffer.append(temp_features)
-            
-            ## generate output string and buffer it
-            outstr = self.__makeOutStr(tt, rt, nt)
-            self.outstr_buffer.append(outstr)
-            
+            ## extract reference tuples            
+            rt = self.bam.get_reference_tuple(tt.chromosomeId, tt.position)
+
+            ## calculate features            
+            temp_features = self.__extract_feature(tt, rt, nt)
+
+            ## check for Inf/NaN values            
+            if not (numpy.isnan(sum(temp_features)) or numpy.isinf(sum(temp_features))):
+                features_buffer.append(temp_features)
+                
+                ## generate output string and buffer it
+                outstr = self.__make_outstr(tt, rt, nt)
+                self.outstr_buffer.append(outstr)
+
             if len(tuples_buffer) == 0:
                 break
-        
-        ## remove potential NaN and/or Inf values 
-        features_buffer = self.__removeNanInf(features_buffer)
         
         ## make a numpy array required as an input to the random forest predictor
         features_buffer = numpy.array(features_buffer)
         
         ## make sure a list is returned         
         if features_buffer is None:
-            features_buffer = 0
+            return []
+        else:
+            return features_buffer
         
-        return features_buffer
-
     def predict(self, features):
-        model = self.__fitModel()
+        model = self.__fit_model()
         probabilities = model.predict_proba(features)
         
-        ## return only probabilities
+        ## return only probabilities of being somatic
         probabilities = [x[1] for x in probabilities] 
         return probabilities
     
-    def printResults(self, out, probabilities=None):
-        if probabilities is not None:
-            for p in probabilities:
-                ## outsrt: [chrom, pos, id, ref, alt, qual, filter, info]
-                self.outstr_buffer.reverse()
-                outstr = self.outstr_buffer.pop()
-                
-                ## outstr.info: [info_TR, info_TA, info_NR, info_NA, tt.insertion, tt.deletion]
-                info_str = "PR=" + "%.2f" % p + ";TR=" + outstr.info[0] + \
-                            ";TA=" + outstr.info[1] + ";NR=" + outstr.info[2] + \
-                            ";NA=" + outstr.info[3] + ",TC=" + outstr.info[4] + \
-                            ";NI=" + outstr.info[5] + ";ND=" + outstr.info[6]
-                
-                ## caculate phred quality
-                try:
-                    phred_quality = -10 * log10(1 - p)
-                except:
-                    phred_quality = 99
-                
-                outstr = map(str, [outstr.chrom, outstr.pos, outstr.id, self.base[outstr.ref], 
-                                   self.base[outstr.alt], "%.2f" % phred_quality, outstr.filter, info_str])
-                
-                print >> out, "\t".join(outstr)
+    def print_results(self, out, probabilities=None):
+        if probabilities is None:
+            #for i in xrange(pos.start, pos.stop):
+            #    print >> out, chrom + "\t" + str(i) + "\t" + "N/A\t" * 6            
+            return
         
-         ## print N/A if there are no candidates
-#        else:
-#            for i in xrange(pos.start, pos.stop):
-#                print >> out, chrom + "\t" + str(i) + "\t" + "N/A\t" * 6 
-
-    def getFeatresNames():
+        for p in probabilities:
+            #self.outstr_buffer.reverse()
+            outstr = self.outstr_buffer.pop()
+            
+            if outstr.filter is None:
+                if p > self.args.threshold:
+                    filter_flag = "PASS"
+                else:
+                    filter_flag = "FAIL"
+            else:
+                filter_flag = outstr.filter
+                
+            info_str = "PR=" + "%.2f" % p + ";TR=" + outstr.info[0] + \
+                        ";TA=" + outstr.info[1] + ";NR=" + outstr.info[2] + \
+                        ";NA=" + outstr.info[3] + ",TC=" + outstr.info[4] + \
+                        ";NI=" + outstr.info[5] + ";ND=" + outstr.info[6]
+            
+            try:
+                phred_quality = -10 * log10(1 - p)
+            except:
+                phred_quality = 99
+            
+            outstr = map(str, [outstr.chrom, outstr.pos, outstr.id, self.base[outstr.ref], 
+                               self.base[outstr.alt], "%.2f" % phred_quality, filter_flag, info_str])
+            
+            print >> out, "\t".join(outstr)
+    
+    def get_features_names():
         pass
      
-    def exportFeatures():
+    def export_features():
 #==============================================================================
 #         if args.export is not None or args.features_only:
 #             print >> sys.stderr, datetime.now().strftime("%H:%M:%S") + " exporting features"
@@ -428,7 +429,7 @@ class BamUtils:
 #==============================================================================
         pass
                 
-    def __printMetaData(self):
+    def __print_meta_data(self):
 #        try:
 #            cfg_file = open(self.args.config, 'r')
 #            tmp_file = ""
@@ -446,3 +447,13 @@ class BamUtils:
 #        except:
 #            warn("Failed to load metadata file")
         pass
+
+#    def __removeNanInf(self, features_buffer):
+#        ind = -1        
+#        for f in features_buffer:
+#            ind += 1
+#            if numpy.isnan(numpy.sum(f)) or numpy.isinf(numpy.sum(f)):
+#                features_buffer.pop(ind)
+#                self.outstr_buffer.pop(ind)
+#                
+#        return features_buffer

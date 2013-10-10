@@ -28,7 +28,7 @@ using namespace boost;
 using namespace BamTools;
 
 
-python::tuple CreatePileupTuple(const PileupPosition& pileupData)
+bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 {
 	int ntData[5][6] = {{0}};
 	int ambiguous = 0;
@@ -47,7 +47,7 @@ python::tuple CreatePileupTuple(const PileupPosition& pileupData)
 		}
 
 		// adjacent insertions and deletions
-		for (std::vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
+		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
 		{
 			if (opIter->Type == 'I')
 			{
@@ -103,6 +103,11 @@ python::tuple CreatePileupTuple(const PileupPosition& pileupData)
 		ntData[4][3] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
+	// ignore positions with zero coverage
+	if (ntData[4][0] == 0 )
+	{
+		return false;
+	}
 	// Identify major base
 	int majorBaseIdx = 0;
 	for (int baseIdx = 0; baseIdx < 4; baseIdx++)
@@ -138,7 +143,7 @@ python::tuple CreatePileupTuple(const PileupPosition& pileupData)
 	// Interface is 1-based, bamtools is 0-based
 	int position = pileupData.Position + 1;
 	
-	return python::make_tuple(position,
+	tpl = python::make_tuple(position,
 							  python::make_tuple(ntData[0][0], ntData[0][1], ntData[0][2], ntData[0][3], ntData[0][4], ntData[0][5]),
 							  python::make_tuple(ntData[1][0], ntData[1][1], ntData[1][2], ntData[1][3], ntData[1][4], ntData[1][5]),
 							  python::make_tuple(ntData[2][0], ntData[2][1], ntData[2][2], ntData[2][3], ntData[2][4], ntData[2][5]),
@@ -152,33 +157,41 @@ python::tuple CreatePileupTuple(const PileupPosition& pileupData)
 							  deletionCount,
 							  pileupData.RefId
 							  );
+	// return success
+	return true;
 }
 
 
 struct PileupQueue : PileupVisitor
 {
-	PileupQueue() : StartRefId(-1), StartPosition(-1) {}
+	// go over the whole genome
+	PileupQueue() : RefId(-1), StartPosition(-1), StopPosition(-1) {}
+
+	//go over a whole chromosome
+	PileupQueue(int refId) : RefId(refId), StartPosition(-1), StopPosition(-1) {}
+
+	// go over a region on a chromosome
+	PileupQueue(int refId, int start, int stop) : RefId(refId), StartPosition(start), StopPosition(stop) {}
 	
 	void Visit(const PileupPosition& pileupData)
 	{
 		// Reset if we ended up on the wrong chromosome
-		if (StartRefId >= 0 && pileupData.RefId != StartRefId)
-		{
-			StartRefId = -1;
-			StartPosition = -1;
-		}
-		
-		// Dont store tuples before the start position
-		if (pileupData.Position < StartPosition)
+		if (pileupData.RefId != -1 && pileupData.RefId != RefId)
 		{
 			return;
 		}
 		
-		Pileups.push(CreatePileupTuple(pileupData));
+		// Dont store tuples out of the region of interest
+		if (pileupData.Position < StartPosition || (pileupData.Position >= StopPosition && StopPosition != -1))
+		{
+			return;
+		}
 		
-		// Reset start refid/position to have no further effect
-		StartRefId = -1;
-		StartPosition = -1;
+		python::tuple tpl;
+		if(CreatePileupTuple(pileupData, tpl))
+		{
+			Pileups.push(tpl);
+		}
 	}
 	
 	void Clear()
@@ -188,14 +201,16 @@ struct PileupQueue : PileupVisitor
 	}
 	
 	std::queue<python::tuple> Pileups;
-	int StartRefId;
+	int RefId;
 	int StartPosition;
+	int StopPosition;
 };
+
 
 class PyPileup
 {
 public:
-	PyPileup() : m_PileupEngine(0), m_PileupQueue(0)
+	PyPileup() : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1)
 	{
 	}
 	
@@ -220,7 +235,19 @@ public:
 		RefNames = python::list();
 		for (RefVector::const_iterator refDataIter = m_BamReader.GetReferenceData().begin(); refDataIter != m_BamReader.GetReferenceData().end(); refDataIter++)
 		{
-			RefNames.append(refDataIter->RefName);
+			// refName
+			const string refName = refDataIter->RefName;
+
+			// refId
+			int refId = m_BamReader.GetReferenceID(refName);
+
+			// keep both refId and its corresponding refName for a chromosome
+			python::list temp_list = python::list();
+			temp_list.append(refId);
+			temp_list.append(refName);
+
+			// creat a list of [refId, reName]
+			RefNames.append(temp_list);
 		}
 		
 		RestartPileupEngine();
@@ -233,7 +260,7 @@ public:
 		RestartPileupEngine();
 	}
 	
-	void JumpRef(const string& refName)
+	void SetChromosome(const string& refName)
 	{
 		int refId = m_BamReader.GetReferenceID(refName);
 		
@@ -242,16 +269,16 @@ public:
 			throw runtime_error("invalid ref name " + refName);
 		}
 
+		RefId = refId;
+		StartPosition = -1;
+		StopPosition  = -1;
 	    m_BamReader.SetRegion(BamRegion(refId, 0, refId+1, 1));
 		
 		RestartPileupEngine();
 	}
 	
-	void JumpRefPosition(const string& refName, int position)
+	void SetRegion(const string& refName, int start, int stop)
 	{
-		// Interface is 1-based, bamtools is 0-based
-		position -= 1;
-		
 		int refId = m_BamReader.GetReferenceID(refName);
 		
 		if (refId < 0)
@@ -259,12 +286,12 @@ public:
 			throw runtime_error("invalid ref name " + refName);
 		}
 		
-		m_BamReader.Jump(refId, position);
+		RefId = refId;
+		StartPosition = start;
+		StopPosition  = stop;
+		m_BamReader.SetRegion(BamRegion(refId, start, refId, stop));
 		
 		RestartPileupEngine();
-		
-		m_PileupQueue->StartRefId = refId;
-		m_PileupQueue->StartPosition = position;
 	}
 	
 	python::object Next()
@@ -274,11 +301,16 @@ public:
 			throw runtime_error("next called before open");
 		}
 		
-		BamAlignment al;
-		while (m_BamReader.GetNextAlignment(al))
+		if (!m_PileupQueue->Pileups.empty())
 		{
-			m_PileupEngine->AddAlignment(al);
-			
+			return PopPileup();
+		}
+
+
+		BamAlignment ba;
+		while (m_BamReader.GetNextAlignment(ba))
+		{
+			m_PileupEngine->AddAlignment(ba);
 			if (!m_PileupQueue->Pileups.empty())
 			{
 				return PopPileup();
@@ -295,7 +327,7 @@ public:
 	}
 	
 	python::list RefNames;
-	
+
 private:
 	void RestartPileupEngine()
 	{
@@ -303,7 +335,8 @@ private:
 		m_PileupEngine = new PileupEngine();
 		
 		delete m_PileupQueue;
-		m_PileupQueue = new PileupQueue();
+
+		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition);
 		
 		m_PileupEngine->AddVisitor(m_PileupQueue);
 	}
@@ -318,9 +351,13 @@ private:
 	}
 
 	BamReader m_BamReader;
+	int RefId;
+	int StartPosition;
+	int StopPosition;
 	
 	PileupEngine* m_PileupEngine;
 	PileupQueue* m_PileupQueue;
+
 };
 
 class PyFasta
@@ -485,16 +522,16 @@ public:
 		return referenceSeq;
 	}
 
-	// get reference nucleotide at chromosomeId:position
+	 // get reference nucleotide at chromosomeId:position
 	char GetReferenceBase(int refId, int position)
 	{
 		// Interface is 1-based, bamtools is 0-based
 		position -= 1;
 		char referenceBase = 'N';
-			if (!m_Fasta.GetBase(refId, position, referenceBase))
-			{
-				throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position));
-			}
+		if (!m_Fasta.GetBase(refId, position, referenceBase))
+		{
+			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position));
+	    }
 
 		return referenceBase;
 	}
@@ -675,17 +712,17 @@ BOOST_PYTHON_MODULE(newpybam)
 		.def_readonly("refnames", &PyPileup::RefNames)
 		.def("open", &PyPileup::Open)
 		.def("rewind", &PyPileup::Rewind)
-		.def("jump", &PyPileup::JumpRef)
-		.def("jump", &PyPileup::JumpRefPosition)
-		.def("next", &PyPileup::Next)
+		.def("set_region", &PyPileup::SetChromosome)
+		.def("set_region", &PyPileup::SetRegion)
+		.def("get_tuple", &PyPileup::Next)
 	;
 	
 	class_<PyFasta>("fasta", init<>())
 		.def("open", &PyFasta::Open)
-		.def("getBase", &PyFasta::GetReferenceBase)
-		.def("get", &PyFasta::GetPosition)
-		.def("getSequence", &PyFasta::GetSequence)
-		.def("getSequenceByBase", &PyFasta::GetSequenceByBase)
+		.def("get_tuple", &PyFasta::GetPosition)
+		.def("get_base", &PyFasta::GetReferenceBase)
+		.def("get_sequence", &PyFasta::GetSequence)
+		.def("get_sequence_base", &PyFasta::GetSequenceByBase)
 	;
 }
 
