@@ -1,3 +1,5 @@
+from __future__ import division
+
 name = "TCGA Benchmark 4 featureset with coverage info"
 version = "5"
 

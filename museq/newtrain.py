@@ -14,13 +14,13 @@ import argparse
 import matplotlib
 matplotlib.use("Agg")
 import newfeatures
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import cross_validation
-from sklearn import tree
-from math import log
-from collections import defaultdict
+#import matplotlib.pyplot as plt
+#from sklearn.ensemble import RandomForestClassifier
+#from sklearn import cross_validation
+#from sklearn import tree
+#from math import log
 #from sklearn.metrics import roc_curve, auc, confusion_matrix
+from collections import defaultdict
 
 mutationSeq_version="4.0.0"
 
