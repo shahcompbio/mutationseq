@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep 18 11:22:08 2013
+
+@author: jtaghiyar
+"""
 import sys
 import bamutils
 import argparse
@@ -5,10 +11,6 @@ import logging
 
 mutationSeq_version="4.0.0"
 
-logging.basicConfig(filename="mutationSeq_run.log", 
-                    format='%(asctime)s %(message)s', 
-                    #datefmt='%m/%d/%Y %I:%M:%S %p', 
-                    level=logging.DEBUG)
 #==============================================================================
 # make a UI 
 #==============================================================================
@@ -88,6 +90,23 @@ args = parser.parse_args()
 #==============================================================================
 # check the input 
 #==============================================================================
+logging.basicConfig(filename="mutationSeq_run.log", 
+                    format='%(asctime)s %(message)s', 
+                    #datefmt='%m/%d/%Y %I:%M:%S %p', 
+                    level=logging.DEBUG)
+                    
+samples = {}
+for s in args.samples:
+    samples[s.split(':')[0]] = s.split(':')[1]
+
+info_str = " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n " + \
+            " mutationSeq_" + mutationSeq_version + " started\n" + \
+            " tumour:"     + samples.get("tumour") + \
+            " normal:"     + samples.get("normal") + \
+            " reference:"  + samples.get("reference") + \
+            " --interval " + args.interval
+logging.info(info_str)
+
 if len(args.samples) < 3:
     logging.error("""bad input, usage: 'classify.py normal:<normal.bam> 
     tumour:<tumour.bam> reference:<ref.fasta> model:<model.npz> [--options]'""")
@@ -100,59 +119,42 @@ if args.out is None:
 else:
     out = open(args.out, 'w')
 
-samples = {}
-for s in args.samples:
-    samples[s.split(':')[0]] = s.split(':')[1]
-
-info_str = " mutationSeq_" + mutationSeq_version + " started\n" + \
-            " tumour:" + samples["tumour"] + \
-            " normal:" + samples["normal"] + \
-            " reference:" + samples["reference"] + \
-            " --interval " + args.interval
-logging.info(info_str)
 #==============================================================================
 # beginning of the main body
 #==============================================================================
-bam = bamutils.Bam(tumour=samples["tumour"], normal=samples["normal"], reference=samples["reference"])
+bam = bamutils.Bam(tumour=samples.get("tumour"), normal=samples.get("normal"), reference=samples.get("reference"))
 bam_helper = bamutils.BamUtils(bam, args)
 
-## get target positions "chromosome:start-stop"
 logging.info("getting positions ...")
 target_positions = bam_helper.get_positions()
 
-## get an iterator over tuples of the target positions of tumour/normal bam files
 logging.info("getting tuples ...")
 tumour_tuples = bam.get_tumour_tuples(target_positions)
 normal_tuples = bam.get_normal_tuples(target_positions)
 
-## calculate features for the candidate positions
-try:
-    logging.info("extracting features ...")
-    features = bam_helper.get_features(tumour_tuples, normal_tuples)
+logging.info("getting features ...")
+features = bam_helper.get_features(tumour_tuples, normal_tuples)
 
-except KeyboardInterrupt:
-    logging.info("pressed ctrl+c ...\n")
-    sys.exit(1)
-
-## predict the probabilities
+if args.export is not None:
+    logging.info("exporting features ...")
+    with open(args.export, 'w') as ff:
+        for i in features:
+            print >> ff, i
+    
 logging.info("fitting model and predict probabilities ...")
-
 if len(features) != 0:
     probabilities = bam_helper.predict(features)
 else:
     probabilities = None
         
-## print the output string to out
 info_str = "printting results to:" + str(args.out) 
 logging.info(info_str)
-
 bam_helper.print_results(out, probabilities)
 
 #==============================================================================
-# end of the main body
+# household cleaning
 #==============================================================================
 try:
-    #expfile.close()
     out.close()
 except:
     pass
