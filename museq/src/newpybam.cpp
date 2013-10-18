@@ -86,9 +86,9 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 		ntData[baseIdx][0]++;
 		ntData[4][0]++;
 		
-		// quality
-		ntData[baseIdx][1] += ba.Qualities.at(pa.PositionInAlignment);
-		ntData[4][1] += ba.Qualities.at(pa.PositionInAlignment);
+		// quality, phred quality is scaled by 33
+		ntData[baseIdx][1] += ba.Qualities.at(pa.PositionInAlignment) - 33;
+		ntData[4][1] += ba.Qualities.at(pa.PositionInAlignment) - 33;
 		
 		// mapping quality
 		ntData[baseIdx][2] += ba.MapQuality;
@@ -99,8 +99,8 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 		ntData[4][3] += (ba.IsReverseStrand()) ? ba.Length - pa.PositionInAlignment - 1 : pa.PositionInAlignment;
 		
 		// direction
-		ntData[baseIdx][3] += (ba.IsReverseStrand()) ? 1 : 0;
-		ntData[4][3] += (ba.IsReverseStrand()) ? 1 : 0;
+		ntData[baseIdx][4] += (ba.IsReverseStrand()) ? 1 : 0;
+		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
 	// ignore positions with zero coverage
@@ -243,10 +243,10 @@ public:
 
 			// keep both refId and its corresponding refName for a chromosome
 			python::list temp_list = python::list();
-			temp_list.append(refId);
 			temp_list.append(refName);
+			temp_list.append(refId);
 
-			// creat a list of [refId, reName]
+			// creat a list of [refName, refId]
 			RefNames.append(temp_list);
 		}
 		
@@ -272,8 +272,11 @@ public:
 		RefId = refId;
 		StartPosition = -1;
 		StopPosition  = -1;
-	    m_BamReader.SetRegion(BamRegion(refId, 0, refId+1, 1));
 		
+		// set the region to a whole chromosome
+	    if(!m_BamReader.SetRegion(BamRegion(refId, 0, refId+1, 1)))
+	    	throw runtime_error("failed to set the region to chromosome " + refId);
+
 		RestartPileupEngine();
 	}
 	
@@ -287,10 +290,17 @@ public:
 		}
 		
 		RefId = refId;
-		StartPosition = start;
+
+		// Interface is 1-based, bamtools is 0-based
+		StartPosition = start - 1;
+
+		// BamRegion is half_open interval, no need for 1 to 0 based conversion
 		StopPosition  = stop;
-		m_BamReader.SetRegion(BamRegion(refId, start, refId, stop));
 		
+		//set the region to the chromosome:start-stop
+		if (!m_BamReader.SetRegion(BamRegion(refId, start, refId, stop)))
+			throw runtime_error("failed to set the region to chromosome " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(start) + "-" + lexical_cast<string>(stop));
+
 		RestartPileupEngine();
 	}
 	
@@ -308,7 +318,7 @@ public:
 
 
 		BamAlignment ba;
-		while (m_BamReader.GetNextAlignment(ba))
+		while (m_BamReader.GetNextAlignment(ba)) //&& (ba.RefID == RefId || RefId == -1)
 		{
 			m_PileupEngine->AddAlignment(ba);
 			if (!m_PileupQueue->Pileups.empty())
