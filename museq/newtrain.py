@@ -11,16 +11,16 @@ import features
 import Nfeatures
 import sys
 import argparse
-#import pylab
 import matplotlib
 matplotlib.use("Agg")
+import newfeatures
 import matplotlib.pyplot as plt
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation
-#from sklearn.metrics import roc_curve, auc, confusion_matrix
 from sklearn import tree
 from math import log
+from collections import defaultdict
+#from sklearn.metrics import roc_curve, auc, confusion_matrix
 
 mutationSeq_version="4.0.0"
 
@@ -62,24 +62,22 @@ args = parser.parse_args()
 #==============================================================================
 # helper functions
 #==============================================================================
-def extract_data(infiles):
-    data={}	
+def extract_labels(infiles):
+    data=defaultdict(list)
+    
     for case in infiles:
-        #print >> sys.stderr, case
-        rfile = None
-        nfile = None
         tfile = None
+        nfile = None
+        rfile = None
+        contamination = (float(30), float(30), float(70), float(0))
 
-        ## contamination
-        c = (float(30), float(30), float(70), float(0))
-
-        f = case
-        for line in f:
+        for line in case:
             l = line.strip().split()
             if len(l) < 3:
                 continue
 
-            if line[0] == '#':
+            ## parse the line
+            if l[0] == "#":
                 if l[1] == "tumour":
                     tfile = l[2]
                 elif l[1] == "normal":
@@ -87,89 +85,60 @@ def extract_data(infiles):
                 elif l[1] == "reference":
                     rfile = l[2]
                 elif l[1] == "contamination":
-                    c = (float(l[2]), float(l[3]), float(l[4]), float(1))
+                    contamination = (float(l[2]), float(l[3]), float(l[4]), float(1))
                 continue
-       
-            if not rfile:
+            
+            ## ignore cases where no reference is given
+            if not all([tfile, nfile, rfile]):
                 continue
         
-            if rfile not in data:
-                data[rfile] = {}
-                
             chromosome = l[0]
-            position = l[1]
-            
-            if chromosome not in data[rfile]:
-                data[rfile][chromosome] = {}
-                
-            if (nfile, tfile) not in data[rfile][chromosome]:
-                data[rfile][chromosome][(nfile, tfile)] = []
-
+            position   = int(l[1])
+           
             if l[2] == args.label:
                 label = 1
             else:
                 label = -1
-
-            data[rfile][chromosome][(nfile, tfile)].append((int(position), label, c))
-            
+                
+            data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination))
+    
     return data
- 
-def xentropy(tumour_counts, normal_counts):
-        total_tc = tumour_counts[4]
-        total_nc = normal_counts[4]
-        ent = 0 # entropy
-        
-        for i in xrange(4):
-            base_probability_tumour = tumour_counts[i] / total_tc
-            base_probability_normal = normal_counts[i] / total_nc            
-            if base_probability_tumour != 0:
-                if base_probability_normal == 0:
-                    ent -= -7 * base_probability_tumour
-                else:
-                    ent -= log(base_probability_normal) * base_probability_tumour
-        return ent
-           
+    
 def extract_features(data):	
     features_buffer = []
-    labels_buffer = []
-    keys_buffer = []
+    labels_buffer   = []
+#    keys_buffer    = []
 
-    for rfile in data.keys():
-        for chromosome in data[rfile].keys():
-            for nfile, tfile in data[rfile][chromosome].keys():
-                print tfile
-                print nfile
-                bam = bamutils.Bam(tumour=tfile, normal=nfile, reference=rfile)
-                for (position, label, c) in data[rfile][chromosome][(nfile, tfile)]:
-                    temp_features = []
-                    
-                    chromosome_id = bam.get_tumour_chromosome_id(chromosome)
-                    rt = bam.get_reference_tuple(chromosome_id, position)
-                    tt = bam.get_normal_tuple(chromosome, position)
-                    nt = bam.get_tumour_tuple(chromosome, position)
-                    
-                    if tt is None or nt is None or rt is None:
-                        print "None tuple"
-                        continue
-                    
-                    for _, feature_func in feature_set:
-                        temp_features.append(feature_func(tt, nt, rt))
-                    for _, feature in coverage_features:
-                        temp_features.append(feature(tt, nt, c))
-                    t_counts = (tt[1][0], tt[2][0], tt[3][0], tt[4][0], tt[5][0])
-                    n_counts = (nt[1][0], nt[2][0], nt[3][0], nt[4][0], nt[5][0])
-                    temp_features.append(xentropy(n_counts, t_counts))
-                    features_buffer.append(temp_features)
-                    labels_buffer.append(label)
-                    keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
-                    
-    keys_buffer=numpy.array(keys_buffer)
+    for tfile, nfile, rfile in data.keys():
+        print "tumour:", tfile
+        print "normal:", nfile
+        bam = bamutils.Bam(tumour=tfile, normal=nfile, reference=rfile)
+        
+        for chromosome, position, label, c in data[(tfile, nfile, rfile)]:
+            chromosome_id = bam.get_tumour_chromosome_id(chromosome)
+            tt = bam.get_tumour_tuple(chromosome, position)
+            nt = bam.get_normal_tuple(chromosome, position)            
+            rt = bam.get_reference_tuple(chromosome_id, position)            
+            
+            if not all([tt, nt, rt]):
+                print "None tuple"
+                continue
+            
+            ## calculate features            
+            feature_set = newfeatures.Features(tt, nt, rt)
+            temp_features = feature_set.get_features()   
+            
+            features_buffer.append(temp_features)
+            labels_buffer.append(label)
+#            keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
+            
     features_buffer = numpy.array(features_buffer)
-    labels_buffer = numpy.array(labels_buffer)
-    return features_buffer, labels_buffer, keys_buffer
+    labels_buffer   = numpy.array(labels_buffer)
+#    keys_buffer     = numpy.array(keys_buffer)
+    return features_buffer, labels_buffer
 		                
 #==============================================================================
-# parse input arguments                  
+# beginnig of the main body
 #==============================================================================
 if not args.normalized:
     feature_set = features.feature_set
@@ -189,19 +158,31 @@ else:
     if args.C:
         c = (float(10000), float(10000), float(70), float(0))
         
-#==============================================================================
-# beginnig of the main body
-#==============================================================================
-data=extract_data(args.infiles)
-feature, labels, keys = extract_features(data)
-numpy.savez(args.out, version, feature, labels)
-
-model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
-model.fit(feature, labels)
+data=extract_labels(args.infiles)
+features, labels = extract_features(data)
+numpy.savez(args.out, version, features, labels)
+        
+#model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
+#model.fit(features, labels)
 
 ##==============================================================================
 ## extra stuff
 ##==============================================================================
+#def xentropy(tumour_counts, normal_counts):
+#        total_tc = tumour_counts[4]
+#        total_nc = normal_counts[4]
+#        ent = 0 # entropy
+#        
+#        for i in xrange(4):
+#            base_probability_tumour = tumour_counts[i] / total_tc
+#            base_probability_normal = normal_counts[i] / total_nc            
+#            if base_probability_tumour != 0:
+#                if base_probability_normal == 0:
+#                    ent -= -7 * base_probability_tumour
+#                else:
+#                    ent -= log(base_probability_normal) * base_probability_tumour
+#        return ent
+
 #print "saving the model with pickle ..."
 #saveObject(model, "model2.npz")
 #print "saving done!"
