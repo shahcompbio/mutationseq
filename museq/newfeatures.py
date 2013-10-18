@@ -4,8 +4,10 @@ Created on Wed Oct 16 11:31:56 2013
 
 @author: jtaghiyar
 """
+from __future__ import division
 import numpy
 from math import log
+
 
 class Features:
     def __init__(self, tumour_tuple, normal_tuple, reference_tuple, purity=70):
@@ -14,38 +16,40 @@ class Features:
         self.tt = tumour_tuple
         self.nt = normal_tuple
         self.rt = reference_tuple
+        self.b  = self.rt[0] + 1 #reference base index + 1 = index of the same base in the tumour/normal bam tuple 
         self.cd = (float(30), float(30), int(purity), float(0))
+        self.ep = 1e-5 # to avoid division by zero
         
         self.feature_set = (
         ("tumour_indels", self.tt[9] / self.tt[5][0]),
         ("normal_indels", self.nt[9] / self.nt[5][0]),
         
-        ("tumour_ref_depth", self.tt[self.rt[0] + 1][0] / self.tt[5][0]),
-        ("normal_ref_depth", self.nt[self.rt[0] + 1][0] / self.nt[5][0]),
+        ("tumour_ref_depth", self.tt[self.b][0] / self.tt[5][0]),
+        ("normal_ref_depth", self.nt[self.b][0] / self.nt[5][0]),
         ("normal_mapq_ratio", self.nt[5][2] / self.nt[5][0]),
         ("tumour_mapq_ratio", self.tt[5][2] / self.tt[5][0]),
-        ("normal_ref_quality", self.nt[self.rt[0] + 1][1] / self.nt[5][0]),
-        ("tumour_ref_quality", self.tt[self.rt[0] + 1][1] / self.tt[5][0]),
+        ("normal_ref_quality", self.nt[self.b][1] / self.nt[5][0]),
+        ("tumour_ref_quality", self.tt[self.b][1] / self.tt[5][0]),
         ("normal_quality_ratio", self.nt[5][1] / self.nt[5][0]),
         ("tumour_quality_ratio", self.tt[5][1] / self.tt[5][0]),
         
-        ("normal_tumour_quality", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + 0.00001)),
+        ("normal_tumour_quality", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
         
-        ("normal_tumour_mapq", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_ref_depth", ((self.tt[self.rt[0] + 1][1] / self.tt[5][0]) + 0.00001) / ((self.nt[self.rt[0] + 1][1] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_direction", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_ref_direction", (self.tt[self.rt[0] + 1][4] / (self.tt[self.rt[0] + 1][0] + 0.00001)) / ((self.nt[self.rt[0] + 1][4] / (self.nt[self.rt[0] + 1][0] + 0.00001)) + 0.00001)),
+        ("normal_tumour_mapq", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_ref_depth", ((self.tt[self.b][1] / self.tt[5][0]) + self.ep) / ((self.nt[self.b][1] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_direction", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_ref_direction", (self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)) / ((self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)) + self.ep)),
         ("normal_distance_ratio", self.nt[5][3] / self.nt[5][0]),
         ("tumour_distance_ratio", self.tt[5][3] / self.tt[5][0]),
         
         ("normal_direction_ratio", self.nt[5][4] / self.nt[5][0]),
         ("tumour_direction_ratio", self.tt[5][4] / self.tt[5][0]),
         
-        ("normal_ref_direction_total", self.nt[self.rt[0] + 1][4] / self.nt[5][0]),
-        ("tumour_ref_direction_total", self.tt[self.rt[0] + 1][4] / self.tt[5][0]),
+        ("normal_ref_direction_total", self.nt[self.b][4] / self.nt[5][0]),
+        ("tumour_ref_direction_total", self.tt[self.b][4] / self.tt[5][0]),
         
-        ("normal_ref_direction", self.nt[self.rt[0] + 1][4] / (self.nt[self.rt[0] + 1][0] + 0.00001)),
-        ("tumour_ref_direction", self.tt[self.rt[0] + 1][4] / (self.tt[self.rt[0] + 1][0] + 0.00001)),
+        ("normal_ref_direction", self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)),
+        ("tumour_ref_direction", self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)),
         
         
         ("region_entropy", self.rt[4]),
@@ -53,26 +57,26 @@ class Features:
         ("homopolymer_f", self.rt[1]),
         ("homopolymer_b", self.rt[2]),
         
-        ("tumour_variant_quality_ratio", ((self.tt[5][1] - self.tt[self.rt[0] + 1][1]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001))),
-        ("normal_variant_quality_ratio", ((self.nt[5][1] - self.nt[self.rt[0] + 1][1]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001))),
-        ("tumour_variant_quality", (self.tt[5][1] - self.tt[self.rt[0] + 1][1])),
-        ("normal_variant_quality", (self.nt[5][1] - self.nt[self.rt[0] + 1][1])),
+        ("tumour_variant_quality_ratio", ((self.tt[5][1] - self.tt[self.b][1]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep))),
+        ("normal_variant_quality_ratio", ((self.nt[5][1] - self.nt[self.b][1]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep))),
+        ("tumour_variant_quality", (self.tt[5][1] - self.tt[self.b][1])),
+        ("normal_variant_quality", (self.nt[5][1] - self.nt[self.b][1])),
         
         
         #("normal_direction", self.nt[5][4]),
         #("tumour_direction", self.tt[5][4]),
         
-        ("normal_variant_direction_ratio", (self.nt[5][4] - self.nt[self.rt[0] + 1][4]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001)),
-        ("tumour_variant_direction_ratio", (self.tt[5][4] - self.tt[self.rt[0] + 1][4]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)),
+        ("normal_variant_direction_ratio", (self.nt[5][4] - self.nt[self.b][4]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep)),
+        ("tumour_variant_direction_ratio", (self.tt[5][4] - self.tt[self.b][4]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)),
         
         #("normal_variant_direction", self.nt[5][4] - self.nt[self.rt[0] + 1][4]),
         #("tumour_variant_direction", self.tt[5][4] - self.tt[self.rt[0] + 1][4]),
         
-        #("normal_tumour_variant_ratio", (self.tt[5][4] - self.tt[self.rt[0] + 1][4]) / (self.nt[5][4] - self.nt[self.rt[0] + 1][4] + 0.00001)),
+        #("normal_tumour_variant_ratio", (self.tt[5][4] - self.tt[self.rt[0] + 1][4]) / (self.nt[5][4] - self.nt[self.rt[0] + 1][4] + self.ep)),
         
-        #("normal_tumour_variant_quality", (self.tt[5][1] - self.tt[self.rt[0] + 1][1]) / (self.nt[5][1] - self.nt[self.rt[0] + 1][1] + 0.00001)),
+        #("normal_tumour_variant_quality", (self.tt[5][1] - self.tt[self.rt[0] + 1][1]) / (self.nt[5][1] - self.nt[self.rt[0] + 1][1] + self.ep)),
         
-        #("normal_tumour_variant_distance", (self.tt[5][3] - self.tt[self.rt[0] + 1][3]) / (self.nt[5][3] - self.nt[self.rt[0] + 1][3] + 0.00001)),
+        #("normal_tumour_variant_distance", (self.tt[5][3] - self.tt[self.rt[0] + 1][3]) / (self.nt[5][3] - self.nt[self.rt[0] + 1][3] + self.ep)),
         
         #("normal_quality", self.nt[5][1]),
         #("tumour_quality", self.tt[5][1]),
@@ -81,9 +85,9 @@ class Features:
         ("tumour_tail_distance", self.tt[5][3] / self.tt[5][0]),
         
         
-        #("normal_tumour_variant_mapq", (self.tt[5][2] - self.tt[self.rt[0] + 1][2]) / (self.nt[5][2] - self.nt[self.rt[0] + 1][2] + 0.00001)),
-        ("normal_variant_distance", (self.nt[5][3] - self.nt[self.rt[0] + 1][3]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001)),
-        ("tumour_variant_distance", (self.tt[5][3] - self.tt[self.rt[0] + 1][3]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)),
+        #("normal_tumour_variant_mapq", (self.tt[5][2] - self.tt[self.rt[0] + 1][2]) / (self.nt[5][2] - self.nt[self.rt[0] + 1][2] + self.ep)),
+        ("normal_variant_distance", (self.nt[5][3] - self.nt[self.b][3]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep)),
+        ("tumour_variant_distance", (self.tt[5][3] - self.tt[self.b][3]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)),
         
         #("normal_minor_allele", (self.rt[0] != self.tt[7] and self.nt[self.tt[6] + 1][0] > 0) or (self.rt[0] != self.tt[6] and self.nt[self.tt[7] + 1][0] > 0)),
         
@@ -94,32 +98,32 @@ class Features:
         ("normal_depth", self.nt[5][0]),
         ("tumour_depth", self.tt[5][0]),
         
-        #("normal_variant_depth", (self.nt[5][0] - self.nt[self.rt[0] + 1][0])),
-        #("tumour_variant_depth", (self.tt[5][0] - self.tt[self.rt[0] + 1][0])),
-        ("normal_variant_depth_ratio", ((self.nt[5][0] - self.nt[self.rt[0] + 1][0]) / self.nt[5][0])),
-        ("tumour_variant_depth_ratio", ((self.tt[5][0] - self.tt[self.rt[0] + 1][0]) / self.tt[5][0])),
+        #("normal_variant_depth", (self.nt[5][0] - self.nt[self.b][0])),
+        #("tumour_variant_depth", (self.tt[5][0] - self.tt[self.b][0])),
+        ("normal_variant_depth_ratio", ((self.nt[5][0] - self.nt[self.b][0]) / self.nt[5][0])),
+        ("tumour_variant_depth_ratio", ((self.tt[5][0] - self.tt[self.b][0]) / self.tt[5][0])),
         
         ("normal_tumour_depth", (self.tt[5][0] / self.nt[5][0])),
-        #("normal_tumour_variant_depth", (self.tt[5][0] - self.tt[self.rt[0] + 1][0]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001)),
-        ("normal_tumour_variant_depth_ratio", ((self.tt[5][0] - self.tt[self.rt[0] + 1][0]) / self.tt[5][0]) / (((self.nt[5][0] - self.nt[self.rt[0] + 1][0]) / self.nt[5][0]) + 0.00001)),
+        #("normal_tumour_variant_depth", (self.tt[5][0] - self.tt[self.rt[0] + 1][0]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + self.ep)),
+        ("normal_tumour_variant_depth_ratio", ((self.tt[5][0] - self.tt[self.b][0]) / self.tt[5][0]) / (((self.nt[5][0] - self.nt[self.b][0]) / self.nt[5][0]) + self.ep)),
         
         ("tumour_entropy", self.tt[10]),
         ("normal_entropy", self.nt[10]),
-        ("normal_tumour_entropy", self.nt[10] / (self.tt[10] + 0.00000001)),
+        ("normal_tumour_entropy", self.nt[10] / (self.tt[10] + 1e-8)),
         
-        ("normal_variant_mapq_mean", (self.nt[5][2] - self.nt[self.rt[0] + 1][2]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001)),
-        ("tumour_variant_mapq_mean", (self.tt[5][2] - self.tt[self.rt[0] + 1][2]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)),
+        ("normal_variant_mapq_mean", (self.nt[5][2] - self.nt[self.b][2]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep)),
+        ("tumour_variant_mapq_mean", (self.tt[5][2] - self.tt[self.b][2]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)),
         
-        ("normal_tumour_variant_direction_ratio", ((self.tt[5][4] - self.tt[self.rt[0] + 1][4]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)) / ((self.nt[5][4] - self.nt[self.rt[0] + 1][4]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001) + 0.00001)),
-        ("normal_tumour_variant_mapq_ratio", ((self.tt[5][2] - self.tt[self.rt[0] + 1][2]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)) / ((self.nt[5][2] - self.nt[self.rt[0] + 1][2]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001) + 0.00001)),
-        ("normal_tumour_variant_quality_ratio", ((self.tt[5][1] - self.tt[self.rt[0] + 1][1]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)) / ((self.nt[5][1] - self.nt[self.rt[0] + 1][1]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001) + 0.00001)),
-        ("normal_tumour_variant_distance_ratio", ((self.tt[5][3] - self.tt[self.rt[0] + 1][3]) / (self.tt[5][0] - self.tt[self.rt[0] + 1][0] + 0.00001)) / ((self.nt[5][3] - self.nt[self.rt[0] + 1][3]) / (self.nt[5][0] - self.nt[self.rt[0] + 1][0] + 0.00001) + 0.00001)),
+        ("normal_tumour_variant_direction_ratio", ((self.tt[5][4] - self.tt[self.b][4]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)) / ((self.nt[5][4] - self.nt[self.b][4]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep) + self.ep)),
+        ("normal_tumour_variant_mapq_ratio", ((self.tt[5][2] - self.tt[self.b][2]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)) / ((self.nt[5][2] - self.nt[self.b][2]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep) + self.ep)),
+        ("normal_tumour_variant_quality_ratio", ((self.tt[5][1] - self.tt[self.b][1]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)) / ((self.nt[5][1] - self.nt[self.b][1]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep) + self.ep)),
+        ("normal_tumour_variant_distance_ratio", ((self.tt[5][3] - self.tt[self.b][3]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)) / ((self.nt[5][3] - self.nt[self.b][3]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep) + self.ep)),
         
         
-        ("normal_tumour_direction_ratio", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_mapq_ratio", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_distance_ratio", (self.tt[5][3] / self.tt[5][0]) / ((self.nt[5][3] / self.nt[5][0]) + 0.00001)),
-        ("normal_tumour_quality_ratio", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + 0.00001)),
+        ("normal_tumour_direction_ratio", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_mapq_ratio", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_distance_ratio", (self.tt[5][3] / self.tt[5][0]) / ((self.nt[5][3] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_quality_ratio", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
         
         
         #==============================================================================
@@ -140,24 +144,27 @@ class Features:
     
     def __isvalid(self, x):
         if numpy.isnan(x) or numpy.isinf(x):
+            
+            ##TODO: remove this line
+            print "NaN"
             return False
         return True
     
     def __xentropy(self):
-        tumour_counts = (self.tt[1][0], self.tt[2][0], self.tt[3][0], self.tt[4][0], self.tt[5][0])
-        normal_counts = (self.nt[1][0], self.nt[2][0], self.nt[3][0], self.nt[4][0], self.nt[5][0])
-        total_tc = tumour_counts[4]
-        total_nc = normal_counts[4]
+        tumour_base_qualities = (self.tt[1][1], self.tt[2][1], self.tt[3][1], self.tt[4][1], self.tt[5][1])
+        normal_base_qualities = (self.nt[1][1], self.nt[2][1], self.nt[3][1], self.nt[4][1], self.nt[5][1])
+        total_tbq = tumour_base_qualities[4]
+        total_nbq = normal_base_qualities[4]
         ent = 0 # entropy
         
         for i in xrange(4):
-            base_probability_tumour = tumour_counts[i] / total_tc
-            base_probability_normal = normal_counts[i] / total_nc            
-            if base_probability_tumour != 0:
-                if base_probability_normal == 0:
-                    ent -= -7 * base_probability_tumour
+            tumour_base_probability = tumour_base_qualities[i] / total_tbq
+            normal_base_probability = normal_base_qualities[i] / total_nbq            
+            if tumour_base_probability != 0:
+                if normal_base_probability == 0:
+                    ent -= -7 * tumour_base_probability
                 else:
-                    ent -= log(base_probability_normal) * base_probability_tumour
+                    ent -= log(normal_base_probability) * tumour_base_probability
         return ent
     
     def get_features(self):
