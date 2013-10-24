@@ -4,9 +4,11 @@ Created on Wed Sep 18 11:22:08 2013
 
 @author: jtaghiyar
 """
+##TODO: needs a logger
+
 import sys
 import numpy
-import newfeatures
+import newfeatures, newfeatures_single, newfeatures_deep
 from math import log10
 from collections import deque
 from collections import namedtuple
@@ -23,30 +25,42 @@ class BamHelper:
         for s in args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
         
+        ## check the input
+        if not self.samples.get("reference"):
+            print "bad input: reference must be specified"
+            sys.exit(1)
+        
+        if not self.samples.get("normal") and not self.samples.get("tumour"):   
+            print "bad input: no bam files specified"
+            sys.exit(1) 
+            
         ## check if it is single sample analysis as well as type of the sample
-        Flags = namedtuple("Flags", "single, type")        
-        if "normal" not in self.samples:
+        if not self.samples.get("normal"):
             single_flag = True
             single_type = "t"
-        elif "tumour" not in self.samples:
+            
+        elif not self.samples.get("tumour"):
             single_flag = True
             single_type = "n"
+            
         else:
             single_flag = False
             single_type = None
-         
+            
         ## set the right feature set
-        if args.single:
-#            self.features = newfeatures_single
-            pass
+        if single_flag:
+            self.features = newfeatures_single
+
         elif args.deep:
-#            self.features = newfeatures_deep
-            pass
+            self.features = newfeatures_deep
+        
         else:
             self.features = newfeatures
             
+#        self.features = newfeatures
+        Flags = namedtuple("Flags", "deep, single, type")         
+        self.flags = Flags._make([args.deep, single_flag, single_type])
         self.outstr_buffer = []        
-        self.flags = Flags._make([single_flag, single_type])
         self.base = ['A', 'C', 'G', 'T', 'N']
         self.bam  = bam
         self.args = args
@@ -73,11 +87,11 @@ class BamHelper:
     def get_positions(self):
         target_positions = []
         
-        if self.args.interval is not None:
+        if self.args.interval:
             temp_tp = self.__parse_positions(self.args.interval)
             target_positions.append(temp_tp) 
         
-        elif self.args.positions_file is not None:
+        elif self.args.positions_file:
             try:
                 positions_file = open(self.args.positions_file, 'r')
                 for l in positions_file.readlines():
@@ -86,7 +100,7 @@ class BamHelper:
                 positions_file.close()
             
             except:
-                print >> sys.stderr, "\tFailed to load the positions file from " + self.args.positions_file
+                print "Failed to load the positions file from " + self.args.positions_file
                 sys.exit(1)
 
         else:
@@ -188,7 +202,7 @@ class BamHelper:
 
             ## calculate features      
             feature_set = self.features.Features(tt, nt, rt)
-            tf = feature_set.get()
+            tf = feature_set.get_features()
             features_buffer.append(tf)
             
             ## generate output string and buffer it
@@ -215,8 +229,8 @@ class BamHelper:
         try:
             npz = numpy.load(self.samples["model"])
         except:
-            print >> sys.stderr, "\tFailed to load model"
-            print >> sys.stderr, sys.exc_info()[0]
+            print "Failed to load model"
+            print sys.exc_info()[0]
             sys.exit(1)
 
         train  = npz["arr_1"]
@@ -234,9 +248,9 @@ class BamHelper:
         return probabilities
     
     def __meta_data(self):
+        tumour = self.samples.get("tumour")
+        normal = self.samples.get("normal")        
         reference = self.samples.get("reference")
-        tumour   = self.samples.get("tumour")
-        normal   = self.samples.get("normal")
         
         if tumour is None:
             tumour = "N/A"
@@ -259,10 +273,16 @@ class BamHelper:
             cfg_file.close()
             return header
         except:
-            #print "Failed to load metadata file"
+            print "Failed to load metadata file"
             return
             
-    def print_results(self, out, probabilities):
+    def print_results(self, probabilities):
+        if self.args.out is None:
+            print "--out is not specified, standard output is used to write the results"
+            out = sys.stdout
+        else:
+            out = open(self.args.out, 'w')
+            
         header = self.__meta_data() 
         if header is not None:
             print >> out, header.strip()
