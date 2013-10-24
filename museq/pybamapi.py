@@ -75,7 +75,10 @@ class BamApi:
         b = self.fasta.get_base(chromosome_id, int(position))
         
         if index:
-            return self.base[b]
+            b = self.base.get(b)
+            if b is None:
+                b = 4
+
         return b
         
     def get_reference_sequence(self, chromosome_id, position, windowLength=500):
