@@ -152,22 +152,18 @@ class BamApi:
             while True:
                 tt = self.t_pileup.get_tuple() 
                 nt = self.n_pileup.get_tuple() 
-                
+            
+                ## check for none tuples
                 if not all((tt, nt)):
                     break
-                ## check if the position is the same for both tumour/normal 
-                if tt[0] < nt[0]:
-                    while tt[0] < nt[0]:
-                        tt = self.n_pileup.get_tuple()
-                    if tt[0] == nt[0]:
-                        yiled (tt, nt)
-                        
-                elif nt[0] < tt[0]:
-                    while nt[0] < tt[0]:
-                        nt = normal_tuples.next()
-                    if nt[0] == tt[0]:
-                        pass
                 
+                ## check if the position is the same for both tumour/normal 
+                while tt[0] != nt[0]:
+                    if tt[0] < nt[0]:
+                        tt = self.t_pileup.get_tuple()
+                    else:
+                        nt = self.n_pileup.get_tuple()
+                            
                 yield (tt, nt)
         
         
