@@ -10,7 +10,7 @@ import sys
 import numpy
 import newfeatures, newfeatures_single, newfeatures_deep
 from math import log10
-from collections import deque
+#from collections import deque
 from collections import namedtuple
 from sklearn.ensemble import RandomForestClassifier
 from string import Template
@@ -225,34 +225,35 @@ class BamHelper:
 #        else:
 #            return features_buffer
         
-    def get_features(self, tumour_tuples, normal_tuples):
+    def get_features(self, tuples):
         features_buffer = []
         candidate_flag  = False
         
-        for tt, nt in zip(tumour_tuples, normal_tuples):
+        for tt, nt in tuples:
             ##TODO: check some conditions to filter some tuples
-            
             for i in ('0', '1', '2', '3'):
-                    if tt[i+1][0]/tt[5][0] - nt[i+1][0]/nt[5][0] < 0.05:
+                    if tt[i+1][0]/tt[5][0] - nt[i+1][0]/nt[5][0] > 0.05:
                         candidate_flag = True
 
-            if candidate_flag:
-                chromosome_id = tt[-1]
-                position = tt[0]
-                rt = self.bam.get_reference_tuple(chromosome_id, position)
-                
-                ##TODO: maybe again check for some conditions to filter more positions
-                if False:
-                    continue
+            if not candidate_flag:
+                continue
             
-                ## calculate features      
-                feature_set = self.features.Features(tt, nt, rt)
-                tf = feature_set.get_features()
-                features_buffer.append(tf)
+            chromosome_id = tt[-1]
+            position = tt[0]
+            rt = self.bam.get_reference_tuple(chromosome_id, position)
             
-                ## generate output string and buffer it
-                outstr = self.__make_outstr(tt, rt, nt)
-                self.outstr_buffer.append(outstr)
+            ##TODO: maybe again check for some conditions to filter more positions
+            if False:
+                continue
+        
+            ## calculate features      
+            feature_set = self.features.Features(tt, nt, rt)
+            tf = feature_set.get_features()
+            features_buffer.append(tf)
+        
+            ## generate output string and buffer it
+            outstr = self.__make_outstr(tt, rt, nt)
+            self.outstr_buffer.append(outstr)
             
         ## make a numpy array required as an input to the random forest predictor
         features_buffer = numpy.array(features_buffer)
