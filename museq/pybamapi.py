@@ -161,10 +161,14 @@ class BamApi:
                 while tt[0] != nt[0]:
                     if tt[0] < nt[0]:
                         tt = self.t_pileup.get_tuple()
+                        if tt is None:
+                            break
                     else:
                         nt = self.n_pileup.get_tuple()
-                            
-                yield (tt, nt)
+                        if nt is None:
+                            break
+                if all((tt, nt)):
+                    yield (tt, nt)
         
         
         
