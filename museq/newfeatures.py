@@ -141,7 +141,8 @@ class Features:
         ("tumour_contamination", self.cd[2] / 100),
         ("whole_genome", self.cd[3])
         )
-    
+
+    ##TODO: eventually this function should be removed    
     def __isvalid(self, x):
         if numpy.isnan(x) or numpy.isinf(x):
             

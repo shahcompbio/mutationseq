@@ -108,6 +108,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 	{
 		return false;
 	}
+
 	// Identify major base
 	int majorBaseIdx = 0;
 	for (int baseIdx = 0; baseIdx < 4; baseIdx++)

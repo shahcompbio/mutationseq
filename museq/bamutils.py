@@ -151,80 +151,118 @@ class BamHelper:
         
         return outstr  
     
+#    def get_features(self, tumour_tuples, normal_tuples):
+#        tuples_buffer   = deque()        
+#        features_buffer = []
+#        
+#        ## TODO: remove this, write tuples in a file
+#        if DEBUG:        
+#            tuple_file = open("tuples.f", 'w')
+#            print >> tuple_file, "Tumour tuples"
+#            
+#        for tt in tumour_tuples:
+#            ## ignore tumour tuples with no/few variants compared to reference            
+#            refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
+#            if tt[5][0] - tt[refbase + 1][0] < 3:
+#                continue
+#            
+#            ##TODO: remove this            
+#            if DEBUG:
+#                print >> tuple_file, tt
+#                
+#            ## buffer tumour tuple to campare against normal tuples
+#            tuples_buffer.append(tt)
+#            
+#        ## return if all tuples were filterd
+#        if len(tuples_buffer) == 0:
+#            return []
+#        
+#        tt = tuples_buffer.popleft()
+#        
+#        ##TODO: remove this
+#        if DEBUG:
+#            print >> tuple_file, "Normal tuples"
+#            
+#        for nt in normal_tuples:
+#            ## find positions where tuples for both tumour and normal exist
+#            while tt[0] < nt[0]:
+#                if len(tuples_buffer) == 0:
+#                    break
+#                tt = tuples_buffer.popleft()
+#
+#            if tt[0] != nt[0]:
+#                continue
+#            
+#            ##TODO: remvoe this:
+#            if DEBUG:
+#                print >> tuple_file, nt
+#                
+#            ## extract reference tuples            
+#            rt = self.bam.get_reference_tuple(tt[-1], tt[0])
+#
+#            ## calculate features      
+#            feature_set = self.features.Features(tt, nt, rt)
+#            tf = feature_set.get_features()
+#            features_buffer.append(tf)
+#            
+#            ## generate output string and buffer it
+#            outstr = self.__make_outstr(tt, rt, nt)
+#            self.outstr_buffer.append(outstr)
+#            
+#            if len(tuples_buffer) == 0:
+#                break
+#        
+#        ##TODO: remove this
+#        if DEBUG:
+#            tuple_file.close()
+#        
+#        ## make a numpy array required as an input to the random forest predictor
+#        features_buffer = numpy.array(features_buffer)
+#        
+#        ## make sure a list is returned         
+#        if features_buffer is None:
+#            return []
+#        else:
+#            return features_buffer
+        
     def get_features(self, tumour_tuples, normal_tuples):
-        tuples_buffer   = deque()        
         features_buffer = []
+        candidate_flag  = False
         
-        ## TODO: remove this, write tuples in a file
-        if DEBUG:        
-            tuple_file = open("tuples.f", 'w')
-            print >> tuple_file, "Tumour tuples"
+        for tt, nt in zip(tumour_tuples, normal_tuples):
+            ##TODO: check some conditions to filter some tuples
             
-        for tt in tumour_tuples:
-            ## ignore tumour tuples with no/few variants compared to reference            
-            refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
-            if tt[5][0] - tt[refbase + 1][0] < 3:
-                continue
-            
-            ##TODO: remove this            
-            if DEBUG:
-                print >> tuple_file, tt
-                
-            ## buffer tumour tuple to campare against normal tuples
-            tuples_buffer.append(tt)
-            
-        ## return if all tuples were filterd
-        if len(tuples_buffer) == 0:
-            return []
-        
-        tt = tuples_buffer.popleft()
-        
-        ##TODO: remove this
-        if DEBUG:
-            print >> tuple_file, "Normal tuples"
-            
-        for nt in normal_tuples:
-            ## find positions where tuples for both tumour and normal exist
-            while tt[0] < nt[0]:
-                if len(tuples_buffer) == 0:
-                    break
-                tt = tuples_buffer.popleft()
+            for i in ('0', '1', '2', '3'):
+                    if tt[i+1][0]/tt[5][0] - nt[i+1][0]/nt[5][0] < 0.05:
+                        candidate_flag = True
 
-            if tt[0] != nt[0]:
-                continue
-            
-            ##TODO: remvoe this:
-            if DEBUG:
-                print >> tuple_file, nt
+            if candidate_flag:
+                chromosome_id = tt[-1]
+                position = tt[0]
+                rt = self.bam.get_reference_tuple(chromosome_id, position)
                 
-            ## extract reference tuples            
-            rt = self.bam.get_reference_tuple(tt[-1], tt[0])
-
-            ## calculate features      
-            feature_set = self.features.Features(tt, nt, rt)
-            tf = feature_set.get_features()
-            features_buffer.append(tf)
+                ##TODO: maybe again check for some conditions to filter more positions
+                if False:
+                    continue
             
-            ## generate output string and buffer it
-            outstr = self.__make_outstr(tt, rt, nt)
-            self.outstr_buffer.append(outstr)
+                ## calculate features      
+                feature_set = self.features.Features(tt, nt, rt)
+                tf = feature_set.get_features()
+                features_buffer.append(tf)
             
-            if len(tuples_buffer) == 0:
-                break
-        
-        ##TODO: remove this
-        if DEBUG:
-            tuple_file.close()
-        
+                ## generate output string and buffer it
+                outstr = self.__make_outstr(tt, rt, nt)
+                self.outstr_buffer.append(outstr)
+            
         ## make a numpy array required as an input to the random forest predictor
         features_buffer = numpy.array(features_buffer)
         
         ## make sure a list is returned         
         if features_buffer is None:
             return []
-        else:
-            return features_buffer
-        
+
+        return features_buffer
+            
     def __fit_model(self):
         try:
             npz = numpy.load(self.samples["model"])
