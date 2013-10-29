@@ -167,8 +167,10 @@ class BamApi:
                         nt = self.n_pileup.get_tuple()
                         if nt is None:
                             break
-                if all((tt, nt)):
-                    yield (tt, nt)
+                        
+                if not all((tt, nt)):
+                    break
+                yield (tt, nt)
         
         
         
