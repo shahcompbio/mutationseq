@@ -14,12 +14,12 @@ import argparse
 import matplotlib
 matplotlib.use("Agg")
 import newfeatures
-#import matplotlib.pyplot as plt
-#from sklearn.ensemble import RandomForestClassifier
-#from sklearn import cross_validation
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation
 #from sklearn import tree
 #from math import log
-#from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.metrics import roc_curve, auc, confusion_matrix
 from collections import defaultdict
 
 mutationSeq_version="4.0.0"
@@ -56,6 +56,13 @@ parser.add_argument("--validate",
 parser.add_argument("--label", 
                     default="SOMATIC",
                     help="Label in training file list")
+parser.add_argument("--export", 
+                    default=None, 
+                    help="save output to file")
+                
+parser.add_argument("--model",
+                    default=None,
+                    help="specify an existing model. Usually used for validation")
 
 args = parser.parse_args()
 
@@ -107,7 +114,7 @@ def extract_labels(infiles):
 def extract_features(data):	
     features_buffer = []
     labels_buffer   = []
-#    keys_buffer    = []
+    keys_buffer    = []
 
     for tfile, nfile, rfile in data.keys():
         print "tumour:", tfile
@@ -130,12 +137,12 @@ def extract_features(data):
             
             features_buffer.append(temp_features)
             labels_buffer.append(label)
-#            keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
+            keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
             
     features_buffer = numpy.array(features_buffer)
     labels_buffer   = numpy.array(labels_buffer)
-#    keys_buffer     = numpy.array(keys_buffer)
-    return features_buffer, labels_buffer
+    keys_buffer     = numpy.array(keys_buffer)
+    return features_buffer, labels_buffer, keys_buffer
 		                
 #==============================================================================
 # beginnig of the main body
@@ -157,104 +164,90 @@ else:
     c = (float(30), float(30), float(70), float(0))
     if args.C:
         c = (float(10000), float(10000), float(70), float(0))
+
+if args.model is None:
+    data=extract_labels(args.infiles)
+    features, labels, keys = extract_features(data)
+    numpy.savez(args.out, version, features, labels)
+    
+else:
+    npz = numpy.load(args.model)
+    m_features = npz["arr_1"]
+    labels = npz["arr_2"]
         
-data=extract_labels(args.infiles)
-features, labels = extract_features(data)
-numpy.savez(args.out, version, features, labels)
-        
-#model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
-#model.fit(features, labels)
+
+model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)
+model.fit(m_features, labels)
 
 ##==============================================================================
 ## extra stuff
 ##==============================================================================
-#def xentropy(tumour_counts, normal_counts):
-#        total_tc = tumour_counts[4]
-#        total_nc = normal_counts[4]
-#        ent = 0 # entropy
-#        
-#        for i in xrange(4):
-#            base_probability_tumour = tumour_counts[i] / total_tc
-#            base_probability_normal = normal_counts[i] / total_nc            
-#            if base_probability_tumour != 0:
-#                if base_probability_normal == 0:
-#                    ent -= -7 * base_probability_tumour
-#                else:
-#                    ent -= log(base_probability_normal) * base_probability_tumour
-#        return ent
+## save important features
+importance_file = open(args.out + "_importance.txt", 'w')
 
-#print "saving the model with pickle ..."
-#saveObject(model, "model2.npz")
-#print "saving done!"
-##features_file=open("features_name.txt", 'w')
-##for _feature in feature_set + coverage_features + extra_features:
-#    #print >> _feature[0]
-#    
-##features_file.close()
-#
-#
-#importance_file = open(args.out + "_importance.txt", 'w')
-#
-##for importance, _feature in (zip(model.feature_importances_, feature_set + coverage_features + extra_features)):
-##    print >> importance_file, 
-#for importance, _feature in sorted(zip(model.feature_importances_,
-#                                       feature_set + coverage_features + extra_features)):
-#    print >> importance_file, _feature[0], importance
-#importance_file.close()
-#
-#if args.validate:
-#    validation=extract_data(args.validate)
-#    val_features, val_labels, val_keys=extract_features(validation)
-#    probs = model.predict_proba(val_features)
-#    voted = probs[:,1]
-#    fpr, tpr, thresholds = roc_curve(val_labels, voted)
-#    roc_auc = auc(fpr, tpr)
-#    print roc_auc
-#    fd=open(args.out+'_result', 'w')
-#    for f,k in zip(voted,val_keys):
-#        print >> fd, k[0]+' '+k[1]+' '+k[2]+' '+k[3]+' '+k[4]+' '+k[5]+' '+str(f)
-#    fd.close()  
-#    plt.plot(fpr,tpr,'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
-#    plt.title('ROC curve (area = %0.3f)' %float(roc_auc))
-#    plt.xlabel('False Positive Rate')
-#    plt.ylabel('True Positive Rate')
-#    plt.savefig(args.out + "_roc.png")
-#    #pylab.plot(fpr, tpr, 'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
-#    #pylab.plot([0, 1], [0, 1], 'k--')
-#    #pylab.xlim([0.0, 1.0])
-#    #pylab.ylim([0.0, 1.0])
-#    #pylab.xlabel('False Positive Rate')
-#    #pylab.ylabel('True Positive Rate')
-#    #pylab.savefig(args.out + "_roc.png")
-#
-#else:
-#    cv = cross_validation.StratifiedKFold(labels, n_folds=3)
-#    for i, (train, test) in enumerate(cv):
-#        _model = model.fit(feature[train], labels[train])
-#
-#        probs = _model.predict_proba(feature[test])
-#        voted = probs[:,1]
-#        fpr, tpr, thresholds = roc_curve(labels[test], voted)
-#        roc_auc = auc(fpr, tpr)
-#        fd=open(args.out+'_result_'+str(i), 'w')
-#        for f,k in zip(voted,keys[test]):
-#            print >> fd, k[0]+' '+k[1]+' '+k[2]+' '+k[3]+' '+k[4]+' '+k[5]+' '+str(f)
-#        fd.close()
-#        plt.plot(fpr, tpr, 'k--', lw=1, label="Fold %i (AUC=%0.3f)" % (i + 1, float(roc_auc)))
-#
-#    
-#    plt.legend(loc="lower right", numpoints=1,)
-#    plt.savefig(args.out + "_rocxval.png")
-#
+for importance, _feature in sorted(zip(model.feature_importances_, feature_set + coverage_features + extra_features)):
+    print >> importance_file, _feature[0], importance
+importance_file.close()
+
+
+## validation
+if args.validate:
+    validation = extract_labels(args.validate)
+    val_features, val_labels, val_keys = extract_features(validation)
+    
+    ## predict probabilities
+    probs = model.predict_proba(val_features)
+    voted = probs[:,1]
+    fpr, tpr, thresholds = roc_curve(val_labels, voted)
+    roc_auc = auc(fpr, tpr)
+    print roc_auc
+    fd = open(args.out + '_result.txt', 'w')
+    for f, k, vf in zip(voted, val_keys, val_features):
+        vf = " ".join(map(str, vf))        
+        k = " ".join(map(str, k))
+        print >> fd, k+ " "+ str(f)+ " "+ vf
+    fd.close()  
+    plt.plot(fpr,tpr,'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
+    plt.title('ROC curve (area = %0.3f)' %float(roc_auc))
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.savefig(args.out + "_roc.png")
+    #pylab.plot(fpr, tpr, 'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
+    #pylab.plot([0, 1], [0, 1], 'k--')
+    #pylab.xlim([0.0, 1.0])
+    #pylab.ylim([0.0, 1.0])
+    #pylab.xlabel('False Positive Rate')
+    #pylab.ylabel('True Positive Rate')
+    #pylab.savefig(args.out + "_roc.png")
+
+## cross validation
+else:
+    cv = cross_validation.StratifiedKFold(labels, n_folds=3)
+    for i, (train, test) in enumerate(cv):
+        _model = model.fit(features[train], labels[train])
+
+        probs = _model.predict_proba(features[test])
+        voted = probs[:,1]
+        fpr, tpr, thresholds = roc_curve(labels[test], voted)
+        roc_auc = auc(fpr, tpr)
+        fd = open(args.out + '_result_' + str(i), 'w')
+        for f, k in zip(voted, keys[test]):
+            print >> fd, k[0]+' '+k[1]+' '+k[2]+' '+k[3]+' '+k[4]+' '+k[5]+' '+str(f)
+        fd.close()
+        plt.plot(fpr, tpr, 'k--', lw=1, label="Fold %i (AUC=%0.3f)" % (i + 1, float(roc_auc)))
+
+    plt.legend(loc="lower right", numpoints=1,)
+    plt.savefig(args.out + "_rocxval.png")
+
 #scores = []
 #candidates = model.estimators_
 #for _ in candidates:
 #    scores.append(0)
 #
-#for f, label in zip(feature, labels):
+#for f, label in zip(features, labels):
 #    for estimator, index in zip(candidates, range(len(candidates))):
 #        if estimator.predict(f)[0] == label:
 #            scores[index] += 1 
-#
+
 #winner = candidates[numpy.argmax(numpy.array(scores))]
 #tree.export_graphviz(winner, out_file=open(args.out + "_tree.dot", 'w'),)
