@@ -16,6 +16,7 @@ from string import Template
 from datetime import datetime
 
 mutationSeq_version = "4.0.0"
+DEBUG = False
 
 class Bam:
     def __init__(self, **kwargs):       
@@ -268,7 +269,8 @@ class BamUtils:
         features_buffer = []
         
         ## TODO: remove this, write tuples in a file
-        tuple_file = open("tuples.f", 'w')
+        if DEBUG:
+            tuple_file = open("tuples.f", 'w')
         for tt in tumour_tuples:
             ## ignore tumour tuples with no/few variants compared to reference            
             refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
@@ -279,7 +281,8 @@ class BamUtils:
             tuples_buffer.append(tt)
             
             ##TODO: remove this
-            print >> tuple_file, tt
+            if DEBUG:
+                print >> tuple_file, tt
 
         ## return if all tuples were filterd
         if len(tuples_buffer) == 0:
@@ -312,7 +315,8 @@ class BamUtils:
                 break
         
         ##TODO: remove this
-        tuple_file.close()
+        if DEBUG:
+            tuple_file.close()
         
         ## make a numpy array required as an input to the random forest predictor
         features_buffer = numpy.array(features_buffer)

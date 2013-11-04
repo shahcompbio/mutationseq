@@ -23,7 +23,10 @@ parser.add_argument("samples",
                     nargs='*', 
                     help='''A list of colon delimited sample names; normal:normal.bam
                     tumour:tumour.bam model:model.npz reference:reference.fasta''')
-                    
+
+parser.add_argument("-l", "--log_file",
+                    default="mutationSeq_run.log",
+                    help='''specify name or path of the log file''')                    
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
                     help= '''force to print out even if the position(s) does not satisfy 
@@ -90,7 +93,7 @@ args = parser.parse_args()
 #==============================================================================
 # check the input 
 #==============================================================================
-logging.basicConfig(filename="mutationSeq_run.log", 
+logging.basicConfig(filename=args.log_file, 
                     format='%(asctime)s %(message)s', 
                     #datefmt='%m/%d/%Y %I:%M:%S %p', 
                     level=logging.DEBUG)
