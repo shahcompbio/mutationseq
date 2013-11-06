@@ -373,7 +373,7 @@ class BamUtils:
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
             ## calculate features      
-            feature_set = self.features.Features(tt, nt, rt)
+            feature_set = newfeatures.Features(tt, nt, rt)
             tf = feature_set.get_features()
             features_buffer.append(tf)
         
