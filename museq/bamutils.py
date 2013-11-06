@@ -4,6 +4,7 @@ Created on Wed Sep 18 11:22:08 2013
 
 @author: jtaghiyar
 """
+from __future__ import division
 import newpybam as np # new pybam
 import sys
 import numpy
