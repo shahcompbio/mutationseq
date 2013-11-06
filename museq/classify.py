@@ -132,11 +132,13 @@ logging.info("getting positions ...")
 target_positions = bam_helper.get_positions()
 
 logging.info("getting tuples ...")
-tumour_tuples = bam.get_tumour_tuples(target_positions)
-normal_tuples = bam.get_normal_tuples(target_positions)
+#tumour_tuples = bam.get_tumour_tuples(target_positions)
+#normal_tuples = bam.get_normal_tuples(target_positions)
+tuples = bam.get_pair_tuples(target_positions)
 
 logging.info("getting features ...")
-features = bam_helper.get_features(tumour_tuples, normal_tuples)
+#features = bam_helper.get_features(tumour_tuples, normal_tuples)
+features = bam_helper.get_features(tuples)
 
 if args.export is not None:
     logging.info("exporting features ...")

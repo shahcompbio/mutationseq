@@ -151,6 +151,38 @@ class Bam:
                     break
                 else:
                     yield tt
+
+    def get_pair_tuples(self, target_positions):
+        for tp in target_positions:
+            if tp[1] is None:
+                self.t_pileup.set_region(tp[0])
+                self.n_pileup.set_region(tp[0])
+            else:
+                self.t_pileup.set_region(tp[0], tp[1], tp[2])
+                self.n_pileup.set_region(tp[0], tp[1], tp[2])
+                
+            while True:
+                tt = self.t_pileup.get_tuple()
+                nt = self.n_pileup.get_tuple()
+                
+                ## check for none tuples
+                if not all((tt, nt)):
+                    break
+
+                ## check if the position is the same for both tumour/normal
+                while tt[0] != nt[0]:
+                    if tt[0] < nt[0]:
+                        tt = self.t_pileup.get_tuple()
+                        if tt is None:
+                            break
+                    else:
+                        nt = self.n_pileup.get_tuple()
+                        if nt is None:
+                            break
+                        
+                if not all((tt, nt)):
+                    break
+                yield (tt, nt)
             
 class BamUtils:
     def __init__(self, bam, args):
