@@ -103,11 +103,12 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
-	// ignore positions with zero coverage
-	if (ntData[4][0] == 0 )
+	// ignore positions with low coverage
+	if (ntData[4][0] < 4 )
 	{
 		return false;
 	}
+
 	// Identify major base
 	int majorBaseIdx = 0;
 	for (int baseIdx = 0; baseIdx < 4; baseIdx++)
@@ -250,6 +251,7 @@ public:
 			RefNames.append(temp_list);
 		}
 		
+		SamHeader = m_BamReader.GetHeaderText();
 		RestartPileupEngine();
 	}
 	
@@ -337,6 +339,7 @@ public:
 	}
 	
 	python::list RefNames;
+	std::string SamHeader;
 
 private:
 	void RestartPileupEngine()
@@ -720,6 +723,7 @@ BOOST_PYTHON_MODULE(newpybam)
 	
 	class_<PyPileup>("pileup", init<>())
 		.def_readonly("refnames", &PyPileup::RefNames)
+		.def_readonly("samheader", &PyPileup::SamHeader)
 		.def("open", &PyPileup::Open)
 		.def("rewind", &PyPileup::Rewind)
 		.def("set_region", &PyPileup::SetChromosome)
