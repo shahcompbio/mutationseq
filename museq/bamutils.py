@@ -21,24 +21,29 @@ DEBUG = False
 
 class Bam:
     def __init__(self, **kwargs):       
-        self.t_bam = kwargs.get("tumour")
-        self.n_bam = kwargs.get("normal")
-        self.ref   = kwargs.get("reference") 
-        self.rmdup = kwargs.get("rmdup")
+        self.t_bam  = kwargs.get("tumour")
+        self.n_bam  = kwargs.get("normal")
+        self.ref    = kwargs.get("reference") 
+        self.rmdups = kwargs.get("rmdups")
+        self.coverage = kwargs.get("coverage")
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
-        if  self.rmdup is None:
-            self.rmdup = True
+        if  self.rmdups is None:
+            self.rmdups = True
+            
+        ## set the default for the coverage
+        if  self.coverage is None:
+            self.coverage = 4
             
         ## make a pileup for normal bam
         if  self.n_bam is not None:
-            self.n_pileup = np.pileup()
+            self.n_pileup = np.pileup(self.coverage, self.rmdups)
             self.n_pileup.open(self.n_bam)
     
         ## make a pileup for tumour bam
         if  self.t_bam is not None:
-            self.t_pileup = np.pileup() 
+            self.t_pileup = np.pileup(self.coverage, self.rmdups) 
             self.t_pileup.open(self.t_bam)
         
         if  self.ref is not None:

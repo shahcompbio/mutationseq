@@ -27,6 +27,11 @@ parser.add_argument("samples",
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
                     help='''specify name or path of the log file''')                    
+
+parser.add_argument("--coverage",
+                    default=4,
+                    help='''specify the depth of the coverage to be considered''')
+
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
                     help= '''force to print out even if the position(s) does not satisfy 
@@ -102,12 +107,14 @@ samples = {}
 for s in args.samples:
     samples[s.split(':')[0]] = s.split(':')[1]
 
+coverage = args.coverage
+
 info_str = " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n " + \
             " mutationSeq_" + mutationSeq_version + " started\n" + \
             " tumour:"     + samples.get("tumour") + \
             " normal:"     + samples.get("normal") + \
-            " reference:"  + samples.get("reference") + \
-            " --interval " + args.interval
+            " reference:"  + samples.get("reference") 
+
 logging.info(info_str)
 
 if len(args.samples) < 3:
@@ -125,7 +132,9 @@ else:
 #==============================================================================
 # beginning of the main body
 #==============================================================================
-bam = bamutils.Bam(tumour=samples.get("tumour"), normal=samples.get("normal"), reference=samples.get("reference"))
+bam = bamutils.Bam(tumour=samples.get("tumour"), normal=samples.get("normal"),
+                   reference=samples.get("reference"), coverage=coverage, rmdups=None)
+
 bam_helper = bamutils.BamUtils(bam, args)
 
 logging.info("getting positions ...")
