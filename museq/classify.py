@@ -122,6 +122,7 @@ for s in args.samples:
 
 coverage = args.coverage
 
+logging.info("mutationSeq_" + mutationSeq_version + " started >>>>>>>>>")
 logging.info(args)
 
 if len(args.samples) < 3:
@@ -155,9 +156,6 @@ tuples = bam.get_pair_tuples(target_positions)
 logging.info("getting features ...")
 #features = bam_helper.get_features(tumour_tuples, normal_tuples)
 features = bam_helper.get_features(tuples)
-
-##TODO: remove this line
-logging.info("total mem usage: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
 
 if args.export is not None:
     logging.info("exporting features ...")
