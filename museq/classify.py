@@ -8,6 +8,7 @@ import sys
 import bamutils
 import argparse
 import logging
+import resource
 
 mutationSeq_version="4.0.0"
 
@@ -30,14 +31,17 @@ parser.add_argument("-l", "--log_file",
 
 parser.add_argument("--coverage",
                     default=4,
+                    type=int,
                     help='''specify the depth of the coverage to be considered''')
                     
 parser.add_argument("--normal_variant",
                     default=25,
+                    type=int,
                     help='''specify the max variant percentage in the normal bam file''')
 
 parser.add_argument("--tumour_variant",
-                    default=1,
+                    default=2,
+                    type=int,
                     help='''specify the min number of variants in the tumour bam file''')
 
 parser.add_argument("-a", "--all", 
@@ -64,6 +68,7 @@ parser.add_argument("-n", "--normalized",
                     
 parser.add_argument("-p", "--purity", 
                     default=70, 
+                    type=int,
                     help='''pass sample purity to features''')
                     
 parser.add_argument("-v", "--verbose", 
@@ -117,13 +122,7 @@ for s in args.samples:
 
 coverage = args.coverage
 
-info_str = " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n " + \
-            " mutationSeq_" + mutationSeq_version + " started\n" + \
-            " tumour:"     + samples.get("tumour") + \
-            " normal:"     + samples.get("normal") + \
-            " reference:"  + samples.get("reference") 
-
-logging.info(info_str)
+logging.info(args)
 
 if len(args.samples) < 3:
     logging.error("""bad input, usage: 'classify.py normal:<normal.bam> 
@@ -156,6 +155,9 @@ tuples = bam.get_pair_tuples(target_positions)
 logging.info("getting features ...")
 #features = bam_helper.get_features(tumour_tuples, normal_tuples)
 features = bam_helper.get_features(tuples)
+
+##TODO: remove this line
+logging.info("total mem usage: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
 
 if args.export is not None:
     logging.info("exporting features ...")
