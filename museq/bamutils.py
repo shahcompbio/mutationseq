@@ -370,7 +370,7 @@ class BamUtils:
         
         for tt, nt in tuples:          
             refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
-            if tt[5][0] == tt[refbase + 1][0] or (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > 0.25:
+            if tt[5][0] - tt[refbase + 1][0] < self.args.tumour_variant or (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > (self.args.normal_variant / 100):
                 continue
             
             chromosome_id = tt[-1]

@@ -31,6 +31,14 @@ parser.add_argument("-l", "--log_file",
 parser.add_argument("--coverage",
                     default=4,
                     help='''specify the depth of the coverage to be considered''')
+                    
+parser.add_argument("--normal_variant",
+                    default=25,
+                    help='''specify the max variant percentage in the normal bam file''')
+
+parser.add_argument("--tumour_variant",
+                    default=1,
+                    help='''specify the min number of variants in the tumour bam file''')
 
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
