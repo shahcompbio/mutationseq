@@ -20,7 +20,26 @@ parser.add_argument("samples",
                     nargs='*', 
                     help='''A list of colon delimited sample names; normal:normal.bam
                     tumour:tumour.bam model:model.npz reference:reference.fasta''')
-                    
+
+parser.add_argument("-l", "--log_file",
+                    default="mutationSeq_run.log",
+                    help='''specify name or path of the log file''')
+
+parser.add_argument("--coverage", 
+                    default=4,
+                    type=int,
+                    help='''specify the depth of the coverage to be considered''')                                        
+
+parser.add_argument("--normal_variant",
+                    default=25,
+                    type=int,
+                    help='''specify the max variant percentage in the normal bam file''')
+
+parser.add_argument("--tumour_variant",
+                    default=2,
+                    type=int,
+                    help='''specify the min number of variants in the tumour bam file''')
+                                        
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
                     help= '''force to print out even if the position(s) does not satisfy 
@@ -41,6 +60,7 @@ parser.add_argument("-n", "--normalized",
                     
 parser.add_argument("-p", "--purity", 
                     default=70, 
+                    type=int,
                     help='''pass sample purity to features''')
                     
 parser.add_argument("-v", "--verbose", 

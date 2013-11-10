@@ -28,7 +28,7 @@ using namespace boost;
 using namespace BamTools;
 
 
-bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
+bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int coverage, bool rmdups)
 {
 	int ntData[5][6] = {{0}};
 	int ambiguous = 0;
@@ -41,7 +41,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 		const BamAlignment& ba = pa.Alignment;
 		
 		// remove duplicates and vendor failed reads
-		if (ba.IsDuplicate() || ba.IsFailedQC())
+		if ((rmdups && ba.IsDuplicate())|| ba.IsFailedQC())
 		{
 			continue;
 		}
@@ -58,7 +58,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 				deletionCount++;
 			}
 		}
-		
+
 		if (pa.IsCurrentDeletion)
 		{
 			continue;
@@ -103,8 +103,8 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
-	// ignore positions with zero coverage
-	if (ntData[4][0] == 0 )
+	// ignore positions with low coverage
+	if (ntData[4][0] < coverage )
 	{
 		return false;
 	}
@@ -165,14 +165,9 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl)
 
 struct PileupQueue : PileupVisitor
 {
-	// go over the whole genome
-	PileupQueue() : RefId(-1), StartPosition(-1), StopPosition(-1) {}
-
-	//go over a whole chromosome
-	PileupQueue(int refId) : RefId(refId), StartPosition(-1), StopPosition(-1) {}
-
-	// go over a region on a chromosome
-	PileupQueue(int refId, int start, int stop) : RefId(refId), StartPosition(start), StopPosition(stop) {}
+	PileupQueue(int refId=-1, int start=-1, int stop=-1, int c=4, bool r=true) : RefId(refId), StartPosition(start), StopPosition(stop), Coverage(c), Rmdups(r)
+	{
+	}
 	
 	void Visit(const PileupPosition& pileupData)
 	{
@@ -189,7 +184,7 @@ struct PileupQueue : PileupVisitor
 		}
 		
 		python::tuple tpl;
-		if(CreatePileupTuple(pileupData, tpl))
+		if(CreatePileupTuple(pileupData, tpl, Coverage, Rmdups))
 		{
 			Pileups.push(tpl);
 		}
@@ -205,16 +200,18 @@ struct PileupQueue : PileupVisitor
 	int RefId;
 	int StartPosition;
 	int StopPosition;
+	int Coverage;
+	bool Rmdups;
 };
 
 
 class PyPileup
 {
 public:
-	PyPileup() : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1)
+	PyPileup(int c=4, bool r=true) : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1), Coverage(c), Rmdups(r)
 	{
 	}
-	
+
 	~PyPileup()
 	{
 		delete m_PileupEngine;
@@ -251,6 +248,7 @@ public:
 			RefNames.append(temp_list);
 		}
 		
+		SamHeader = m_BamReader.GetHeaderText();
 		RestartPileupEngine();
 	}
 	
@@ -338,6 +336,7 @@ public:
 	}
 	
 	python::list RefNames;
+	std::string SamHeader;
 
 private:
 	void RestartPileupEngine()
@@ -347,7 +346,7 @@ private:
 		
 		delete m_PileupQueue;
 
-		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition);
+		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition, Coverage, Rmdups);
 		
 		m_PileupEngine->AddVisitor(m_PileupQueue);
 	}
@@ -362,12 +361,18 @@ private:
 	}
 
 	BamReader m_BamReader;
+	PileupEngine* m_PileupEngine;
+	PileupQueue* m_PileupQueue;
+
 	int RefId;
 	int StartPosition;
 	int StopPosition;
-	
-	PileupEngine* m_PileupEngine;
-	PileupQueue* m_PileupQueue;
+
+	// to specify the coverage of a position by which the tuples are filter
+	int Coverage;
+
+	// flag to remove/keep duplicates. Used for the deepseq data.
+	bool Rmdups;
 
 };
 
@@ -719,8 +724,9 @@ BOOST_PYTHON_MODULE(newpybam)
 {
 	using namespace python;
 	
-	class_<PyPileup>("pileup", init<>())
+	class_<PyPileup>("pileup", init<int, bool>())
 		.def_readonly("refnames", &PyPileup::RefNames)
+		.def_readonly("samheader", &PyPileup::SamHeader)
 		.def("open", &PyPileup::Open)
 		.def("rewind", &PyPileup::Rewind)
 		.def("set_region", &PyPileup::SetChromosome)

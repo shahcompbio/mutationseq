@@ -5,27 +5,33 @@ Created on Wed Oct 23 11:14:37 2013
 @author: jtaghiyar
 """
 import newpybam as np # new pybam
+import cStringIO
 
 class BamApi:
     def __init__(self, **kwargs):       
         self.t_bam = kwargs.get("tumour")
         self.n_bam = kwargs.get("normal")
-        self.ref   = kwargs.get("reference") 
-        self.rmdup = kwargs.get("rmdup")
+        self.ref = kwargs.get("reference") 
+        self.rmdups = kwargs.get("rmdups") 
+        self.coverage = kwargs.get("coverage")
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
-        if  self.rmdup is None:
-            self.rmdup = True
+        if  self.rmdups is None:
+            self.rmdups = True
+            
+        ## set the default for the coverage
+        if  self.coverage is None:
+            self.coverage = 4
             
         ## make a pileup for normal bam
         if  self.n_bam is not None:
-            self.n_pileup = np.pileup()
+            self.n_pileup = np.pileup(self.coverage, self.rmdups)
             self.n_pileup.open(self.n_bam)
     
         ## make a pileup for tumour bam
         if  self.t_bam is not None:
-            self.t_pileup = np.pileup() 
+            self.t_pileup = np.pileup(self.coverage, self.rmdups) 
             self.t_pileup.open(self.t_bam)
         
         if  self.ref is not None:
@@ -37,12 +43,12 @@ class BamApi:
         self.fasta.open(self.ref) 
 
     def get_normal_refnames(self):
-        """ get the list of chromosome names and their corresponding IDs as a dictionary"""
+        """ get the list of chromosome names and their corresponding IDs as a dictionary """
         
         return dict(self.n_pileup.refnames)
     
     def get_tumour_refnames(self):
-        """ get the list of chromosome names and their corresponding IDs as a dictionary"""
+        """ get the list of chromosome names and their corresponding IDs as a dictionary """
     
         return dict(self.t_pileup.refnames)
     
@@ -67,7 +73,32 @@ class BamApi:
             if rn[k] == chromosome_id:
                 return k
         return None
+    
+    def get_tumour_samheader(self):
+        return self.t_pileup.samheader
         
+    def get_normal_samheader(self):
+        return self.n_pileup.samheader
+    
+    def get_chromosome_lengths(self):
+        """ parse the sam file header to get the chromosome lengths """
+        
+        chromosome_lengths = {}
+        sam_header  = self.t_pileup.samheader
+        sam_file = cStringIO.StringIO(sam_header)
+        
+        for l in sam_file:
+            l = l.strip().split()
+            if l[0] == "@SQ" :
+                SN = l[1]
+                chrom_name = SN.split(':')[1]
+                LN = l[2]
+                chrom_len  = LN.split(':')[1]
+                chromosome_lengths[chrom_name] = int(chrom_len)
+
+        sam_file.close()
+        return chromosome_lengths
+    
     ##TODO: change the interface to chromosome name instead of chromosome_id for FASTA object
     ## Maybe it is not a good idea since the tuples have chromosome_id and converting them to chromosome names
     ## require extra function call to get_..._chromosome_name() which is a performance over head
