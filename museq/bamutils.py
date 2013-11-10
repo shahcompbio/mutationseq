@@ -67,7 +67,12 @@ class BamHelper:
         self.bam  = bam
         self.args = args
         self.base = ['A', 'C', 'G', 'T', 'N']
-        self.buffer_size = 1e5
+       
+        ## set the buffer size to limit the memory usage       
+        if self.args.buffer_size <= 0:
+            self.buffer_size = float('inf')
+        else:
+            self.buffer_size = self.args.buffer_size
 
     def __parse_positions(self, positions_list):
         chromosome = positions_list.split(':')[0]
@@ -302,7 +307,7 @@ class BamHelper:
                 print >> out, "\t".join(outstr)
                 
                 ##TODO: remove this line
-                "total mem usage after flush: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+                print "total mem usage after flush: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
         out.close()
         

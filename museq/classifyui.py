@@ -40,6 +40,11 @@ parser.add_argument("--tumour_variant",
                     type=int,
                     help='''specify the min number of variants in the tumour bam file''')
                                         
+parser.add_argument("-b", "--buffer_size",
+                    default=1000000,
+                    type=int,
+                    help='''specify the min number of variants in the tumour bam file''')
+
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
                     help= '''force to print out even if the position(s) does not satisfy 
