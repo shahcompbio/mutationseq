@@ -45,6 +45,10 @@ parser.add_argument("-b", "--buffer_size",
                     type=int,
                     help='''specify the min number of variants in the tumour bam file''')
 
+parser.add_argument("-s", "--single",
+                    default=False, action="store_true",
+                    help='''single sample analysis''')
+                    
 parser.add_argument("-a", "--all", 
                     default=None, choices=["no", "yes"], 
                     help= '''force to print out even if the position(s) does not satisfy 
@@ -52,7 +56,7 @@ parser.add_argument("-a", "--all",
 
 parser.add_argument("-d", "--deep", 
                     default=False, action="store_true", 
-                    help='''for deepseq data''')
+                    help='''deepseq data analysis''')
                     
 parser.add_argument("-e" , "--export", 
                     default=None, 

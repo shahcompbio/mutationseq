@@ -8,21 +8,27 @@ Created on Wed Sep 18 11:22:08 2013
 from __future__ import division
 import sys
 import numpy
+import pybamapi
 import newfeatures, newfeatures_single, newfeatures_deep
 from math import log10
-from collections import namedtuple
 from sklearn.ensemble import RandomForestClassifier
 from string import Template
 from datetime import datetime
 import resource 
 
 mutationSeq_version = "4.0.0"
-#DEBUG = False
 
 class BamHelper:
-    def __init__(self, bam, args):
+    def __init__(self, args):
         self.samples = {}
-        for s in args.samples:
+        self.args    = args
+        self.rmdups  = True
+        self.base    = ['A', 'C', 'G', 'T', 'N']
+        self.outstr_buffer   = []    
+        self.features_buffer = []
+        
+        ## parse the positional argument to get tumour/normal bam, reference fasta and model
+        for s in self.args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
         
         ## check the input
@@ -34,77 +40,65 @@ class BamHelper:
             print "bad input: no bam files specified"
             sys.exit(1) 
             
-        ## check if it is single sample analysis as well as type of the sample
-        if not self.samples.get("normal"):
-            single_flag = True
-            single_type = "t"
-            
-        elif not self.samples.get("tumour"):
-            single_flag = True
-            single_type = "n"
-            
-        else:
-            single_flag = False
-            single_type = None
-            
         ## set the right feature set
-        if single_flag:
+        if  self.args.single:
             self.features = newfeatures_single
 
-        elif args.deep:
+        elif self.args.deep:
             self.features = newfeatures_deep
+            self.rmdups = False
         
         else:
             self.features = newfeatures
-           
-        ## flags for single_sample and deepseq analysis
-        Flags = namedtuple("Flags", "deep, single, type")         
-        self.flags = Flags._make([args.deep, single_flag, single_type])
-       
-        self.outstr_buffer   = []    
-        self.features_buffer = []
         
-        self.bam  = bam
-        self.args = args
-        self.base = ['A', 'C', 'G', 'T', 'N']
-       
         ## set the buffer size to limit the memory usage       
-        if self.args.buffer_size <= 0:
+        if  self.args.buffer_size <= 0: # set buffer size to -1 to cancel the restriction
             self.buffer_size = float('inf')
+        
         else:
             self.buffer_size = self.args.buffer_size
-
-    def __parse_positions(self, positions_list):
-        chromosome = positions_list.split(':')[0]
+            
+        self.bam  = pybamapi.BamApi(tumour=self.samples.get("tumour"), 
+                                    normal=self.samples.get("normal"), 
+                                    reference=self.samples.get("reference"), 
+                                    coverage=self.args.coverage, 
+                                    rmdups=self.rmdups)
+        
+    def __parse_positions(self, positions_list, pch=':'):
+        chromosome = positions_list.split(pch)[0]
         try:
             ##check for "chr" in the input interval
             chromosome = chromosome.split('r')[1] 
+        
         except:
             pass
         
         try:
-            position = positions_list.split(':')[1]
+            position = positions_list.split(pch)[1]
             start = int(position.split('-')[0])
+            
             try:
                 stop = int(position.split('-')[1])
+
             except:
                 stop = start
             return [chromosome, start, stop]
+
         except:
             return [chromosome, None, None]
         
-    def get_positions(self):
+    def get_positions(self, pch=':'):
         target_positions = []
         
         if self.args.interval:
-            temp_tp = self.__parse_positions(self.args.interval)
+            temp_tp = self.__parse_positions(self.args.interval, pch)
             target_positions.append(temp_tp) 
         
         elif self.args.positions_file:
             try:
                 positions_file = open(self.args.positions_file, 'r')
                 for l in positions_file.readlines():
-                    temp_tp = self.__parse_positions(l.strip())
+                    temp_tp = self.__parse_positions(l.strip(), pch)
                     target_positions.append(temp_tp)
                 positions_file.close()
             
@@ -204,6 +198,7 @@ class BamHelper:
     def __fit_model(self):
         try:
             npz = numpy.load(self.samples["model"])
+        
         except:
             print "Failed to load model"
             print sys.exc_info()[0]
@@ -213,6 +208,7 @@ class BamHelper:
         labels = npz["arr_2"]
         model  = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
         model.fit(train, labels)
+        
         return model   
         
     def predict(self, features_outstrs):
@@ -236,12 +232,13 @@ class BamHelper:
         if tumour is None:
             tumour = "N/A"
         
-        if normal is None:
+        elif normal is None:
             normal = "N/A"
             
         try:
             cfg_file = open(self.args.config, 'r')
             header = ""
+            
             for l in cfg_file:
                 l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
                                            VERSION=mutationSeq_version,
@@ -253,6 +250,7 @@ class BamHelper:
                 header += l
             cfg_file.close()
             return header
+        
         except:
             print "Failed to load metadata file"
             return
@@ -262,6 +260,7 @@ class BamHelper:
         if self.args.out is None:
             print "--out is not specified, standard output is used to write the results"
             out = sys.stdout
+        
         else:
             out = open(self.args.out, 'w')
         
@@ -284,8 +283,10 @@ class BamHelper:
                 if outstr[-2] is None:
                     if p > self.args.threshold:
                         filter_flag = "PASS"
+                    
                     else:
                         filter_flag = "FAIL"
+                
                 else:
                     filter_flag = outstr[-2]
                     
@@ -297,6 +298,7 @@ class BamHelper:
                 ## calculate phred quality
                 try:
                     phred_quality = -10 * log10(1 - p)
+                
                 except:
                     phred_quality = 99
                 

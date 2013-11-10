@@ -6,21 +6,12 @@ Created on Wed Sep 18 11:22:08 2013
 """
 import logging
 import bamutils
-import pybamapi
 import classifyui
 import resource
 
 mutationSeq_version="4.0.0"
 args = classifyui.args                    
 
-## parse out tumour/normal/reference/model from the positional arguments
-samples = {}
-for s in args.samples:
-    samples[s.split(':')[0]] = s.split(':')[1]
-
-## min coverage of a position to get tuples for
-coverage = args.coverage
-   
 if args.verbose:
     level = logging.DEBUG
 else:
@@ -31,28 +22,21 @@ logging.basicConfig(filename = args.log_file,
                     #datefmt = '%m/%d/%Y %I:%M:%S %p', 
                     level    = level)
 
+logging.info("mutationSeq_" + mutationSeq_version + " started >>>>>>")
 logging.info(args)
 
 #==============================================================================
 # main body
 #==============================================================================
-bam = pybamapi.BamApi(tumour=samples.get("tumour"), normal=samples.get("normal"), 
-                      reference=samples.get("reference"), coverage=coverage, rmdups=None)
-                      
-bam_helper = bamutils.BamHelper(bam, args)
+bam_helper = bamutils.BamHelper(args)
 
 logging.info("getting positions ...")
 target_positions = bam_helper.get_positions()
 
 logging.info("getting tuples ...")
-#tumour_tuples = bam.get_tumour_tuples(target_positions)
-#normal_tuples = bam.get_normal_tuples(target_positions)
-
-tuples = bam.get_pair_tuples(target_positions)
+tuples = bam_helper.bam.get_pair_tuples(target_positions)
 
 logging.info("getting features ...")
-#features = bam_helper.get_features(tumour_tuples, normal_tuples)
-
 features = bam_helper.get_features(tuples)
 
 ##TODO: remove this line
