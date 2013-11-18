@@ -370,8 +370,13 @@ class BamUtils:
         
         for tt, nt in tuples:          
             refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
-            if tt[5][0] - tt[refbase + 1][0] < self.args.tumour_variant or (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > (self.args.normal_variant / 100):
-                continue
+            nonrefbases = [x for x in range(4) if x != refbase]
+            ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
+            if  tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
+                tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
+                tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
+                (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > (self.args.normal_variant / 100):
+                    continue
             
             chromosome_id = tt[-1]
             position = tt[0]
