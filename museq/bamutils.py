@@ -328,7 +328,7 @@ class BamHelper(object):
                 filter_flag = outstr[-2]
                 
                 if filter_flag is None:
-                    if p > self.args.threshold:
+                    if p >= self.args.threshold:
                         filter_flag = "PASS"
                     
                     else:
