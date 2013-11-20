@@ -224,7 +224,7 @@ class BamHelper(object):
                 yield self.__flush()
         
         yield self.__flush()
-            
+
     def __fit_model(self):
         try:
             logging.info("loading model")

@@ -19,7 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation
 #from sklearn import tree
 #from math import log
-from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.metrics import roc_curve, auc
 from collections import defaultdict
 
 mutationSeq_version="4.0.0"
@@ -56,7 +56,7 @@ parser.add_argument("--validate",
 parser.add_argument("--label", 
                     default="SOMATIC",
                     help="Label in training file list")
-                    
+
 parser.add_argument("--export", 
                     default=None, 
                     help="save output to file")
@@ -175,7 +175,7 @@ else:
     npz = numpy.load(args.model)
     m_features = npz["arr_1"]
     labels = npz["arr_2"]
-    
+
 model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=-1, compute_importances=True)     
 model.fit(m_features, labels)
 
