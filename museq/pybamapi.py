@@ -129,7 +129,9 @@ class BamApi(object):
         refbase = temp_tuple[0]
 
         # index refbase
-        refbase = self.base[refbase]
+        refbase = self.base.get(refbase)
+        if refbase is None:
+            refbase = 4
 
         ## replace the base with its index (required for feature extraction)
         temp_tuple = (refbase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
