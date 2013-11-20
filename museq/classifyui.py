@@ -41,24 +41,28 @@ parser.add_argument("--tumour_variant",
                     help='''specify the min number of variants in the tumour bam file''')
                                         
 parser.add_argument("-b", "--buffer_size",
-                    default=1000000,
-                    type=int,
+                    default="2G",
                     help='''specify the min number of variants in the tumour bam file''')
 
 parser.add_argument("-s", "--single",
                     default=False, action="store_true",
                     help='''single sample analysis''')
-                    
+
 parser.add_argument("-a", "--all", 
-                    default=None, choices=["no", "yes"], 
-                    help= '''force to print out even if the position(s) does not satisfy 
+                    default=False, action="store_true", 
+                    help= '''force to print out even if the predicted probability of the 
+                    candidate position(s) is(are) less than the specified threshld.''')
+                    
+parser.add_argument("--no_filter", 
+                    default=False, action="store_true", 
+                    help= '''force to print out even if the position(s) does(do) not satisfy 
                     the initial criteria for Somatic call''')
 
 parser.add_argument("-d", "--deep", 
                     default=False, action="store_true", 
                     help='''deepseq data analysis''')
                     
-parser.add_argument("-e" , "--export", 
+parser.add_argument("-e" , "--export_features", 
                     default=None, 
                     help='''save exported feature vector to the specified path''')
                     

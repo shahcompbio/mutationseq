@@ -5,7 +5,7 @@ Created on Fri Oct 11 12:21:18 2013
 @author: jtaghiyar
 """
 
-import bamutils
+import pybamapi
 import numpy
 import features
 import Nfeatures
@@ -120,7 +120,7 @@ def extract_features(data):
     for tfile, nfile, rfile in data.keys():
         print "tumour:", tfile
         print "normal:", nfile
-        bam = bamutils.Bam(tumour=tfile, normal=nfile, reference=rfile)
+        bam = pybamapi.BamApi(tumour=tfile, normal=nfile, reference=rfile)
         
         for chromosome, position, label, c in data[(tfile, nfile, rfile)]:
             chromosome_id = bam.get_tumour_chromosome_id(chromosome)

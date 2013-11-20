@@ -10,15 +10,31 @@ from math import log
 
 
 class Features:
-    def __init__(self, tumour_tuple, normal_tuple, reference_tuple, purity=70):
+    def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, purity=70):
         self.name = "TCGA Benchmark 4 featureset with coverage info"
         self.version = "5"
         self.tt = tumour_tuple
         self.nt = normal_tuple
         self.rt = reference_tuple
-        self.b  = self.rt[0] + 1 #reference base index + 1 = index of the same base in the tumour/normal bam tuple 
+        
+        if self.tt is None:
+            self.tt = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
+
+        if self.nt is None: 
+            self.nt = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
+        
+        if self.rt is None:
+            self.rt = (0, 0, 0, 0, 0)
+            
+        ## reference base index + 1 = index of the same base in the tumour/normal bam tuple
+        self.b  = self.rt[0] + 1  
+        
+        ## coverage data        
         self.cd = (float(30), float(30), int(purity), float(0))
-        self.ep = 1e-5 # to avoid division by zero
+        
+        ## to avoid division by zero
+        self.ep = 1e-5 
+
         
         self.feature_set = (
         ("tumour_indels", self.tt[9] / self.tt[5][0]),
@@ -158,6 +174,9 @@ class Features:
         total_nbq = normal_base_qualities[4]
         ent = 0 # entropy
         
+        if total_tbq == 0 or total_nbq == 0:
+            return ent
+            
         for i in xrange(4):
             tumour_base_probability = tumour_base_qualities[i] / total_tbq
             normal_base_probability = normal_base_qualities[i] / total_nbq            

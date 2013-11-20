@@ -4,28 +4,31 @@ Created on Wed Sep 18 11:22:08 2013
 
 @author: jtaghiyar
 """
-##TODO: needs a logger
 from __future__ import division
+import logging
 import sys
 import numpy
 import pybamapi
+import resource
+import re
 import newfeatures, newfeatures_single, newfeatures_deep
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
 from string import Template
 from datetime import datetime
-import resource 
 
 mutationSeq_version = "4.0.0"
-
-class BamHelper:
+ 
+class BamHelper(object):
     def __init__(self, args):
+        logging.info("initializig BamHelper")
         self.samples = {}
         self.args    = args
         self.rmdups  = True
         self.base    = ['A', 'C', 'G', 'T', 'N']
         self.outstr_buffer   = []    
         self.features_buffer = []
+        self.__get_buffer_size()
         
         ## parse the positional argument to get tumour/normal bam, reference fasta and model
         for s in self.args.samples:
@@ -33,13 +36,13 @@ class BamHelper:
         
         ## check the input
         if not self.samples.get("reference"):
-            print "bad input: reference must be specified"
-            sys.exit(1)
+            logging.error("error: bad input: reference must be specified")
+            raise Exception("no referece file in the input.")
         
         if not self.samples.get("normal") and not self.samples.get("tumour"):   
-            print "bad input: no bam files specified"
-            sys.exit(1) 
-            
+            logging.error("error: bad input: no bam files specified")
+            raise Exception("no bam file in the input.")
+
         ## set the right feature set
         if  self.args.single:
             self.features = newfeatures_single
@@ -51,18 +54,34 @@ class BamHelper:
         else:
             self.features = newfeatures
         
-        ## set the buffer size to limit the memory usage       
-        if  self.args.buffer_size <= 0: # set buffer size to -1 to cancel the restriction
-            self.buffer_size = float('inf')
-        
-        else:
-            self.buffer_size = self.args.buffer_size
-            
+        logging.info("initializig BamApi")
         self.bam  = pybamapi.BamApi(tumour=self.samples.get("tumour"), 
                                     normal=self.samples.get("normal"), 
                                     reference=self.samples.get("reference"), 
                                     coverage=self.args.coverage, 
                                     rmdups=self.rmdups)
+                            
+    def __get_buffer_size(self):
+        s = re.split('(\d+)', self.args.buffer_size)
+        d = int(s[1])
+        l = s[2].upper()
+        if d < 0 or l not in ('G', 'M'):
+            ## relax the restriction on the memory usage
+            self.buffer_size = float('inf')
+        
+        elif d < 100 and l == 'M':
+            logging.warning("warning: buffer size is ingnored. It should be >= 100M.")
+            self.buffer_size = float('inf')
+
+        elif l == 'G':
+            ## every million output and feature strings together
+            ## takes about 2G of memory. Also, ~50M memory is required 
+            ## to initialize and about another ~50M is required to fit the model.
+            self.buffer_size = d * 200000 
+        
+        elif l == 'M':
+            self.buffer_size = (d / 1024) * 200000
+        
         
     def __parse_positions(self, positions_list, pch=':'):
         chromosome = positions_list.split(pch)[0]
@@ -88,6 +107,7 @@ class BamHelper:
             return [chromosome, None, None]
         
     def get_positions(self, pch=':'):
+        logging.info("getting positions")
         target_positions = []
         
         if self.args.interval:
@@ -95,6 +115,7 @@ class BamHelper:
             target_positions.append(temp_tp) 
         
         elif self.args.positions_file:
+            logging.info("parsing the position_file")
             try:
                 positions_file = open(self.args.positions_file, 'r')
                 for l in positions_file.readlines():
@@ -103,8 +124,8 @@ class BamHelper:
                 positions_file.close()
             
             except:
-                print "Failed to load the positions file from " + self.args.positions_file
-                sys.exit(1)
+                logging.error("error: failed to load the positions file " + self.args.positions_file)
+                raise Exception("failed to load the positions file")
 
         else:
             ## get all the common chromosome names
@@ -154,6 +175,7 @@ class BamHelper:
         return outstr  
     
     def __flush(self):
+        logging.info("flushing memory. Usage was: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024) + "M")
         ## a numpy array required as an input to the random forest predictor
         features = numpy.array(self.features_buffer)
         outstrs  = self.outstr_buffer
@@ -169,11 +191,18 @@ class BamHelper:
         return features, outstrs
 
     def get_features(self, tuples):
-        for tt, nt in tuples:          
-            ## ignore tumour tuples with no/few variants in the tumour and too many variants in the normal 
+        logging.info("getting features")
+        for tt, nt in tuples: 
             refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
-            if tt[5][0] - tt[refbase + 1][0] < self.args.tumour_variant or (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > (self.args.normal_variant / 100):
-                continue
+            nonrefbases = [x for x in range(4) if x != refbase]
+            
+            if not self.args.no_filter:
+                ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
+                if  tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
+                    tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
+                    tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
+                    (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] > (self.args.normal_variant / 100):
+                        continue
             
             ## get corresponding reference tuple
             chromosome_id = tt[-1]
@@ -197,16 +226,20 @@ class BamHelper:
             
     def __fit_model(self):
         try:
+            logging.info("loading model")
             npz = numpy.load(self.samples["model"])
         
         except:
-            print "Failed to load model"
-            print sys.exc_info()[0]
-            sys.exit(1)
+            logging.error("error: failed to load model")
+            raise Exception("failed to load model.")
 
         train  = npz["arr_1"]
         labels = npz["arr_2"]
+        
+        logging.info("running random forest")
         model  = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
+        
+        logging.info("fitting model")
         model.fit(train, labels)
         
         return model   
@@ -216,10 +249,12 @@ class BamHelper:
 
         for features, outstrs in features_outstrs:
             if len(features) == 0:
-                yield [], []
-                
+                continue
+            
+            logging.info("predicting probabilities ")
             probabilities = model.predict_proba(features)
-            ## return only probabilities of being somatic
+           
+           ## return only probabilities of being somatic
             probabilities = [x[1] for x in probabilities] 
             
             yield probabilities, outstrs
@@ -252,44 +287,52 @@ class BamHelper:
             return header
         
         except:
-            print "Failed to load metadata file"
+            logging.warning("warning: failed to load metadata file.")
             return
             
     def print_results(self, probabilities_outstrs):
         ## open the output vcf file to write        
         if self.args.out is None:
-            print "--out is not specified, standard output is used to write the results"
+            logging.warning("warning: --out is not specified, standard output is used to write the results")
             out = sys.stdout
+            out_path = "stdout"
         
         else:
             out = open(self.args.out, 'w')
+            out_path = str(self.args.out)
         
         ## print the vcf header to the output
         header = self.__meta_data() 
         if header is not None:
             print >> out, header.strip()
         
-
         ## print the results
+        any_result = False
         for probabilities, outstrs in probabilities_outstrs:
             if len(probabilities) == 0:
                 continue
-                
+            
+            logging.info("printing results to: " + out_path)
             for i in xrange(len(probabilities)):
                 outstr = outstrs[i]
                 p = probabilities[i]
                 
-                ## check if the filter_flag is INDL or None
-                if outstr[-2] is None:
+                ## do not print positions with p < threshold if --all option is not set
+                if not self.args.all and p < self.args.threshold:
+                    continue 
+
+                any_result = True
+
+                ## set the filter_flag to INDL, PASS, or FAIL
+                filter_flag = outstr[-2]
+                
+                if filter_flag is None:
                     if p > self.args.threshold:
                         filter_flag = "PASS"
                     
                     else:
                         filter_flag = "FAIL"
                 
-                else:
-                    filter_flag = outstr[-2]
-                    
                 info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
                             ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
                             ";NA=" + outstr[-1][3] + ",TC=" + outstr[-1][4] + \
@@ -307,16 +350,19 @@ class BamHelper:
                                    self.base[outstr[4]], "%.2f" % phred_quality, filter_flag, info_str])
                 
                 print >> out, "\t".join(outstr)
-                
-                ##TODO: remove this line
-                print "total mem usage after flush: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            
+        if not any_result:
+            print "**no somatic mutation call**"
 
         out.close()
         
     def export_features(self, features):
-#        names = 
+        logging.info("exporting features to: " + self.args.export_features)
+        tmp_obj = self.features.Features()
+        names = tmp_obj.get_feature_names()
         
-        with open(self.args.export, 'w') as export_file:
+        with open(self.args.export_features, 'w') as export_file:
+            print >> export_file, "\t".join(names)
             for f in features:
                 print >> export_file, f
 

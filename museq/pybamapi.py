@@ -7,7 +7,7 @@ Created on Wed Oct 23 11:14:37 2013
 import newpybam as np # new pybam
 import cStringIO
 
-class BamApi:
+class BamApi(object):
     def __init__(self, **kwargs):       
         self.t_bam = kwargs.get("tumour")
         self.n_bam = kwargs.get("normal")
@@ -170,7 +170,7 @@ class BamApi:
                     break
                 else:
                     yield tt
-                    
+
     def get_pair_tuples(self, target_positions):
         for tp in target_positions: 
             if tp[1] is None:
@@ -201,10 +201,26 @@ class BamApi:
                         
                 if not all((tt, nt)):
                     break
-                yield (tt, nt)
-        
-        
-        
+                yield (tt, nt)    
+
+#    def get_pair_tuples_test(self, target_positions):
+#        for tp in target_positions: 
+#            if tp[1] is None:
+#                start = 1                
+#                stop  = self.get_chromosome_lengths()[tp[0]] + 1
+#
+#            else:
+#                start = tp[1] 
+#                stop  = tp[2] + 1 
+#                
+#            for i in xrange(start, stop):
+#                tt = self.get_tumour_tuple(tp[0], i+1)
+#                nt = self.get_normal_tuple(tp[0], i+1)
+#                
+#                if not all((tt, nt)):
+#                    continue
+#
+#                yield (tt, nt)
         
         
         
