@@ -11,7 +11,8 @@ import numpy
 import pybamapi
 import resource
 import re
-import newfeatures, newfeatures_single, newfeatures_deep
+import newfeatures 
+#newfeatures_single, newfeatures_deep
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
 from string import Template
