@@ -33,7 +33,7 @@ bam_helper = bamutils.BamHelper(args)
 target_positions = bam_helper.get_positions()
 
 logging.info("generating tuple iterator")
-tuples = bam_helper.bam.get_pair_tuples(target_positions)
+tuples = bam_helper.bam.get_tuples(target_positions)
 
 logging.info("generating features iterator")
 features = bam_helper.get_features(tuples)

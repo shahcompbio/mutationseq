@@ -11,8 +11,7 @@ import numpy
 import pybamapi
 import resource
 import re
-import newfeatures 
-#newfeatures_single, newfeatures_deep
+import newfeatures, newfeatures_single, newfeatures_deep, newfeatures_deep_single
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
 from string import Template
@@ -24,10 +23,9 @@ class BamHelper(object):
     def __init__(self, args):
         logging.info("initializig BamHelper")
         self.samples = {}
-        self.args    = args
-        self.rmdups  = True
-        self.base    = ['A', 'C', 'G', 'T', 'N']
-        self.outstr_buffer   = []    
+        self.args = args
+        self.base = ['A', 'C', 'G', 'T', 'N']
+        self.outstr_buffer = []    
         self.features_buffer = []
         self.__get_buffer_size()
         
@@ -35,32 +33,82 @@ class BamHelper(object):
         for s in self.args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
         
-        ## check the input
+        ## check if there is a referece in the input
         if not self.samples.get("reference"):
             logging.error("error: bad input: reference must be specified")
             raise Exception("no referece file in the input.")
         
+        self.ref = self.samples.get("reference")
+        
+        ## check if the model is specified correctly
+        self.model = self.samples.get("model")
+        if not self.model:
+            logging.error("error: bad input: model must be specified in the input")
+            raise Exception("no model")
+        
+        ## check if there is any bam files in the input
         if not self.samples.get("normal") and not self.samples.get("tumour"):   
-            logging.error("error: bad input: no bam files specified")
-            raise Exception("no bam file in the input.")
-
-        ## set the right feature set
-        if  self.args.single:
-            self.features = newfeatures_single
-
-        elif self.args.deep:
-            self.features = newfeatures_deep
-            self.rmdups = False
+            logging.error("error: bad input: no bam files specified in the input")
+            raise Exception("no bam file")
         
+        ## check if it is single mode but there are two bam files instead of one in the input
+        if self.samples.get("normal") and self.samples.get("tumour") and self.args.single:   
+            logging.error("error: bad input: single mode but two bam files specified in the input")
+            raise Exception("single mode but two bam files specified")
+            
+        ## check if it is not single mode but there is only one bam file in the input
+        if (not self.samples.get("normal") or not self.samples.get("tumour")) and not self.args.single:   
+            logging.error("error: bad input: one bam file specified in the input but it does not seem to be the single mode.")
+            raise Exception("one bam file specified but not the single mode")
+         
+        ## single mode 
+        if self.args.single:
+            if self.args.deep:
+                self.features = newfeatures_deep_single
+                rmdups = False
+            
+            else:
+                self.features = newfeatures_single
+                rmdups = True
+
+            if not self.samples.get("tumour"):
+                self.type = 'n'
+
+                logging.info("initializig a normal Bam")
+                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
+        
+            else:
+                self.type = 't'
+                
+                logging.info("initializig a tumour Bam")
+                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
+        
+        ## paired mode
         else:
-            self.features = newfeatures
+            if self.args.deep:
+                self.features = newfeatures_deep
+                rmdups = False
+                
+            else:
+                self.features = newfeatures
+                rmdups = True
         
-        logging.info("initializig BamApi")
-        self.bam  = pybamapi.BamApi(tumour=self.samples.get("tumour"), 
-                                    normal=self.samples.get("normal"), 
-                                    reference=self.samples.get("reference"), 
-                                    coverage=self.args.coverage, 
-                                    rmdups=self.rmdups)
+            logging.info("initializig a PairedBam")
+            self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
+                                                reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups)
+        
+        ## check if the version of the input model matches that of the feature set  
+        try:
+            logging.info("loading model")
+            self.npz = numpy.load(self.samples.get("model"))
+        
+        except:
+            logging.error("error: failed to load model")
+            raise Exception("failed to load model")
+        
+        if self.npz["arr_0"] != self.features.version:
+            logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features.version))
+            raise Exception("mismatched model")
                             
     def __get_buffer_size(self):
         s = re.split('(\d+)', self.args.buffer_size)
@@ -140,7 +188,7 @@ class BamHelper(object):
                 
         return target_positions
     
-    def __make_outstr(self, tt, nt, refbase):
+    def __make_outstr(self, tt, refbase, nt=None):
         ## flag insertions and deletions 
         if tt[-4] > 0 or tt[-2] > 0:
             filter_flag = "INDL"
@@ -154,14 +202,29 @@ class BamHelper(object):
             altbase = tt[6]
         
         ## get tri-nucleotide context
-        tc = self.bam.get_trinucleotide_context(tt[-1], tt[0])
+        chromosome_id = tt[-1]
+        position = tt[0]
+        tc = self.bam.get_trinucleotide_context(chromosome_id, position)
 
         ## generate informatio for the INFO column in the output
         TR = tt[refbase + 1][0] # tumour to reference base count 
-        NR = nt[refbase + 1][0] # normal to reference base count 
         TA = tt[altbase + 1][0] # tumour to alternative base count 
-        NA = nt[altbase + 1][0] # normal to alternative base count 
-        info = [TR, TA, NR, NA, tc, tt[-4], tt[-2]]
+       
+        if nt is not None:
+            NR = nt[refbase + 1][0] # normal to reference base count 
+            NA = nt[altbase + 1][0] # normal to alternative base count 
+
+        else:
+            NR = "N/A"
+            NA = "N/A"
+        
+        ## format the out string based on the mode and the type of the bam file
+        if self.args.single and self.type == 'n':
+            info = [NR, NA, TR, TA, tc, tt[-4], tt[-2]]
+        
+        else:
+            info = [TR, TA, NR, NA, tc, tt[-4], tt[-2]]
+            
         info = map(str, info) 
         
         ## reserved to be filled later
@@ -169,14 +232,15 @@ class BamHelper(object):
         out_id = "."  # database ID   
         
         ## get chromosome name of the given chromosome ID
-        chromosome_name = self.bam.get_tumour_chromosome_name(tt[-1])
+        chromosome_name = self.bam.get_chromosome_name(chromosome_id)
         
-        outstr = [chromosome_name, tt[0], out_id, refbase, altbase, qual, filter_flag, info]
+        outstr = [chromosome_name, position, out_id, refbase, altbase, qual, filter_flag, info]
         
         return outstr  
     
     def __flush(self):
         logging.info("flushing memory. Usage was: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024) + "M")
+        
         ## a numpy array required as an input to the random forest predictor
         features = numpy.array(self.features_buffer)
         outstrs  = self.outstr_buffer
@@ -190,15 +254,59 @@ class BamHelper(object):
             return [], []
             
         return features, outstrs
-
+    
     def get_features(self, tuples):
         logging.info("getting features")
-        for tt, nt in tuples: 
-            refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
+        
+        if self.args.single:
+            return self.__get_features_single(tuples)
+       
+        else:
+            return self.__get_features_paired(tuples)
+    
+    def __get_features_single(self, tuples):
+        for it in tuples: 
+            chromosome_id = it[-1]
+            position = it[0]
+           
+            refbase = self.bam.get_reference_base(chromosome_id, position, index=True)
             nonrefbases = [x for x in range(4) if x != refbase]
             
+            ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
             if not self.args.no_filter:
-                ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
+                if  it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
+                    it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
+                    it[nonrefbases[2] + 1][0] < self.args.tumour_variant:
+                        continue
+            
+            ## get corresponding reference tuple
+            rt = self.bam.get_reference_tuple(chromosome_id, position)
+            
+            ## calculate features and buffer it     
+            feature_set = self.features.Features(it, rt)
+            temp_feature = feature_set.get_features()
+            self.features_buffer.append(temp_feature)
+        
+            ## generate output string and buffer it
+            outstr = self.__make_outstr(it, rt[0], nt=None)
+            self.outstr_buffer.append(outstr)
+            
+            ## check the buffer size and flush
+            if len(self.features_buffer) >= self.buffer_size:
+                yield self.__flush()
+        
+        yield self.__flush()
+        
+    def __get_features_paired(self, tuples):
+        for tt, nt in tuples: 
+            chromosome_id = tt[-1]
+            position = tt[0]
+            
+            refbase = self.bam.get_reference_base(chromosome_id, position, index=True)
+            nonrefbases = [x for x in range(4) if x != refbase]
+            
+            ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
+            if not self.args.no_filter:
                 if  tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                     tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
                     tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
@@ -206,8 +314,6 @@ class BamHelper(object):
                         continue
             
             ## get corresponding reference tuple
-            chromosome_id = tt[-1]
-            position = tt[0]
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
             ## calculate features and buffer it     
@@ -216,7 +322,7 @@ class BamHelper(object):
             self.features_buffer.append(temp_feature)
         
             ## generate output string and buffer it
-            outstr = self.__make_outstr(tt, nt, rt[0])
+            outstr = self.__make_outstr(tt, rt[0], nt)
             self.outstr_buffer.append(outstr)
             
             ## check the buffer size and flush
@@ -226,16 +332,8 @@ class BamHelper(object):
         yield self.__flush()
 
     def __fit_model(self):
-        try:
-            logging.info("loading model")
-            npz = numpy.load(self.samples["model"])
-        
-        except:
-            logging.error("error: failed to load model")
-            raise Exception("failed to load model.")
-
-        train  = npz["arr_1"]
-        labels = npz["arr_2"]
+        train  = self.npz["arr_1"]
+        labels = self.npz["arr_2"]
         
         logging.info("running random forest")
         model  = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
@@ -248,11 +346,11 @@ class BamHelper(object):
     def predict(self, features_outstrs):
         model = self.__fit_model()
 
+        logging.info("predicting probabilities ")
         for features, outstrs in features_outstrs:
             if len(features) == 0:
                 continue
             
-            logging.info("predicting probabilities ")
             probabilities = model.predict_proba(features)
            
            ## return only probabilities of being somatic
@@ -336,7 +434,7 @@ class BamHelper(object):
                 
                 info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
                             ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
-                            ";NA=" + outstr[-1][3] + ",TC=" + outstr[-1][4] + \
+                            ";NA=" + outstr[-1][3] + ";TC=" + outstr[-1][4] + \
                             ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
                 
                 ## calculate phred quality
@@ -356,97 +454,26 @@ class BamHelper(object):
             print "**no somatic mutation call**"
 
         out.close()
+
+    def get_feature_names(self):
+        tmp_obj = self.features.Features()
+        names = tmp_obj.get_feature_names()
+
+        return names
         
     def export_features(self, features):
         logging.info("exporting features to: " + self.args.export_features)
-        tmp_obj = self.features.Features()
-        names = tmp_obj.get_feature_names()
+        version = self.features.version
+        names = self.get_feature_names()
         
         with open(self.args.export_features, 'w') as export_file:
+            print >> export_file, "##features_version:" + version            
             print >> export_file, "\t".join(names)
-            for f in features:
-                print >> export_file, f
 
-
-#==============================================================================
-# old get_featurs
-#==============================================================================
-#    def get_features(self, tumour_tuples, normal_tuples):
-#        tuples_buffer   = deque()        
-#        features_buffer = []
-#        
-#        ## TODO: remove this, write tuples in a file
-#        if DEBUG:        
-#            tuple_file = open("tuples.f", 'w')
-#            print >> tuple_file, "Tumour tuples"
-#            
-#        for tt in tumour_tuples:
-##            print tt
-#            ## ignore tumour tuples with no/few variants compared to reference            
-#            refbase = self.bam.get_reference_base(tt[-1], tt[0], index=True)
-#            if (tt[5][0] - tt[refbase + 1][0]) / tt[5][0] < 0.1:
-#                continue
-#
-#            ##TODO: remove this            
-#            if DEBUG:
-#                print >> tuple_file, tt
-#                
-#            ## buffer tumour tuple to campare against normal tuples
-#            tuples_buffer.append(tt)
-#            
-#        ## return if all tuples were filterd
-#        if len(tuples_buffer) == 0:
-#            return []
-#        
-#        tt = tuples_buffer.popleft()
-#        
-#        ##TODO: remove this
-#        if DEBUG:
-#            print >> tuple_file, "Normal tuples"
-#            
-#        for nt in normal_tuples:
-##            print nt
-#            ## find positions where tuples for both tumour and normal exist
-#            while tt[0] < nt[0]:
-#                if len(tuples_buffer) == 0:
-#                    break
-#                tt = tuples_buffer.popleft()
-#
-#            if tt[0] != nt[0]:
-#                continue
-#            
-#            ##TODO: remvoe this:
-#            if DEBUG:
-#                print >> tuple_file, nt
-#                
-#            ## extract reference tuples 
-#            print tt
-#            rt = self.bam.get_reference_tuple(tt[-1], tt[0])
-#
-#            ## calculate features      
-#            feature_set = self.features.Features(tt, nt, rt)
-#            tf = feature_set.get_features()
-#            features_buffer.append(tf)
-#            
-#            ## generate output string and buffer it
-#            outstr = self.__make_outstr(tt, rt, nt)
-#            self.outstr_buffer.append(outstr)
-#            
-#            if len(tuples_buffer) == 0:
-#                break
-#        
-#        ##TODO: remove this
-#        if DEBUG:
-#            tuple_file.close()
-#        
-#        ## make a numpy array required as an input to the random forest predictor
-#        features_buffer = numpy.array(features_buffer)
-#        
-#        ## make sure a list is returned         
-#        if features_buffer is None:
-#            return []
-#        else:
-#            return features_buffer
+            for fs in features:
+                for f in fs:
+                    print >> export_file, f
+#                print >> export_file, fs
 
 
 

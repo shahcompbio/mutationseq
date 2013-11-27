@@ -8,11 +8,11 @@ from __future__ import division
 import numpy
 from math import log
 
+name = "TCGA Benchmark 4 feature set with coverage info"
+version = "4.0.0"
 
 class Features:
     def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, purity=70):
-        self.name = "TCGA Benchmark 4 featureset with coverage info"
-        self.version = "5"
         self.tt = tumour_tuple
         self.nt = normal_tuple
         self.rt = reference_tuple

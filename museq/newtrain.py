@@ -4,11 +4,9 @@ Created on Fri Oct 11 12:21:18 2013
 
 @author: jtaghiyar
 """
-
+##TODO: needs a logger
 import pybamapi
 import numpy
-import features
-import Nfeatures
 import sys
 import argparse
 import matplotlib
@@ -41,11 +39,11 @@ parser.add_argument("--normalized",
                     default=False, action="store_true", 
                     help="If you want to train with normalized features")
                     
-parser.add_argument("--C", 
+parser.add_argument("--deep", 
                     default=False, action="store_true", 
-                    help="If you want to test on deep data you need to change containation rate")
+                    help="If you want to test on deep data you need to change contamination rate")
                     
-parser.add_argument("--out", 
+parser.add_argument("-o", "--out", 
                     default=None, 
                     help="save output to file")
                     
@@ -120,19 +118,21 @@ def extract_features(data):
     for tfile, nfile, rfile in data.keys():
         print "tumour:", tfile
         print "normal:", nfile
-        bam = pybamapi.BamApi(tumour=tfile, normal=nfile, reference=rfile)
+        t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
+        n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
         
         for chromosome, position, label, c in data[(tfile, nfile, rfile)]:
-            chromosome_id = bam.get_tumour_chromosome_id(chromosome)
-            tt = bam.get_tumour_tuple(chromosome, position)
-            nt = bam.get_normal_tuple(chromosome, position)            
-            rt = bam.get_reference_tuple(chromosome_id, position)            
+            chromosome_id = t_bam.get_chromosome_id(chromosome)
+            tt = t_bam.get_tuple(chromosome, position)
+            nt = n_bam.get_tuple(chromosome, position)            
+            rt = t_bam.get_reference_tuple(chromosome_id, position)            
             
             if not all([tt, nt, rt]):
                 print "None tuple"
                 continue
             
             ## calculate features            
+            feature_version = newfeatures.version
             feature_set = newfeatures.Features(tt, nt, rt)
             temp_features = feature_set.get_features()   
             
@@ -141,35 +141,21 @@ def extract_features(data):
             keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
             
     features_buffer = numpy.array(features_buffer)
-    labels_buffer   = numpy.array(labels_buffer)
-    keys_buffer     = numpy.array(keys_buffer)
-    return features_buffer, labels_buffer, keys_buffer
+    labels_buffer = numpy.array(labels_buffer)
+    keys_buffer = numpy.array(keys_buffer)
+    
+    return feature_version, features_buffer, labels_buffer, keys_buffer
 		                
 #==============================================================================
 # beginnig of the main body
 #==============================================================================
-if not args.normalized:
-    feature_set = features.feature_set
-    coverage_features = features.coverage_features
-    extra_features = (("xentropy", 0), ("SENTINEL", 0))
-    version = features.version
-    c = (float(30), float(30), float(70), float(0))
-    if args.C:
-        c = (float(100000), float(100000), float(70), float(0))
-        print "Warning: you are trying to test deep data with unnormalized features"
-else:
-    feature_set = Nfeatures.feature_set
-    coverage_features = Nfeatures.coverage_features
-    extra_features = (("xentropy", 0), ("SENTINEL", 0))
-    version = Nfeatures.version
-    c = (float(30), float(30), float(70), float(0))
-    if args.C:
-        c = (float(10000), float(10000), float(70), float(0))
+if args.deep:
+    c = (float(10000), float(10000), float(70), float(0))
 
 if args.model is None:
     data=extract_labels(args.infiles)
-    features, labels, keys = extract_features(data)
-    numpy.savez(args.out, version, features, labels)
+    feature_version, m_features, labels, keys = extract_features(data)
+    numpy.savez(args.out, feature_version, m_features, labels)
     
 else:
     npz = numpy.load(args.model)
@@ -193,7 +179,7 @@ importance_file.close()
 ## validation
 if args.validate:
     validation = extract_labels(args.validate)
-    val_features, val_labels, val_keys = extract_features(validation)
+    _, val_features, val_labels, val_keys = extract_features(validation)
     
     ## predict probabilities
     probs = model.predict_proba(val_features)
@@ -202,10 +188,12 @@ if args.validate:
     roc_auc = auc(fpr, tpr)
     print roc_auc
     fd = open(args.out + '_result.txt', 'w')
+    
     for f, k, vf in zip(voted, val_keys, val_features):
         vf = " ".join(map(str, vf))        
         k = " ".join(map(str, k))
         print >> fd, k+ " "+ str(f)+ " "+ vf
+    
     fd.close()  
     plt.plot(fpr,tpr,'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
     plt.title('ROC curve (area = %0.3f)' %float(roc_auc))
@@ -231,8 +219,10 @@ else:
         fpr, tpr, thresholds = roc_curve(labels[test], voted)
         roc_auc = auc(fpr, tpr)
         fd = open(args.out + '_result_' + str(i), 'w')
+        
         for f, k in zip(voted, keys[test]):
             print >> fd, k[0]+' '+k[1]+' '+k[2]+' '+k[3]+' '+k[4]+' '+k[5]+' '+str(f)
+
         fd.close()
         plt.plot(fpr, tpr, 'k--', lw=1, label="Fold %i (AUC=%0.3f)" % (i + 1, float(roc_auc)))
 

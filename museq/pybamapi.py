@@ -7,33 +7,27 @@ Created on Wed Oct 23 11:14:37 2013
 import newpybam as np # new pybam
 import cStringIO
 
-class BamApi(object):
+class Bam(object):
     def __init__(self, **kwargs):       
-        self.t_bam = kwargs.get("tumour")
-        self.n_bam = kwargs.get("normal")
+        self.bam = kwargs.get("bam")
         self.ref = kwargs.get("reference") 
-        self.rmdups = kwargs.get("rmdups") 
-        self.coverage = kwargs.get("coverage")
+        rmdups   = kwargs.get("rmdups") 
+        coverage = kwargs.get("coverage")
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
-        if  self.rmdups is None:
-            self.rmdups = True
+        if rmdups is None:
+            rmdups = True
             
         ## set the default for the coverage
-        if  self.coverage is None:
-            self.coverage = 4
+        if coverage is None:
+            coverage = 4
             
-        ## make a pileup for normal bam
-        if  self.n_bam is not None:
-            self.n_pileup = np.pileup(self.coverage, self.rmdups)
-            self.n_pileup.open(self.n_bam)
+        ## make a pileup for bam file
+        if self.bam is not None:
+            self.pileup = np.pileup(coverage, rmdups)
+            self.pileup.open(self.bam)
     
-        ## make a pileup for tumour bam
-        if  self.t_bam is not None:
-            self.t_pileup = np.pileup(self.coverage, self.rmdups) 
-            self.t_pileup.open(self.t_bam)
-        
         if  self.ref is not None:
             self.__load_reference()
         
@@ -42,66 +36,6 @@ class BamApi(object):
         self.fasta = np.fasta() 
         self.fasta.open(self.ref) 
 
-    def get_normal_refnames(self):
-        """ get the list of chromosome names and their corresponding IDs as a dictionary """
-        
-        return dict(self.n_pileup.refnames)
-    
-    def get_tumour_refnames(self):
-        """ get the list of chromosome names and their corresponding IDs as a dictionary """
-    
-        return dict(self.t_pileup.refnames)
-    
-    def get_normal_chromosome_id(self, chromosome_name):
-        rn = self.get_normal_refnames()
-        return rn.get(chromosome_name)
-    
-    def get_tumour_chromosome_id(self, chromosome_name):
-        rn = self.get_tumour_refnames()
-        return rn.get(chromosome_name)
-    
-    def get_normal_chromosome_name(self, chromosome_id):
-        rn = self.get_normal_refnames()
-        for k in rn.keys():
-            if rn[k] == chromosome_id:
-                return k
-        return None
-        
-    def get_tumour_chromosome_name(self, chromosome_id):
-        rn = self.get_tumour_refnames()
-        for k in rn.keys():
-            if rn[k] == chromosome_id:
-                return k
-        return None
-    
-    def get_tumour_samheader(self):
-        return self.t_pileup.samheader
-        
-    def get_normal_samheader(self):
-        return self.n_pileup.samheader
-    
-    def get_chromosome_lengths(self):
-        """ parse the sam file header to get the chromosome lengths """
-        
-        chromosome_lengths = {}
-        sam_header  = self.t_pileup.samheader
-        sam_file = cStringIO.StringIO(sam_header)
-        
-        for l in sam_file:
-            l = l.strip().split()
-            if l[0] == "@SQ" :
-                SN = l[1]
-                chrom_name = SN.split(':')[1]
-                LN = l[2]
-                chrom_len  = LN.split(':')[1]
-                chromosome_lengths[chrom_name] = int(chrom_len)
-
-        sam_file.close()
-        return chromosome_lengths
-    
-    ##TODO: change the interface to chromosome name instead of chromosome_id for FASTA object
-    ## Maybe it is not a good idea since the tuples have chromosome_id and converting them to chromosome names
-    ## require extra function call to get_..._chromosome_name() which is a performance over head
     def get_reference_base(self, chromosome_id, position, index=False):
         b = self.fasta.get_base(chromosome_id, int(position))
         
@@ -136,55 +70,95 @@ class BamApi(object):
         ## replace the base with its index (required for feature extraction)
         temp_tuple = (refbase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
         return temp_tuple
-            
-    def get_normal_tuple(self, chromosome, position):
-        self.n_pileup.set_region(chromosome, position, position)
-        return self.n_pileup.get_tuple()
     
-    def get_tumour_tuple(self, chromosome, position):
-        self.t_pileup.set_region(chromosome, position, position)
-        return self.t_pileup.get_tuple()
+    def get_refnames(self):
+        """ get the list of chromosome names and their corresponding IDs as a dictionary """
+        
+        return dict(self.pileup.refnames)
     
-    def get_normal_tuples(self, target_positions):
+    def get_chromosome_id(self, chromosome_name):
+        rn = self.get_refnames()
+        return rn.get(chromosome_name)
+    
+    def get_chromosome_name(self, chromosome_id):
+        rn = self.get_refnames()
+        for k in rn.keys():
+            if rn[k] == chromosome_id:
+                return k
+        return None
+        
+    def get_samheader(self):
+        return self.pileup.samheader
+        
+    def get_chromosome_lengths(self):
+        """ parse the sam file header to get the chromosome lengths """
+        
+        chromosome_lengths = {}
+        sam_header  = self.pileup.samheader
+        
+        ## make a file_like object
+        sam_file = cStringIO.StringIO(sam_header)
+        
+        for l in sam_file:
+            l = l.strip().split()
+            if l[0] == "@SQ" :
+                SN = l[1]
+                chrom_name = SN.split(':')[1]
+                LN = l[2]
+                chrom_len  = LN.split(':')[1]
+                chromosome_lengths[chrom_name] = int(chrom_len)
+
+        sam_file.close()
+        return chromosome_lengths
+        
+    def get_tuple(self, chromosome, position):
+        self.pileup.set_region(chromosome, position, position)
+        return self.pileup.get_tuple()
+    
+    def get_tuples(self, target_positions):
         for tp in target_positions: 
             if tp[1] is None:
-                self.n_pileup.set_region(tp[0])
+                self.pileup.set_region(tp[0])
             else:
-                self.n_pileup.set_region(tp[0], tp[1], tp[2])
+                self.pileup.set_region(tp[0], tp[1], tp[2])
 
             while True:
-                tt = self.n_pileup.get_tuple() 
-                if tt is None:
+                t = self.pileup.get_tuple() 
+                if t is None:
                     break
                 else:
-                    yield tt
+                    yield t
             
-    def get_tumour_tuples(self, target_positions):
+
+class PairedBam(object):
+    def __init__(self, tumour, normal, reference, rmdups, coverage):
+        self.t_bam = Bam(bam=tumour, reference=reference, coverage=coverage, rmdups=rmdups)
+        self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups)
+    
+    def get_chromosome_name(self, chromosome_id):
+        return self.t_bam.get_chromosome_name(chromosome_id)
+     
+    def get_trinucleotide_context(self, chromosome_id, position):
+        return self.t_bam.get_trinucleotide_context(chromosome_id, position)
+        
+    def get_reference_tuple(self, chromosome_id, position):
+        return self.t_bam.get_reference_tuple(chromosome_id, position)
+    
+    def get_reference_base(self, chromosome_id, position, index=False):
+        return self.t_bam.get_reference_base(chromosome_id, position, index)
+        
+    def get_tuples(self, target_positions):
         for tp in target_positions: 
             if tp[1] is None:
-                self.t_pileup.set_region(tp[0])
+                self.t_bam.pileup.set_region(tp[0])
+                self.n_bam.pileup.set_region(tp[0])
             else:
-                self.t_pileup.set_region(tp[0], tp[1], tp[2])
-
-            while True:
-                tt = self.t_pileup.get_tuple() 
-                if tt is None:
-                    break
-                else:
-                    yield tt
-
-    def get_pair_tuples(self, target_positions):
-        for tp in target_positions: 
-            if tp[1] is None:
-                self.t_pileup.set_region(tp[0])
-                self.n_pileup.set_region(tp[0])
-            else:
-                self.t_pileup.set_region(tp[0], tp[1], tp[2])
-                self.n_pileup.set_region(tp[0], tp[1], tp[2])
+                self.t_bam.pileup.set_region(tp[0], tp[1], tp[2])
+                self.n_bam.pileup.set_region(tp[0], tp[1], tp[2])
                 
             while True:
-                tt = self.t_pileup.get_tuple() 
-                nt = self.n_pileup.get_tuple() 
+                tt = self.t_bam.pileup.get_tuple() 
+                nt = self.n_bam.pileup.get_tuple() 
             
                 ## check for none tuples
                 if not all((tt, nt)):
@@ -193,11 +167,11 @@ class BamApi(object):
                 ## check if the position is the same for both tumour/normal 
                 while tt[0] != nt[0]:
                     if tt[0] < nt[0]:
-                        tt = self.t_pileup.get_tuple()
+                        tt = self.t_bam.pileup.get_tuple()
                         if tt is None:
                             break
                     else:
-                        nt = self.n_pileup.get_tuple()
+                        nt = self.n_bam.pileup.get_tuple()
                         if nt is None:
                             break
                         
@@ -205,24 +179,6 @@ class BamApi(object):
                     break
                 yield (tt, nt)    
 
-#    def get_pair_tuples_test(self, target_positions):
-#        for tp in target_positions: 
-#            if tp[1] is None:
-#                start = 1                
-#                stop  = self.get_chromosome_lengths()[tp[0]] + 1
-#
-#            else:
-#                start = tp[1] 
-#                stop  = tp[2] + 1 
-#                
-#            for i in xrange(start, stop):
-#                tt = self.get_tumour_tuple(tp[0], i+1)
-#                nt = self.get_normal_tuple(tp[0], i+1)
-#                
-#                if not all((tt, nt)):
-#                    continue
-#
-#                yield (tt, nt)
         
         
         
