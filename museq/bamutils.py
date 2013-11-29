@@ -178,8 +178,8 @@ class BamHelper(object):
 
         else:
             ## get all the common chromosome names
-            tcn = self.bam.get_tumour_refnames.keys() # chromosome names in tumour bam
-            ncn = self.bam.get_normal_refnames.keys() # chromosome names in normal bam
+            tcn = self.bam.get_refnames().keys() # chromosome names in tumour bam
+            ncn = self.bam.get_refnames().keys() # chromosome names in normal bam
             chromosome_names = set(tcn).intersection(set(ncn))
 
             for cn in chromosome_names:

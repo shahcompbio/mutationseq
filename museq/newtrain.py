@@ -153,7 +153,7 @@ if args.deep:
     c = (float(10000), float(10000), float(70), float(0))
 
 if args.model is None:
-    data=extract_labels(args.infiles)
+    data = extract_labels(args.infiles)
     feature_version, m_features, labels, keys = extract_features(data)
     numpy.savez(args.out, feature_version, m_features, labels)
     

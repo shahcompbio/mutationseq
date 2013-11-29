@@ -37,8 +37,11 @@ class Bam(object):
         self.fasta.open(self.ref) 
 
     def get_reference_base(self, chromosome_id, position, index=False):
+        if position < 1:
+            return 'N'
+            
         b = self.fasta.get_base(chromosome_id, int(position))
-        
+
         if index:
             b = self.base.get(b)
             if b is None:
@@ -146,6 +149,9 @@ class PairedBam(object):
     
     def get_reference_base(self, chromosome_id, position, index=False):
         return self.t_bam.get_reference_base(chromosome_id, position, index)
+    
+    def get_refnames(self):
+        return self.t_bam.get_refnames()
         
     def get_tuples(self, target_positions):
         for tp in target_positions: 
