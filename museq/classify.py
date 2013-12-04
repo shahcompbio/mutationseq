@@ -29,19 +29,24 @@ logging.info(args)
 #==============================================================================
 # main body
 #==============================================================================
-bam_helper = bamutils.BamHelper(args)
-target_positions = bam_helper.get_positions()
+logging.info("initializig a Classifier")
+classifier = bamutils.Classifier(args)
+
+logging.info("getting positions")
+target_positions = classifier.get_positions()
 
 logging.info("generating tuple iterator")
-tuples = bam_helper.bam.get_tuples(target_positions)
+tuples = classifier.bam.get_tuples(target_positions)
 
 logging.info("generating features iterator")
-features = bam_helper.get_features(tuples)
+features = classifier.get_features(tuples)
 
 if args.export_features is not None:
-    bam_helper.export_features(features)
+    logging.info("exporting features")
+    classifier.export_features(features)
+
     
-probabilities = bam_helper.predict(features)
-bam_helper.print_results(probabilities)
+probabilities = classifier.predict(features)
+classifier.print_results(probabilities)
 
 logging.info("successfully completed.\n")

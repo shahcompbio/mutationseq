@@ -7,21 +7,28 @@ Created on Wed Sep 18 11:22:08 2013
 from __future__ import division
 import logging
 import sys
+import os
 import numpy
 import pybamapi
 import resource
 import re
 import newfeatures, newfeatures_single, newfeatures_deep, newfeatures_deep_single
+import matplotlib.pyplot as plt
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation
+from sklearn.metrics import roc_curve, auc
 from string import Template
 from datetime import datetime
+from collections import defaultdict
 
 mutationSeq_version = "4.0.0"
- 
-class BamHelper(object):
+
+#==============================================================================
+# Classifier class 
+#==============================================================================
+class Classifier(object):
     def __init__(self, args):
-        logging.info("initializig BamHelper")
         self.samples = {}
         self.args = args
         self.base = ['A', 'C', 'G', 'T', 'N']
@@ -64,11 +71,11 @@ class BamHelper(object):
         ## single mode 
         if self.args.single:
             if self.args.deep:
-                self.features = newfeatures_deep_single
+                self.features_module = newfeatures_deep_single
                 rmdups = False
             
             else:
-                self.features = newfeatures_single
+                self.features_module = newfeatures_single
                 rmdups = True
 
             if not self.samples.get("tumour"):
@@ -86,11 +93,11 @@ class BamHelper(object):
         ## paired mode
         else:
             if self.args.deep:
-                self.features = newfeatures_deep
+                self.features_module = newfeatures_deep
                 rmdups = False
                 
             else:
-                self.features = newfeatures
+                self.features_module = newfeatures
                 rmdups = True
         
             logging.info("initializig a PairedBam")
@@ -106,8 +113,8 @@ class BamHelper(object):
             logging.error("error: failed to load model")
             raise Exception("failed to load model")
         
-        if self.npz["arr_0"] != self.features.version:
-            logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features.version))
+        if self.npz["arr_0"] != self.features_module.version:
+            logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features_module.version))
             raise Exception("mismatched model")
                             
     def __get_buffer_size(self):
@@ -156,7 +163,6 @@ class BamHelper(object):
             return [chromosome, None, None]
         
     def get_positions(self, pch=':'):
-        logging.info("getting positions")
         target_positions = []
         
         if self.args.interval:
@@ -283,7 +289,7 @@ class BamHelper(object):
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
             ## calculate features and buffer it     
-            feature_set = self.features.Features(it, rt)
+            feature_set = self.features_module.Features(it, rt)
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
         
@@ -317,7 +323,7 @@ class BamHelper(object):
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
             ## calculate features and buffer it     
-            feature_set = self.features.Features(tt, nt, rt)
+            feature_set = self.features_module.Features(tt, nt, rt)
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
         
@@ -456,14 +462,13 @@ class BamHelper(object):
         out.close()
 
     def get_feature_names(self):
-        tmp_obj = self.features.Features()
+        tmp_obj = self.features_module.Features()
         names = tmp_obj.get_feature_names()
 
         return names
         
     def export_features(self, features):
-        logging.info("exporting features to: " + self.args.export_features)
-        version = self.features.version
+        version = self.features_module.version
         names = self.get_feature_names()
         
         with open(self.args.export_features, 'w') as export_file:
@@ -475,5 +480,236 @@ class BamHelper(object):
                     print >> export_file, f
 #                print >> export_file, fs
 
+#==============================================================================
+# Trainer class
+#==============================================================================
+class Trainer(object):
+    def __init__(self, args):
+        self.version = newfeatures.version
+        self.args = args
+        self.filename = os.path.basename(self.args.out)
 
+        if self.args.single:
+            self.feature_module = newfeatures_single
+    
+        elif self.args.deep:
+            self.feature_module = newfeatures_deep
 
+        else:
+            self.feature_module = newfeatures
+            
+    def __parse_infiles(self, infiles):
+        self.data = defaultdict(list)
+        for case in infiles:
+            tfile = None
+            nfile = None
+            rfile = None
+
+            if self.args.deep:
+                contamination = (float(10000), float(10000), float(70), float(0))
+                
+            else:
+                contamination = (float(30), float(30), float(70), float(0))
+    
+            for line in case:
+                l = line.strip().split()
+                if len(l) < 3:
+                    continue
+    
+                ## parse the line
+                if l[0] == "#":
+                    if self.args.single:
+                        if l[1] == "tumour" or l[1] == "normal":
+                            tfile = nfile = l[2]
+                    
+                    else:
+                        if l[1] == "tumour":
+                            tfile = l[2]
+    
+                        elif l[1] == "normal":
+                            nfile = l[2]
+    
+                    if l[1] == "reference":
+                        rfile = l[2]
+
+                    elif l[1] == "contamination":
+                        contamination = (float(l[2]), float(l[3]), float(l[4]), float(1))
+                    
+                    continue
+                
+                ## check if required bam files/reference are specified in the training data
+                if not all((tfile, nfile, rfile)):
+                    logging.warning("'%s' does not contain the required paths to bam/reference files" % os.path.basename(case.name))
+                    continue
+            
+                chromosome = l[0]
+                position = int(l[1])
+               
+                ##TODO: should be generalized to get a number of lables
+                if l[2] == self.args.labels:
+                    label = 1
+
+                else:
+                    label = -1
+                    
+                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination))
+    
+    ##TODO: there could be a better integration of single sample into __get_features()
+    def __get_features(self):
+        features_buffer = []
+        labels_buffer = []
+        keys_buffer = []
+    
+        for tfile, nfile, rfile in self.data.keys():            
+            logging.info(tfile)
+            if not self.args.single:
+                logging.info(nfile)
+            
+            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
+            if not self.args.single:
+                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
+            
+            for chromosome, position, label, c in self.data[(tfile, nfile, rfile)]:
+                chromosome_id = t_bam.get_chromosome_id(chromosome)
+                tt = t_bam.get_tuple(chromosome, position)
+                if not self.args.single:
+                    nt = n_bam.get_tuple(chromosome, position)            
+            
+                rt = t_bam.get_reference_tuple(chromosome_id, position)            
+                
+                ## check for None tuples
+                if self.args.single:
+                    if not all([tt, rt]):
+                        logging.warning(" ".join(["None tuple", tfile, rfile]))
+                        continue
+
+                elif not all([tt, nt, rt]):
+                    logging.warning(" ".join(["None tuple", tfile, nfile, rfile]))
+                    continue
+                
+                ## calculate features
+                if self.args.single:
+                    feature_set = self.feature_module.Features(tt, rt)
+                    
+                else:
+                    feature_set = self.feature_module.Features(tt, nt, rt)
+
+                temp_features = feature_set.get_features()   
+                
+                features_buffer.append(temp_features)
+                labels_buffer.append(label)
+                keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
+                
+        self.features = numpy.array(features_buffer)
+        self.labels = numpy.array(labels_buffer)
+        self.keys = numpy.array(keys_buffer)
+        
+    def generate(self, infiles=None):
+        if infiles is None:
+            infiles = self.args.infiles
+        
+        logging.info("parsing infiles")
+        self.__parse_infiles(infiles)
+
+        logging.info("getting features")        
+        self.__get_features()
+        
+    def load(self):
+        try:
+            npz = numpy.load(self.args.model)
+        
+        except:
+            logging.error("failed to load the model: " + self.args.model)
+            raise Exception("failed to load the model")
+        
+        self.version = npz["arr_0"]
+        self.features = npz["arr_1"]
+        self.labels = npz["arr_2"]
+
+    def fit(self):
+        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True)     
+        self.model.fit(self.features, self.labels)
+        
+    def save(self):
+        numpy.savez(self.args.out, self.version, self.features, self.labels)
+    
+    def get_feature_importance(self):
+        return self.model.feature_importances_
+        
+    def get_feature_names(self):
+        return newfeatures.Features().get_feature_names()
+ 
+    def print_feature_importance(self):
+        with open(self.args.out + "_importance.txt", 'w') as importance_file:
+            feature_importance = self.get_feature_importance()
+            feature_names = self.get_feature_names()
+            
+            for importance, feature_name in sorted(zip(feature_importance, feature_names)):
+                print >> importance_file, feature_name, importance
+        
+    def validate(self):
+        self.generate(infiles=self.args.validate)
+        
+        ## NOTE:copied from Jeff/Fatemeh old code
+        logging.info("predicting probabilities")
+        probs = self.model.predict_proba(self.features)
+        voted = probs[:,1]
+        fpr, tpr, thresholds = roc_curve(self.labels, voted)
+        roc_auc = auc(fpr, tpr)
+        logging.info("AUC:%f" % roc_auc)
+        
+        fd = open(self.args.out + '_result.txt', 'w')      
+        for f, k, vf in zip(voted, self.keys, self.features):
+            vf = " ".join(map(str, vf))        
+            k = " ".join(map(str, k))
+            print >> fd, k + " " + str(f) + " " + vf
+        
+        fd.close()  
+        
+        logging.info("plotting ROC curves")
+        plt.plot(fpr,tpr,'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
+        plt.title('ROC curve (area = %0.3f)' %float(roc_auc))
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.savefig(self.args.out + "_roc.png")
+        #pylab.plot(fpr, tpr, 'k--', label='ROC curve (area = %0.3f)' %float(roc_auc))
+        #pylab.plot([0, 1], [0, 1], 'k--')
+        #pylab.xlim([0.0, 1.0])
+        #pylab.ylim([0.0, 1.0])
+        #pylab.xlabel('False Positive Rate')
+        #pylab.ylabel('True Positive Rate')
+        #pylab.savefig(args.out + "_roc.png")
+    
+    def cross_validate(self):
+        ## NOTE:copied from Jeff/Fatemeh old code
+        cv = cross_validation.StratifiedKFold(self.labels, n_folds=3)
+        for i, (train, test) in enumerate(cv):
+            cv_model = self.model.fit(self.features[train], self.labels[train])
+            logging.info("predicting probabilities")
+            probs = cv_model.predict_proba(self.features[test])
+            
+            voted = probs[:,1]
+            fpr, tpr, thresholds = roc_curve(self.labels[test], voted)
+            roc_auc = auc(fpr, tpr)
+            logging.info("AUC_%d:%f" % (i, roc_auc))
+            
+            fd = open(self.args.out + '_result_' + str(i) + '.txt', 'w')  
+            if self.args.model is None:
+                for f, k in zip(voted, self.keys[test]):
+                    print >> fd, k[0] + ' ' + k[1] + ' ' + k[2] + ' ' + k[3] + ' ' + k[4] + ' ' + k[5] + ' ' + str(f)
+                
+            else:
+                ## if the model is loaded from input arguments, then the keys are not known
+                for f in voted:
+                    print >> fd, str(f)
+                
+            fd.close()
+            
+            logging.info("plotting ROC curves")
+            plt.plot(fpr, tpr, 'k--', lw=1, label="Fold %i (AUC=%0.3f)" % (i + 1, float(roc_auc)))
+    
+        plt.legend(loc="lower right", numpoints=1,)
+        plt.savefig(self.args.out + "_rocxval.png")
+    
+        
+    
