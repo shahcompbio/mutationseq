@@ -1,7 +1,0 @@
-# normal /share/lustre/archive/INX/INX424/C04HMACXX_7_AACCCC.bam
-# tumour /share/lustre/archive/INX/INX425/C04HMACXX_8_AACCCC.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-18 72778139 SOMATIC
-2 179690563 SOMATIC
-2 211956602 SOMATIC
-2 228590349 SOMATIC

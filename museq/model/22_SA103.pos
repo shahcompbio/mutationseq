@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/SA103N/illumina_exoncapture/HS2077/bwa_aligned/SA103N_HS2077_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/SA103/illumina_exoncapture/HS1660/bwa_aligned/SA103_HS1660_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA103/illumina_exoncapture/HS1660/bwa_aligned/SA103_HS1660_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA103N/illumina_exoncapture/HS2077/bwa_aligned/SA103N_HS2077_2_lanes_hg18_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 11 1170036 WILDTYPE
 12 7235494 SOMATIC
@@ -8,7 +8,6 @@
 19 55989580 GERMLINE
 22 38237962 WILDTYPE
 1 2508487 WILDTYPE
-1 6423687 GERMLINE
 3 50313493 WILDTYPE
 2 162936655 SOMATIC
 2 219582047 WILDTYPE
@@ -16,5 +15,4 @@
 5 139725768 WILDTYPE
 7 65343049 SOMATIC
 7 87011490 SOMATIC
-6 74120570 GERMLINE
 X 152644645 WILDTYPE

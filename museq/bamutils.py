@@ -12,7 +12,7 @@ import numpy
 import pybamapi
 import resource
 import re
-import newfeatures, newfeatures_single, newfeatures_deep, newfeatures_deep_single
+import features, features_single, features_deep, features_deep_single
 import matplotlib.pyplot as plt
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
@@ -71,36 +71,36 @@ class Classifier(object):
         ## single mode 
         if self.args.single:
             if self.args.deep:
-                self.features_module = newfeatures_deep_single
+                self.features_module = features_deep_single
                 rmdups = False
             
             else:
-                self.features_module = newfeatures_single
+                self.features_module = features_single
                 rmdups = True
 
             if not self.samples.get("tumour"):
                 self.type = 'n'
 
-                logging.info("initializig a normal Bam")
+                logging.info("initializing a normal Bam")
                 self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
         
             else:
                 self.type = 't'
                 
-                logging.info("initializig a tumour Bam")
+                logging.info("initializing a tumour Bam")
                 self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
         
         ## paired mode
         else:
             if self.args.deep:
-                self.features_module = newfeatures_deep
+                self.features_module = features_deep
                 rmdups = False
                 
             else:
-                self.features_module = newfeatures
+                self.features_module = features
                 rmdups = True
         
-            logging.info("initializig a PairedBam")
+            logging.info("initializing a PairedBam")
             self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
                                                 reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups)
         
@@ -141,12 +141,12 @@ class Classifier(object):
         
     def __parse_positions(self, positions_list, pch=':'):
         chromosome = positions_list.split(pch)[0]
-        try:
-            ##check for "chr" in the input interval
-            chromosome = chromosome.split('r')[1] 
-        
-        except:
-            pass
+#        try:
+#            ##check for "chr" in the input interval
+#            chromosome = chromosome.split('r')[1] 
+#        
+#        except:
+#            pass
         
         try:
             position = positions_list.split(pch)[1]
@@ -198,12 +198,14 @@ class Classifier(object):
         ## flag insertions and deletions 
         if tt[-4] > 0 or tt[-2] > 0:
             filter_flag = "INDL"
+        
         else:
             filter_flag = None
         
         ## find alternative base   
         if refbase == tt[6]:
             altbase = tt[7]
+        
         else:
             altbase = tt[6]
         
@@ -485,19 +487,26 @@ class Classifier(object):
 #==============================================================================
 class Trainer(object):
     def __init__(self, args):
-        self.version = newfeatures.version
+        self.version = features.version
         self.args = args
         self.filename = os.path.basename(self.args.out)
 
         if self.args.single:
-            self.feature_module = newfeatures_single
+            self.feature_module = features_single
     
         elif self.args.deep:
-            self.feature_module = newfeatures_deep
+            self.feature_module = features_deep
 
         else:
-            self.feature_module = newfeatures
-            
+            self.feature_module = features
+    
+    def __isvalid_label(self, labels):
+        for l in labels:
+            if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HOM"):
+                return False
+                
+        return True
+        
     def __parse_infiles(self, infiles):
         self.data = defaultdict(list)
         for case in infiles:
@@ -544,9 +553,13 @@ class Trainer(object):
             
                 chromosome = l[0]
                 position = int(l[1])
-               
-                ##TODO: should be generalized to get a number of lables
-                if l[2] == self.args.labels:
+                positive_labels = [x.upper() for x in self.args.labels.split(',')]
+                
+                if not self.__isvalid_label(positive_labels):
+                    logging.error("unknown labels specified in the input")
+                    raise Exception("unknown labels specified in the input")
+
+                if l[2] in positive_labels:
                     label = 1
 
                 else:
@@ -554,7 +567,6 @@ class Trainer(object):
                     
                 self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination))
     
-    ##TODO: there could be a better integration of single sample into __get_features()
     def __get_features(self):
         features_buffer = []
         labels_buffer = []
@@ -637,7 +649,7 @@ class Trainer(object):
         return self.model.feature_importances_
         
     def get_feature_names(self):
-        return newfeatures.Features().get_feature_names()
+        return features.Features().get_feature_names()
  
     def print_feature_importance(self):
         with open(self.args.out + "_importance.txt", 'w') as importance_file:

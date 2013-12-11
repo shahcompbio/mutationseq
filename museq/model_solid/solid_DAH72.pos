@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/DAH72N/abi_solid/HS2666/sequence/DAH72N_HS2666_4_slides_dupsFlagged.bam
-# tumour /share/lustre/archive/DAH72/abi_solid/HS2665/sequence/DAH72_HS2665_4_slides_dupsFlagged.bam
+# normal /share/lustre/archive/DAH72N/abi_solid/HS2666/bioscope_aligned/DAH72N_HS2666_4_slides_hg18_dupsFlagged.bam
+# tumour /share/lustre/archive/DAH72/abi_solid/HS2665/bioscope_aligned/DAH72_HS2665_4_slides_hg18_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 11 128214435 SOMATIC
 11 17623958 SOMATIC

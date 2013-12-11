@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/DAH48N/abi_solid/HS2670/sequence/DAH48N_HS2670_4_slides_dupsFlagged.bam
-# tumour /share/lustre/archive/DAH48/abi_solid/HS2669/sequence/DAH48_HS2669_4_slides_dupsFlagged.bam
+# normal /share/lustre/archive/DAH48N/abi_solid/HS2670/bioscope_aligned/DAH48N_HS2670_4_slides_hg18_dupsFlagged.bam
+# tumour /share/lustre/archive/DAH48/abi_solid/HS2669/bioscope_aligned/DAH48_HS2669_4_slides_hg18_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 20 55179475 SOMATIC
 20 3621779 WILDTYPE

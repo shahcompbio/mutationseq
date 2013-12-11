@@ -1,9 +1,0 @@
-# normal /share/lustre/archive/INX/INX424/C04HMACXX_7_AAGGAC.bam
-# tumour /share/lustre/archive/INX/INX425/C04HMACXX_8_AAGGAC.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-11 59992363 WILDTYPE
-1 223773883 WILDTYPE
-2 128595298 WILDTYPE
-2 43844998 WILDTYPE
-15 68983996 WILDTYPE
-14 95940895 WILDTYPE

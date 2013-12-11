@@ -1,7 +1,0 @@
-# normal /share/lustre/archive/INX/INX424/C04HMACXX_7_GGCTAC.bam
-# tumour /share/lustre/archive/INX/INX425/C04HMACXX_8_GGCTAC.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-1 152473757 SOMATIC
-10 27375442 SOMATIC
-10 124886905 WILDTYPE
-15 71641330 SOMATIC

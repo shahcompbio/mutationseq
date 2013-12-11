@@ -1,17 +1,14 @@
-===================
-=mutationSeq_3.1.1=
-===================
+=====================
+= mutationSeq_4.0.0 =
+=====================
 
-What is new?
-------------
-The following options are added (refer to user manual for more details):
-* -a/--all: force print out the result for each position even if it does not satisfy the initial criteria for somatic call.
-* -f/--positions_file: input a file containing a list of positions each of which is in a separate line.
- 
-Also following minor changes done:
-* support for the single-letter equivalence for the options, e.g. -o or --out, -f or --positions_file, etc.
-* ability to have optional extra "chr" in the name of the chromosome in the input.
-* memory usage reduced by at most 1G.
+New in this version
+-------------------
+- It has been re-written from scratch in c++ layer using bamtools instead of samtools and completely refactored in the python layer. It is the most robust, most reliable version to date.
+
+- Memory usage has tremendously been reduced and can in fact be confined to a certain level using option -b/--buffer_size.
+
+- Models have also been retrained to get the most accurate results.
 
 Downlaod and usage
 ------------------
@@ -20,8 +17,14 @@ Non-academic users should contact Dr. Patrick Rebstein at the BC Cancer Agency T
 
 Installation
 ------------
-Please see the mutationSeq user manual provided in the packege.
+Please see the "mutationSeq_user_manual.pdf" provided in the packege.
 
+Known Issues
+------------
+- -b/--buffer_size option has a tolerance around the specified memory size. For instance, using "-b 4G" in the command line can result in memory usage of 3.6G or 4.2G. So, if you are submitting your jobs on cluster with very stringent limitations on the memory usage, please make sure to ask for more memory than you specify using -b/--buffer_size option.
+
+- Occasionally, running mutationSeq on a region of positions using -i/--interval option can result in different probabilities than running mutationSeq using -f/--positions_file over a file with list of the same positions.
+ 
 Contact
 -------
 For more information please check Shah Lab for Computational Cancer Biology:

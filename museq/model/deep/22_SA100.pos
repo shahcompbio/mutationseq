@@ -1,6 +1,0 @@
-# normal /share/lustre/archive/INX/INX107/62RT7AAXX_4_AGCGCT.bam
-# tumour /share/lustre/archive/INX/INX108/62RT7AAXX_5_AGCGCT.bam 
-# reference /share/lustre/reference/genomes/human_all.fasta
-8 139728095 WILDTYPE
-20 30248787 GERMLINE
-17 6291547 GERMLINE

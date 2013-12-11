@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/SA096N/illumina_exoncapture/HS2070/bwa_aligned/SA096N_HS2070_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/SA096/illumina_exoncapture/HS1646/bwa_aligned/SA096_HS1646_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA096/illumina_exoncapture/HS1646/bwa_aligned/SA096_HS1646_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA096N/illumina_exoncapture/HS2070/bwa_aligned/SA096N_HS2070_2_lanes_hg18_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 11 6004726 WILDTYPE
 11 63769259 WILDTYPE

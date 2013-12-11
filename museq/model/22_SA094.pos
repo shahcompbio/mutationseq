@@ -1,5 +1,5 @@
-# normal /share/lustre/archive/SA094N/illumina_exoncapture/HS2101/bwa_aligned/SA094N_HS2101_2_lanes_dupsFlagged.bam
-# tumour /share/lustre/archive/SA094/illumina_exoncapture/HS2219/bwa_aligned/SA094_HS2219_2_lanes_dupsFlagged.bam
+# tumour /share/lustre/archive/SA094/illumina_exoncapture/HS2219/bwa_aligned/SA094_HS2219_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA094N/illumina_exoncapture/HS2101/bwa_aligned/SA094N_HS2101_2_lanes_hg18_dupsFlagged.bam
 # reference /share/lustre/reference/genomes/human_all.fasta
 20 23494655 SOMATIC
 20 43284441 SOMATIC
@@ -10,7 +10,6 @@
 18 51050744 SOMATIC
 1 152221853 SOMATIC
 1 183457752 SOMATIC
-1 17143199 GERMLINE
 2 44847101 SOMATIC
 2 54336488 SOMATIC
 4 68881133 SOMATIC

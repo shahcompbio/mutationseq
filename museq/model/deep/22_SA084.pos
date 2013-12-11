@@ -1,9 +1,0 @@
-# normal /share/lustre/archive/INX/INX107/62RT7AAXX_4_CTAGCT.bam
-# tumour /share/lustre/archive/INX/INX108/62RT7AAXX_5_CTAGCT.bam 
-# reference /share/lustre/reference/genomes/human_all.fasta
-14 73828759 GERMLINE
-17 37509269 GERMLINE
-19 4506098 SOMATIC
-3 52703093 SOMATIC
-2 109730641 SOMATIC
-X 64875743 SOMATIC

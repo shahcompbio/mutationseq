@@ -20,7 +20,7 @@ BINS = \
 		pybam.so
 
 SOURCE = \
-		src/newpybam.cpp
+		src/pybam.cpp
 
 #
 # Build

@@ -29,7 +29,7 @@ logging.info(args)
 #==============================================================================
 # main body
 #==============================================================================
-logging.info("initializig a Classifier")
+logging.info("initializing a Classifier")
 classifier = bamutils.Classifier(args)
 
 logging.info("getting positions")
@@ -49,4 +49,4 @@ if args.export_features is not None:
 probabilities = classifier.predict(features)
 classifier.print_results(probabilities)
 
-logging.info("successfully completed.\n")
+logging.warning("successfully completed.\n")

@@ -4,7 +4,7 @@ Created on Wed Oct 23 11:14:37 2013
 
 @author: jtaghiyar
 """
-import newpybam as np # new pybam
+import pybam as np # new pybam
 import cStringIO
 
 class Bam(object):
@@ -154,11 +154,18 @@ class PairedBam(object):
         return self.t_bam.get_refnames()
         
     def get_tuples(self, target_positions):
-        for tp in target_positions: 
+        for tp in target_positions:
             if tp[1] is None:
+                ##TODO: remove this line
+#                print "chr%s" % tp[0]
+                
                 self.t_bam.pileup.set_region(tp[0])
                 self.n_bam.pileup.set_region(tp[0])
+
             else:
+                ##TODO: remove this line
+#                print "chr%s:%d-%d" % tuple(tp)
+                
                 self.t_bam.pileup.set_region(tp[0], tp[1], tp[2])
                 self.n_bam.pileup.set_region(tp[0], tp[1], tp[2])
                 

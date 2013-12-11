@@ -29,12 +29,12 @@ parser.add_argument("-a", "--all",
                     
 parser.add_argument("-b", "--buffer_size",
                     default="2G",
-                    help='''specify the min number of variants in the tumour bam file''')
+                    help='''specify max amount of memory usage''')
 
 parser.add_argument("--coverage", 
                     default=4,
                     type=int,
-                    help='''specify the depth of the coverage to be considered''')
+                    help='''specify min depth (coverage) to be considered''')
                     
 parser.add_argument("-d", "--deep", 
                     default=False, action="store_true", 
