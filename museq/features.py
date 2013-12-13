@@ -211,6 +211,8 @@ class Features:
 
         for n, _ in self.coverage_features:
             feature_names.append(n)
+            
+        feature_names.append("xentropy")
         
         return feature_names
 

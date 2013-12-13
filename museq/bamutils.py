@@ -502,7 +502,7 @@ class Trainer(object):
     
     def __isvalid_label(self, labels):
         for l in labels:
-            if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HOM"):
+            if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HOM", "CLEAN"):
                 return False
                 
         return True
