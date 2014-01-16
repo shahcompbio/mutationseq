@@ -8,10 +8,11 @@ Created on Thu Nov 21 10:47:18 2013
 from __future__ import division
 import numpy
 
+name = "TCGA Benchmark 4 featureset with coverage info"
+version = "4.0.0_single"
+        
 class Features:
     def __init__(self, input_tuple=None, reference_tuple=None, purity=70):
-        self.name = "TCGA Benchmark 4 featureset with coverage info"
-        self.version = "5_single"
         self.it = input_tuple
         self.rt = reference_tuple
         
