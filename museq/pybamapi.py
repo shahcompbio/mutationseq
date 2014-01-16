@@ -30,12 +30,15 @@ class Bam(object):
     
         if  self.ref is not None:
             self.__load_reference()
-        
+            
     def __load_reference(self):
-        ## make a fasta object to laod reference
+        ## make a fasta object to load reference
         self.fasta = np.fasta() 
         self.fasta.open(self.ref) 
 
+    def is_matched_reference(self):
+        return self.get_reference_refnames() == self.get_refnames()
+    
     def get_reference_base(self, chromosome_id, position, index=False):
         if position < 1:
             return 'N'
@@ -74,8 +77,20 @@ class Bam(object):
         temp_tuple = (refbase, temp_tuple[1], temp_tuple[2], temp_tuple[3], temp_tuple[4])
         return temp_tuple
     
+    def get_reference_refnames(self):
+        """ get the list of chromosome names and their corresponding IDs as a dictionary from the reference file 
+        used for initializing the Bam object """
+        
+        return dict(self.fasta.refnames)
+        
+    def get_reference_chromosome_lengths(self):
+        """ return the length of all the chromosomes in the reference used for initializing the Bam object"""
+    
+        return dict(self.fasta.reflenghts)
+    
     def get_refnames(self):
-        """ get the list of chromosome names and their corresponding IDs as a dictionary """
+        """ get the list of chromosome names and their corresponding IDs as a dictionary
+        from the reference used to align the bam file"""
         
         return dict(self.pileup.refnames)
     
@@ -115,10 +130,14 @@ class Bam(object):
         return chromosome_lengths
         
     def get_tuple(self, chromosome, position):
+        """ get the tuple from the bam file for a given position """
+        
         self.pileup.set_region(chromosome, position, position)
         return self.pileup.get_tuple()
     
     def get_tuples(self, target_positions):
+        """ get the tuples from the bam file for a given set of target positions """
+        
         for tp in target_positions: 
             if tp[1] is None:
                 self.pileup.set_region(tp[0])
@@ -152,20 +171,17 @@ class PairedBam(object):
     
     def get_refnames(self):
         return self.t_bam.get_refnames()
+    
+    def is_matched_reference(self):
+        return self.t_bam.is_matched_reference()
         
     def get_tuples(self, target_positions):
         for tp in target_positions:
             if tp[1] is None:
-                ##TODO: remove this line
-#                print "chr%s" % tp[0]
-                
                 self.t_bam.pileup.set_region(tp[0])
                 self.n_bam.pileup.set_region(tp[0])
 
             else:
-                ##TODO: remove this line
-#                print "chr%s:%d-%d" % tuple(tp)
-                
                 self.t_bam.pileup.set_region(tp[0], tp[1], tp[2])
                 self.n_bam.pileup.set_region(tp[0], tp[1], tp[2])
                 
