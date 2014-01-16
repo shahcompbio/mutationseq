@@ -40,10 +40,10 @@ class Classifier(object):
         for s in self.args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
         
-        ## check if there is a referece in the input
+        ## check if there is a reference in the input
         if not self.samples.get("reference"):
             logging.error("error: bad input: reference must be specified")
-            raise Exception("no referece file in the input.")
+            raise Exception("no reference file in the input.")
         
         self.ref = self.samples.get("reference")
         
@@ -116,6 +116,10 @@ class Classifier(object):
         if self.npz["arr_0"] != self.features_module.version:
             logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features_module.version))
             raise Exception("mismatched model")
+        
+        if not self.bam.is_matched_reference():
+            logging.error("mismatched reference, sounds like the input reference is not the same as the reference used for alignment")
+            raise Exception("mismatched reference")
                             
     def __get_buffer_size(self):
         s = re.split('(\d+)', self.args.buffer_size)
@@ -447,7 +451,12 @@ class Classifier(object):
                 
                 ## calculate phred quality
                 try:
-                    phred_quality = -10 * log10(1 - p)
+                    # to print 0.00 instead -0.00
+                    if p == 0:
+                        phred_quality = 0.0
+                    
+                    else:
+                        phred_quality = -10 * log10(1 - p)
                 
                 except:
                     phred_quality = 99
@@ -487,7 +496,6 @@ class Classifier(object):
 #==============================================================================
 class Trainer(object):
     def __init__(self, args):
-        self.version = features.version
         self.args = args
         self.filename = os.path.basename(self.args.out)
 
@@ -499,7 +507,9 @@ class Trainer(object):
 
         else:
             self.feature_module = features
-    
+            
+        self.version = self.feature_module.version
+        
     def __isvalid_label(self, labels):
         for l in labels:
             if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HOM", "CLEAN"):
@@ -545,7 +555,7 @@ class Trainer(object):
                         contamination = (float(l[2]), float(l[3]), float(l[4]), float(1))
                     
                     continue
-                
+
                 ## check if required bam files/reference are specified in the training data
                 if not all((tfile, nfile, rfile)):
                     logging.warning("'%s' does not contain the required paths to bam/reference files" % os.path.basename(case.name))
@@ -571,7 +581,7 @@ class Trainer(object):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
-    
+
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
             if not self.args.single:
@@ -639,7 +649,7 @@ class Trainer(object):
         self.labels = npz["arr_2"]
 
     def fit(self):
-        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True)     
+        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True) 
         self.model.fit(self.features, self.labels)
         
     def save(self):
