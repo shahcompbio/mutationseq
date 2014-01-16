@@ -34,9 +34,13 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int ambiguous = 0;
 	int insertionCount = 0;
 	int deletionCount = 0;
+	int readsCountA = 0;
+	int readsCountB = 0;
 	
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
+		readsCountA++;
+
 		const PileupAlignment& pa = (*pileupIter);
 		const BamAlignment& ba = pa.Alignment;
 		
@@ -45,6 +49,8 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		{
 			continue;
 		}
+
+		readsCountB++;
 
 		// adjacent insertions and deletions
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
@@ -103,8 +109,11 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
-	// ignore positions with low coverage
-	if (ntData[4][0] < coverage )
+	cout << readsCountA << endl;
+	cout << readsCountB << endl;
+
+	// ignore positions with low or zero coverage 
+	if (ntData[4][0] < coverage || ntData[4][0] == 0)
 	{
 		return false;
 	}
@@ -410,19 +419,34 @@ public:
 			throw runtime_error("unable to open fasta file " + fastaFilename);
 		}
 		
+		// keep both refId and its corresponding refName as well as its length for all chromosomes in the reference 
 		vector<string> referenceNames = m_Fasta.GetReferenceNames();
+		m_RefLengths = m_Fasta.GetReferenceLengths();
+		
+		m_RefNames = python::list();
+		m_RefLengthsList = python::list();
 		for (int refId = 0; refId < referenceNames.size(); refId++)
 		{
-			m_RefNameId[referenceNames[refId]] = refId;
+			python::list temp_list1 = python::list();
+			temp_list1.append(referenceNames[refId]);
+			temp_list1.append(refId);
+			
+			python::list temp_list2 = python::list();
+			temp_list2.append(referenceNames[refId]);
+			temp_list2.append(m_RefLengths[refId]);
+
+			// create a list of [refName, refId]
+			m_RefNames.append(temp_list1);
+			
+			// create a list of [refName, refLength]
+			m_RefLengthsList.append(temp_list2);
 		}
 		
-		m_RefLengths = m_Fasta.GetReferenceLengths();
-
 		m_IsOpen = true;
 	}
-	
-	//python::object GetPosition(const string& refName, int position)
-	python::object GetPosition(int refId, int position)
+
+	//python::object CreateFastaTuple(const string& refName, int position)
+	python::object CreateFastaTuple(int refId, int position)
 	{
 		// Interface is 1-based, bamtools is 0-based
 		position -= 1;
@@ -432,30 +456,23 @@ public:
 			throw runtime_error("get called before open");
 		}
 		
-		//unordered_map<string,int>::const_iterator refNameIdIter = m_RefNameId.find(refName);
-		//if (refNameIdIter == m_RefNameId.end())
-		//{
-		//	throw runtime_error("unknown ref name " + refName);
-		//}
-		// int refId = refNameIdIter->second;
-		
 		// reference base
 		char referenceBase = 'N';
 		if (!m_Fasta.GetBase(refId, position, referenceBase))
 		{
-			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position));
+			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+1));
 		}
 		
 		// get reference sequence for a window of length 500
 		string referenceSeq;
-		referenceSeq = GetSequenceByBase(refId, position, 500);
+		referenceSeq = GetReferenceSequenceByBase(refId, position, 500);
 
 		// gc content
 		double gc;
 		gc = GcContent(position, referenceSeq);
 
 		// entropy
-		double ent = 0.0;
+		double ent;
 		ent = Entropy(referenceSeq);
 
 		// forward homopolymer
@@ -470,15 +487,8 @@ public:
 	}
 	
 	// this is only used in the API
-	string GetSequence(int refId, int position, int windowLength = 500) //(int refId, int start, int stop)
+	string GetReferenceSequence(int refId, int position, int windowLength = 500) 
 	{
-		//string referenceSeq;
-		//if (!m_Fasta.GetSequence(refId, start, stop, referenceSeq))
-		//{
-		//	throw runtime_error("unable to get reference sequence at " + lexical_cast<string>(refId));
-		//}
-		//return referenceSeq;
-
 		int start, stop;
 		int refLength = m_RefLengths[refId];
 		string referenceSeq;
@@ -499,7 +509,7 @@ public:
 			stop = (position + (windowLength / 2));
 		}
 
-		// NOTE: Fasta::GetSequence is super slow, getSequenceByBase is an alternative
+		// NOTE: Fasta::GetSequence is super slow, GetReferenceSequenceByBase is an alternative
 		if (!m_Fasta.GetSequence(refId, start, stop, referenceSeq))
 		{
 			throw runtime_error("unable to get reference sequence at " + lexical_cast<string>(position));
@@ -508,7 +518,7 @@ public:
 	}
 
 	// an implementation based on the Fasta::GetBase
-	string GetSequenceByBase(int refId, int position, int windowLength = 500)
+	string GetReferenceSequenceByBase(int refId, int position, int windowLength = 500)
 	{
 		string referenceSeq;
 		char tempRefSeq[windowLength];
@@ -523,12 +533,12 @@ public:
 		else
 			position = (position - (windowLength / 2));
 
-		// repeat GetBase for all the positions in the window
+		// repeat Fasta::GetBase for all the positions in the window
 		for(int i=0; i < windowLength; i++)
 		{
 			if (!m_Fasta.GetBase(refId, position+i, currentBase))
 			{
-				throw runtime_error("unable to get base at:" + lexical_cast<string>(position+i));
+				throw runtime_error("unable to get base at:" + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+i));
 			}
 			tempRefSeq[i] = currentBase;
 		}
@@ -546,44 +556,17 @@ public:
 		char referenceBase = 'N';
 		if (!m_Fasta.GetBase(refId, position, referenceBase))
 		{
-			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position));
+			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+1));
 	    }
 
 		return referenceBase;
 	}
 
+	//unordered_map<string,int> m_RefNameId;
+	python::list m_RefNames;
+	python::list m_RefLengthsList;
+	
 private:
-	string GetReferenceSequence(int refId, int position)
-	{
-		int start, stop;
-		int windowLength = 500;
-		int refLength = m_RefLengths[refId];
-		string referenceSeq;
-
-		if ((position - (windowLength / 2)) < 0)
-		{
-			start = 0;            //start of the window
-			stop = windowLength;  //stop  of the window
-		}
-		else if ((position + (windowLength / 2)) > refLength)
-		{
-			start = refLength - windowLength;
-			stop = refLength;
-		}
-		else
-		{
-			start = (position - (windowLength / 2));
-			stop = (position + (windowLength / 2));
-		}
-
-		// NOTE: Fasta::GetSequence is super slow, getSequenceByBase is an alternative
-		if (!m_Fasta.GetSequence(refId, start, stop, referenceSeq))
-		{
-			throw runtime_error("unable to get reference sequence at " + lexical_cast<string>(position));
-		}
-		return referenceSeq;
-	}
-
 	double GcContent(int position, string &referenceSeq)
 	{
 		int counts[5] = {0};
@@ -716,7 +699,6 @@ private:
 
 	Fasta m_Fasta;
 	bool m_IsOpen;
-	unordered_map<string,int> m_RefNameId;
 	vector<int> m_RefLengths;
 };
 
@@ -735,11 +717,13 @@ BOOST_PYTHON_MODULE(pybam)
 	;
 	
 	class_<PyFasta>("fasta", init<>())
+		.def_readonly("refnames", &PyFasta::m_RefNames)
+		.def_readonly("reflenghts", &PyFasta::m_RefLengthsList)
 		.def("open", &PyFasta::Open)
-		.def("get_tuple", &PyFasta::GetPosition)
+		.def("get_tuple", &PyFasta::CreateFastaTuple)
 		.def("get_base", &PyFasta::GetReferenceBase)
-		.def("get_sequence", &PyFasta::GetSequence)
-		.def("get_sequence_base", &PyFasta::GetSequenceByBase)
+		.def("get_sequence", &PyFasta::GetReferenceSequence)
+		.def("get_sequence_base", &PyFasta::GetReferenceSequenceByBase)
 	;
 }
 
