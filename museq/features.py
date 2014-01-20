@@ -52,7 +52,7 @@ class Features:
         ("normal_tumour_quality", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
         
         ("normal_tumour_mapq", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + self.ep)),
-        ("normal_tumour_ref_depth", ((self.tt[self.b][1] / self.tt[5][0]) + self.ep) / ((self.nt[self.b][1] / self.nt[5][0]) + self.ep)),
+        ("normal_tumour_ref_depth", ((self.tt[self.b][0] / self.tt[5][0]) + self.ep) / ((self.nt[self.b][0] / self.nt[5][0]) + self.ep)),
         ("normal_tumour_direction", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + self.ep)),
         ("normal_tumour_ref_direction", (self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)) / ((self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)) + self.ep)),
         ("normal_distance_ratio", self.nt[5][3] / self.nt[5][0]),
@@ -75,9 +75,6 @@ class Features:
         
         ("tumour_variant_quality_ratio", ((self.tt[5][1] - self.tt[self.b][1]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep))),
         ("normal_variant_quality_ratio", ((self.nt[5][1] - self.nt[self.b][1]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep))),
-        ("tumour_variant_quality", (self.tt[5][1] - self.tt[self.b][1])),
-        ("normal_variant_quality", (self.nt[5][1] - self.nt[self.b][1])),
-        
         
         #("normal_direction", self.nt[5][4]),
         #("tumour_direction", self.tt[5][4]),
@@ -96,10 +93,6 @@ class Features:
         
         #("normal_quality", self.nt[5][1]),
         #("tumour_quality", self.tt[5][1]),
-        
-        ("normal_tail_distance", self.nt[5][3] / self.nt[5][0]),
-        ("tumour_tail_distance", self.tt[5][3] / self.tt[5][0]),
-        
         
         #("normal_tumour_variant_mapq", (self.tt[5][2] - self.tt[self.rt[0] + 1][2]) / (self.nt[5][2] - self.nt[self.rt[0] + 1][2] + self.ep)),
         ("normal_variant_distance", (self.nt[5][3] - self.nt[self.b][3]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep)),
@@ -136,11 +129,7 @@ class Features:
         ("normal_tumour_variant_distance_ratio", ((self.tt[5][3] - self.tt[self.b][3]) / (self.tt[5][0] - self.tt[self.b][0] + self.ep)) / ((self.nt[5][3] - self.nt[self.b][3]) / (self.nt[5][0] - self.nt[self.b][0] + self.ep) + self.ep)),
         
         
-        ("normal_tumour_direction_ratio", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + self.ep)),
-        ("normal_tumour_mapq_ratio", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + self.ep)),
-        ("normal_tumour_distance_ratio", (self.tt[5][3] / self.tt[5][0]) / ((self.nt[5][3] / self.nt[5][0]) + self.ep)),
-        ("normal_tumour_quality_ratio", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
-        
+        ("normal_tumour_distance", (self.tt[5][3] / self.tt[5][0]) / ((self.nt[5][3] / self.nt[5][0]) + self.ep)),
         
         #==============================================================================
         ## Unscaled features
