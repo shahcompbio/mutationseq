@@ -22,7 +22,7 @@ from string import Template
 from datetime import datetime
 from collections import defaultdict
 
-mutationSeq_version = "4.0.0"
+mutationSeq_version = "4.1.0"
 
 #==============================================================================
 # Classifier class 
