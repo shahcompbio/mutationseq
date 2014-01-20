@@ -34,13 +34,9 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int ambiguous = 0;
 	int insertionCount = 0;
 	int deletionCount = 0;
-	int readsCountA = 0;
-	int readsCountB = 0;
 	
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
-		readsCountA++;
-
 		const PileupAlignment& pa = (*pileupIter);
 		const BamAlignment& ba = pa.Alignment;
 		
@@ -49,8 +45,6 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		{
 			continue;
 		}
-
-		readsCountB++;
 
 		// adjacent insertions and deletions
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
@@ -109,9 +103,6 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
 	}
 	
-	cout << readsCountA << endl;
-	cout << readsCountB << endl;
-
 	// ignore positions with low or zero coverage 
 	if (ntData[4][0] < coverage || ntData[4][0] == 0)
 	{

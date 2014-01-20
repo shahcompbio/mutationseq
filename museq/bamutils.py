@@ -365,7 +365,7 @@ class Classifier(object):
             
             probabilities = model.predict_proba(features)
            
-           ## return only probabilities of being somatic
+            ## return only probabilities of being somatic
             probabilities = [x[1] for x in probabilities] 
             
             yield probabilities, outstrs
