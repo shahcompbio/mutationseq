@@ -659,7 +659,7 @@ class Trainer(object):
         return self.model.feature_importances_
         
     def get_feature_names(self):
-        return features.Features().get_feature_names()
+        return self.feature_module.Features().get_feature_names()
  
     def print_feature_importance(self):
         with open(self.args.out + "_importance.txt", 'w') as importance_file:
