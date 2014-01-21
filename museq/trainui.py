@@ -27,7 +27,7 @@ parser.add_argument("-d", "--deep",
                     
 parser.add_argument("--labels", 
                     default="SOMATIC",
-                    help="Label in training file list")
+                    help="Labels in the training file list to be considered as positive labels. Valid labels are SOMATIC, WILDTYPE, GERMLINE, HET, HOM, CLEAN")
 
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_training.log",
