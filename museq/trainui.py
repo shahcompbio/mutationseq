@@ -7,7 +7,7 @@ Created on Mon Dec  2 10:41:52 2013
 import argparse
 import sys
 
-mutationSeq_version="4.0.0"
+mutationSeq_version="4.1.0"
 
 #==============================================================================
 # make a UI 
@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='''train a model''')
 ## positional arguments
 parser.add_argument("infiles", 
                     metavar='FILE', nargs='*', default=[sys.stdin], type=argparse.FileType('r'), 
-                    help= '''A list of space delimited samples: chromosom position label, 
+                    help= '''A list of space delimited samples: chromosome position label, 
                     the file has a header of normal, tumour and reference file names''')
 
 ## optional arguments 
@@ -51,7 +51,7 @@ parser.add_argument("-s", "--single",
 
 parser.add_argument("--validate", 
                     metavar='FILE', nargs='*', type=argparse.FileType('r'), default=None, 
-                    help="To validat the same format file with known lable")
+                    help="To validate the same format file with known label")
                     
 parser.add_argument("--version", 
                     action="version", version=mutationSeq_version)
