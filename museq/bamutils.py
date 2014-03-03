@@ -388,9 +388,10 @@ class Classifier(object):
             for l in cfg_file:
                 l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
                                            VERSION=mutationSeq_version,
-                                           REFERENCE=reference,
-                                           TUMOUR=tumour,
-                                           NORMAL=normal,
+                                           REFERENCE=os.path.abspath(reference),
+                                           TUMOUR=os.path.abspath(tumour),
+                                           NORMAL=os.path.abspath(normal),
+					   MODEL=os.path.abspath(self.model),
                                            THRESHOLD=self.args.threshold
                                            )
                 header += l
