@@ -1,14 +1,21 @@
 =====================
-= mutationSeq_4.0.0 =
+= mutationSeq_4.2.0 =
 =====================
 
 New in this version
 -------------------
-- It has been re-written from scratch in c++ layer using bamtools instead of samtools and completely refactored in the python layer. It is the most robust, most reliable version to date.
+Bugs fixed:
+- PQ-11
+- MUT-176
 
-- Memory usage has tremendously been reduced and can in fact be confined to a certain level using option -b/--buffer_size.
+Other changes:
+- in feature set:
+- added jointsnvmix to the model
+- added allele normalization
+- replaced ratio with sum
 
-- Models have also been retrained to get the most accurate results.
+model: 
+- we now store the model: MUT-161
 
 Downlaod and usage
 ------------------
@@ -21,9 +28,7 @@ Please see the "mutationSeq_user_manual.pdf" provided in the packege.
 
 Known Issues
 ------------
-- -b/--buffer_size option has a tolerance around the specified memory size. For instance, using "-b 4G" in the command line can result in memory usage of 3.6G or 4.2G. So, if you are submitting your jobs on cluster with very stringent limitations on the memory usage, please make sure to ask for more memory than you specify using -b/--buffer_size option.
-
-- Occasionally, running mutationSeq on a region of positions using -i/--interval option can result in different probabilities than running mutationSeq using -f/--positions_file over a file with list of the same positions.
+Currently it only supports paired version.
  
 Contact
 -------
