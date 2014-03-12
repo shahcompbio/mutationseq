@@ -34,6 +34,8 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int ambiguous = 0;
 	int insertionCount = 0;
 	int deletionCount = 0;
+	int tempQual = 0;
+	int tempMQ = 0;
 	
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
@@ -45,6 +47,10 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		{
 			continue;
 		}
+
+		//TODO: remove this, this is for mut-174
+		//if (ba.Qualities.at(pa.PositionInAlignment) - 33 < 10)
+		//	continue;
 
 		// adjacent insertions and deletions
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
@@ -86,14 +92,16 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		ntData[baseIdx][0]++;
 		ntData[4][0]++;
 		
-		// quality, phred quality is scaled by 33
-		ntData[baseIdx][1] += ba.Qualities.at(pa.PositionInAlignment) - 33;
-		ntData[4][1] += ba.Qualities.at(pa.PositionInAlignment) - 33;
-		
+		// base quality, phred quality is scaled by 33
+		tempQual = ba.Qualities.at(pa.PositionInAlignment) - 33;
+		ntData[baseIdx][1] += tempQual; // * tempQual;
+		ntData[4][1] += tempQual; //* tempQual;
+
 		// mapping quality
-		ntData[baseIdx][2] += ba.MapQuality;
-		ntData[4][2] += ba.MapQuality;
-		
+		tempMQ = ba.MapQuality;
+		ntData[baseIdx][2] += tempMQ ; //* tempMQ;
+		ntData[4][2] += tempMQ ; //* tempMQ;
+	
 		// distance
 		ntData[baseIdx][3] += (ba.IsReverseStrand()) ? ba.Length - pa.PositionInAlignment - 1 : pa.PositionInAlignment;
 		ntData[4][3] += (ba.IsReverseStrand()) ? ba.Length - pa.PositionInAlignment - 1 : pa.PositionInAlignment;
@@ -297,7 +305,7 @@ public:
 		StopPosition  = stop;
 		
 		//set the region to the chromosome:start-stop
-		if (!m_BamReader.SetRegion(BamRegion(refId, start, refId, stop)))
+		if (!m_BamReader.SetRegion(BamRegion(refId, StartPosition, refId, StopPosition)))
 			throw runtime_error("failed to set the region to chromosome " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(start) + "-" + lexical_cast<string>(stop));
 
 		RestartPileupEngine();

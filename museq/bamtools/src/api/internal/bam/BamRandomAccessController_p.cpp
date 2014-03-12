@@ -78,12 +78,12 @@ BamRandomAccessController::AlignmentState(const BamAlignment& alignment) const {
         // if alignment starts at or after left bound position
         if ( alignment.Position >= m_region.LeftPosition) {
 
-            if ( m_region.isRightBoundSpecified() &&             // right bound is specified AND
+        	if ( m_region.isRightBoundSpecified() &&             // right bound is specified AND
                  m_region.LeftRefID == m_region.RightRefID &&    // left & right bounds on same reference AND
                  alignment.Position >= m_region.RightPosition )  // alignment starts on or after right bound position
-                return AfterRegion;
+            	return AfterRegion;
 
-            // otherwise, alignment overlaps region
+        	// otherwise, alignment overlaps region
             else return OverlapsRegion;
         }
 
@@ -92,7 +92,7 @@ BamRandomAccessController::AlignmentState(const BamAlignment& alignment) const {
 
             // if alignment overlaps left bound position
             if ( alignment.GetEndPosition() > m_region.LeftPosition )
-                return OverlapsRegion;
+            	return OverlapsRegion;
             else
                 return BeforeRegion;
         }
@@ -119,7 +119,7 @@ BamRandomAccessController::AlignmentState(const BamAlignment& alignment) const {
                 if ( alignment.Position < m_region.RightPosition )
                     return OverlapsRegion;
                 else
-                    return AfterRegion;
+                	return AfterRegion;
             }
         }
 

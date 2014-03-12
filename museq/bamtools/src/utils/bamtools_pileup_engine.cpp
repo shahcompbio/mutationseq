@@ -114,7 +114,7 @@ bool PileupEngine::PileupEnginePrivate::AddAlignment(const BamAlignment& al) {
 }
 
 void PileupEngine::PileupEnginePrivate::ApplyVisitors(void) {
-  
+
     // parse CIGAR data in BamAlignments to build up current pileup data
     CreatePileupData();
   
@@ -202,7 +202,6 @@ void PileupEngine::PileupEnginePrivate::ParseAlignmentCigar(const BamAlignment& 
       
         // if op is MATCH
         if ( op.Type == 'M' ) {
-          
             // if match op overlaps current position
             if ( genomePosition + (int)op.Length > CurrentPosition ) {
               

@@ -16,11 +16,13 @@ import features, features_single, features_deep, features_deep_single
 import matplotlib.pyplot as plt
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.externals import joblib
 from sklearn import cross_validation
 from sklearn.metrics import roc_curve, auc
 from string import Template
 from datetime import datetime
 from collections import defaultdict
+from matplotlib.backends.backend_pdf import PdfPages
 
 mutationSeq_version = "4.1.0"
 
@@ -105,17 +107,17 @@ class Classifier(object):
                                                 reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups)
         
         ## check if the version of the input model matches that of the feature set  
-        try:
-            logging.info("loading model")
-            self.npz = numpy.load(self.samples.get("model"))
-        
-        except:
-            logging.error("error: failed to load model")
-            raise Exception("failed to load model")
-        
-        if self.npz["arr_0"] != self.features_module.version:
-            logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features_module.version))
-            raise Exception("mismatched model")
+#         try:
+#             logging.info("loading model")
+#             self.npz = numpy.load(self.samples.get("model"))
+#         
+#         except:
+#             logging.error("error: failed to load model")
+#             raise Exception("failed to load model")
+#         
+#         if self.npz["arr_0"] != self.features_module.version:
+#             logging.error("mismatched feature set versions:"+ str(self.npz["arr_0"]), "and", str(self.features_module.version))
+#             raise Exception("mismatched model")
         
         if not self.bam.is_matched_reference():
             logging.error("mismatched reference, sounds like the input reference is not the same as the reference used for alignment")
@@ -199,54 +201,90 @@ class Classifier(object):
         return target_positions
     
     def __make_outstr(self, tt, refbase, nt=None):
-        ## flag insertions and deletions 
-        if tt[-4] > 0 or tt[-2] > 0:
-            filter_flag = "INDL"
+        t_coverage = tt[5][0]
+        n_coverage = 0
         
+        ## tumour information to print
+        if t_coverage == 0:
+            ## alternative base
+            altbase = "N/A"
+            
+            ## tumour counts
+            TR = 0 # tumour to reference base count
+            TA = 0 # tumour to alternative base count
+            
+            ## indel
+            insertion = 0
+            deletion  = 0
+            
+            ## filter flag
+            filter_flag = "NOCV"
+        
+        else: 
+            ## alternative base
+            major = tt[6]
+            minor = tt[7]
+            if refbase == major:
+                altbase = minor
+        
+            else:
+                altbase = major
+                  
+            ## tumour counts
+            TR = tt[refbase + 1][0] # tumour to reference base count 
+            TA = tt[altbase + 1][0] # tumour to alternative base count
+
+            ## indel 
+            insertion = tt[-4]
+            deletion  = tt[-2]
+                        
+            ## filter flag
+            if deletion > 0 or insertion > 0:
+                filter_flag = "INDL"
+
+            else:
+                filter_flag = None
+            
+        ## normal information to print         
+        if nt is not None:
+            n_coverage = nt[5][0]
+        
+        if n_coverage == 0:
+            ## normal counts
+            NR = 0 # normal to reference base count
+            NA = 0 # normal to alternative base count
+            
         else:
-            filter_flag = None
+            NR = nt[refbase + 1][0] # normal to reference base count 
+            
+            ## if it is zero coverage in tumour bam then altbase is "N/A" and so NA should be 0
+            if t_coverage == 0:
+                NA = 0 
+            
+            else:
+                NA = nt[altbase + 1][0] # normal to alternative base count     
         
-        ## find alternative base   
-        if refbase == tt[6]:
-            altbase = tt[7]
-        
-        else:
-            altbase = tt[6]
-        
-        ## get tri-nucleotide context
+        ## tri_nucleotide context
         chromosome_id = tt[-1]
         position = tt[0]
         tc = self.bam.get_trinucleotide_context(chromosome_id, position)
 
-        ## generate informatio for the INFO column in the output
-        TR = tt[refbase + 1][0] # tumour to reference base count 
-        TA = tt[altbase + 1][0] # tumour to alternative base count 
-       
-        if nt is not None:
-            NR = nt[refbase + 1][0] # normal to reference base count 
-            NA = nt[altbase + 1][0] # normal to alternative base count 
-
-        else:
-            NR = "N/A"
-            NA = "N/A"
-        
-        ## format the out string based on the mode and the type of the bam file
+        ## generate information for the INFO column in the output vcf               
         if self.args.single and self.type == 'n':
-            info = [NR, NA, TR, TA, tc, tt[-4], tt[-2]]
-        
+            info = [NR, NA, TR, TA, tc, insertion, deletion]
+            
         else:
-            info = [TR, TA, NR, NA, tc, tt[-4], tt[-2]]
+            info = [TR, TA, NR, NA, tc, insertion, deletion]
             
         info = map(str, info) 
-        
-        ## reserved to be filled later
-        qual   = None # phred_quality
-        out_id = "."  # database ID   
+
+        ## reserved for database ID, to be filled later
+        out_id = "."  
         
         ## get chromosome name of the given chromosome ID
         chromosome_name = self.bam.get_chromosome_name(chromosome_id)
         
-        outstr = [chromosome_name, position, out_id, refbase, altbase, qual, filter_flag, info]
+        outstr = [chromosome_name, position, out_id, refbase, altbase, filter_flag, info]
         
         return outstr  
     
@@ -280,11 +318,11 @@ class Classifier(object):
         for it in tuples: 
             chromosome_id = it[-1]
             position = it[0]
-           
+          
             refbase = self.bam.get_reference_base(chromosome_id, position, index=True)
             nonrefbases = [x for x in range(4) if x != refbase]
-            
-            ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
+        
+            ## ignore tumour tuples with no/few variants in the bam file
             if not self.args.no_filter:
                 if  it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                     it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
@@ -294,7 +332,7 @@ class Classifier(object):
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
-            ## calculate features and buffer it     
+            ## calculate features     
             feature_set = self.features_module.Features(it, rt)
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
@@ -343,21 +381,31 @@ class Classifier(object):
         
         yield self.__flush()
 
-    def __fit_model(self):
-        train  = self.npz["arr_1"]
-        labels = self.npz["arr_2"]
+#     def __fit_model(self):
+#         train  = self.npz["arr_1"]
+#         labels = self.npz["arr_2"]
+#         
+#         logging.info("running random forest")
+#         model = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
+#         
+#         logging.info("fitting model")
+#         model.fit(train, labels)
+
+#         return model   
         
-        logging.info("running random forest")
-        model  = RandomForestClassifier(random_state=0, n_estimators=1000, n_jobs=1, compute_importances=True)
+    def __load_model(self):
+        try:
+            logging.info("loading model")
+            return joblib.load(self.model)
         
-        logging.info("fitting model")
-        model.fit(train, labels)
-        
-        return model   
+        except:
+            logging.error("error: failed to load model")
+            raise Exception("failed to load model")
         
     def predict(self, features_outstrs):
-        model = self.__fit_model()
-
+        #model = self.__fit_model()
+        model = self.__load_model()
+        
         logging.info("predicting probabilities ")
         for features, outstrs in features_outstrs:
             if len(features) == 0:
@@ -374,6 +422,7 @@ class Classifier(object):
         tumour = self.samples.get("tumour")
         normal = self.samples.get("normal")        
         reference = self.samples.get("reference")
+        model = self.samples.get("model")
         
         if tumour is None:
             tumour = "N/A"
@@ -388,10 +437,10 @@ class Classifier(object):
             for l in cfg_file:
                 l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
                                            VERSION=mutationSeq_version,
-                                           REFERENCE=os.path.abspath(reference),
-                                           TUMOUR=os.path.abspath(tumour),
-                                           NORMAL=os.path.abspath(normal),
-					   MODEL=os.path.abspath(self.model),
+                                           REFERENCE=reference,
+                                           TUMOUR=tumour,
+                                           NORMAL=normal,
+                                           MODEL=model,
                                            THRESHOLD=self.args.threshold
                                            )
                 header += l
@@ -429,15 +478,18 @@ class Classifier(object):
                 outstr = outstrs[i]
                 p = probabilities[i]
                 
+                ## set p = 0 for positions with coverage == 0
+                filter_flag = outstr[-2]
+                if filter_flag == "NOCV":
+                    p = 0
+                
                 ## do not print positions with p < threshold if --all option is not set
                 if not self.args.all and p < self.args.threshold:
                     continue 
 
                 any_result = True
 
-                ## set the filter_flag to INDL, PASS, or FAIL
-                filter_flag = outstr[-2]
-                
+                ## set the filter_flag
                 if filter_flag is None:
                     if p >= self.args.threshold:
                         filter_flag = "PASS"
@@ -451,25 +503,28 @@ class Classifier(object):
                             ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
                 
                 ## calculate phred quality
-                try:
-                    # to print 0.00 instead -0.00
-                    if p == 0:
-                        phred_quality = 0.0
+                if p == 0:
+                    phred_quality = 0.0
                     
-                    else:
-                        phred_quality = -10 * log10(1 - p)
-                
-                except:
+                elif p == 1:
                     phred_quality = 99
+                
+                else:
+                    phred_quality = -10 * log10(1 - p)
+                
+                ## alternative base
+                altbase = outstr[4]
+                if altbase != "N/A":
+                    altbase = self.base[altbase]
                 
                 ## make sure it is all strings
                 outstr = map(str, [outstr[0], outstr[1], outstr[2], self.base[outstr[3]], 
-                                   self.base[outstr[4]], "%.2f" % phred_quality, filter_flag, info_str])
+                                   altbase, "%.2f" % phred_quality, filter_flag, info_str])
                 
                 print >> out, "\t".join(outstr)
             
         if not any_result:
-            print "**no somatic mutation call**"
+            print "**no somatic mutation calls**"
 
         out.close()
 
@@ -489,7 +544,11 @@ class Classifier(object):
 
             for fs in features:
                 for f in fs:
-                    print >> export_file, f
+                    for i in range(len(f)):
+                        for j in range(len(f[i])):
+                            print >> export_file, str(f[i][j]) + "\t",
+            
+            print >> export_file
 #                print >> export_file, fs
 
 #==============================================================================
@@ -513,13 +572,19 @@ class Trainer(object):
         
     def __isvalid_label(self, labels):
         for l in labels:
-            if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HOM", "CLEAN"):
+            if l not in ("SOMATIC", "WILDTYPE", "GERMLINE", "HET", "HET_ONE", "HET_GERMLINE", "HOM", "HOM_ONE", "HOM_GERMLINE","CLEAN"):
                 return False
                 
         return True
         
     def __parse_infiles(self, infiles):
         self.data = defaultdict(list)
+       
+        positive_labels = [x.upper() for x in self.args.labels.split(',')]
+        if not self.__isvalid_label(positive_labels):
+            logging.error("unknown labels specified in the input")
+            raise Exception("unknown labels specified in the input")
+        
         for case in infiles:
             tfile = None
             nfile = None
@@ -564,13 +629,8 @@ class Trainer(object):
             
                 chromosome = l[0]
                 position = int(l[1])
-                positive_labels = [x.upper() for x in self.args.labels.split(',')]
-                
-                if not self.__isvalid_label(positive_labels):
-                    logging.error("unknown labels specified in the input")
-                    raise Exception("unknown labels specified in the input")
-
-                if l[2] in positive_labels:
+                label = l[2]
+                if label in positive_labels:
                     label = 1
 
                 else:
@@ -582,6 +642,7 @@ class Trainer(object):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
+        file_stream_w = open('feature_db.txt','w')
 
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
@@ -618,11 +679,13 @@ class Trainer(object):
                     feature_set = self.feature_module.Features(tt, nt, rt)
 
                 temp_features = feature_set.get_features()   
+                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\n' )
                 
                 features_buffer.append(temp_features)
                 labels_buffer.append(label)
                 keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
-                
+        
+        file_stream_w.close()        
         self.features = numpy.array(features_buffer)
         self.labels = numpy.array(labels_buffer)
         self.keys = numpy.array(keys_buffer)
@@ -637,24 +700,29 @@ class Trainer(object):
         logging.info("getting features")        
         self.__get_features()
         
+        
+#     def load(self):
+#         try:
+#             npz = numpy.load(self.args.model)
+#         
+#         except:
+#             logging.error("failed to load the model: " + self.args.model)
+#             raise Exception("failed to load the model")
+#         
+#         self.version = npz["arr_0"]
+#         self.features = npz["arr_1"]
+#         self.labels = npz["arr_2"]
+    
     def load(self):
-        try:
-            npz = numpy.load(self.args.model)
+        self.model = joblib.load(self.args.model)
         
-        except:
-            logging.error("failed to load the model: " + self.args.model)
-            raise Exception("failed to load the model")
-        
-        self.version = npz["arr_0"]
-        self.features = npz["arr_1"]
-        self.labels = npz["arr_2"]
-
     def fit(self):
         self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True) 
         self.model.fit(self.features, self.labels)
         
     def save(self):
-        numpy.savez(self.args.out, self.version, self.features, self.labels)
+#         numpy.savez(self.args.out, self.version, self.features, self.labels)
+        joblib.dump(self.model, self.args.out, compress=9)
     
     def get_feature_importance(self):
         return self.model.feature_importances_
@@ -666,7 +734,7 @@ class Trainer(object):
         with open(self.args.out + "_importance.txt", 'w') as importance_file:
             feature_importance = self.get_feature_importance()
             feature_names = self.get_feature_names()
-            
+             
             for importance, feature_name in sorted(zip(feature_importance, feature_names)):
                 print >> importance_file, feature_name, importance
         
@@ -733,6 +801,248 @@ class Trainer(object):
     
         plt.legend(loc="lower right", numpoints=1,)
         plt.savefig(self.args.out + "_rocxval.png")
+    #=================
+    #Boxplot
+    #=================
+    def generate_boxplot(self):
+        
+        logging.info('Starting the plotting process')
+        model_impfile = (self.args.out + "_importance.txt").strip().split('/')[-1]
+        if not self.args.out in model_impfile:
+            logging.error('The importance file doesn\'t match with model provided')
+    
+        outputargs=[]
+        finalargs = []
+        
+        #get labels
+        labels =set()
+        for files in self.args.infiles:
+            file_stream = open(files.name)
+            for line in file_stream:
+                if line[0] == '#':
+                    continue
+                line = line.strip().split()
+                labels.add(line[2])
+        labels = list(labels)
+    
+        for label in labels:
+            for input_file in self.args.infiles:
+                outname = self.args.out+'_'+input_file.name.strip().split('/')[-1]+"_"+label
+                self.__update_pos_files_bylabels(input_file.name, outname, label)
+                outputargs.append(outname)
+            finalargs.append(outputargs)
+            outputargs = []
+            
+        self.tot_features_name = self.__get_feature_names()
+        
+        self.features_vals_dict = self.__generate_feature_dict()
+        self.top_features_name, self.top_features_map = self.__get_top_features()
+        self.features_list = [self.__get_features_from_dict(infile, self.features_vals_dict) for infile in finalargs]
+        self.boxplot_plot(labels)
+        for files in finalargs:
+            for filenames in files:
+                os.remove(filenames)
+        
+    def __get_feature_names(self):
+        tfile= None
+        nfile=None
+        rfile=None
+        feature_names = None
+        for infiles in self.args.infiles:
+            infile_stream = open(infiles.name)
+            for line in infile_stream:
+                line=line.strip().split()
+                if line[0]=='#':
+                    if line[1]=='tumour':
+                        tfile = line[2]
+                    if line[1]=='normal':
+                        nfile = line[2]
+                    if line[1]=='reference':
+                        rfile = line[2]
+                else:
+                    chromosome = line[0]
+                    position = line[1]
+                    t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
+                    n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
+                    tt = t_bam.get_tuple(chromosome, int(position) )
+                    nt = n_bam.get_tuple(chromosome, int(position) )
+                    chromosome_id = tt[-1]
+                    rt = t_bam.get_reference_tuple(chromosome_id, position)
+                    feature_set = features.Features(tt, nt, rt)
+                    feature_names = feature_set.get_feature_names()
+                    break
+        return feature_names
+
+        
+    def __update_pos_files_bylabels(self,infilename,outfilename,labelname):
+        output = []
+        file_stream = open(infilename,'r')
+        for line in file_stream:
+            if line[0] == '#':
+                output.append(line)
+                continue
+            l = line.strip().split()
+            if l[2] == labelname:
+                output.append(line)
+        file_stream.close()
+        
+        outfile_stream = open(outfilename,'w')
+        for l in output:
+            outfile_stream.write(l)
+        outfile_stream.close()
+        
+    def __generate_feature_dict(self):
+        features_vals_dict = {}
+        file_stream = open('feature_db.txt','r')
+        for line in file_stream:
+            key = line.strip().split('\t')[0].split()[0]
+            value = line.strip().split('\t')[1]
+            features_vals_dict[key] = value
+        return features_vals_dict
+    
+    def __get_top_features(self):
+        top_features_names = []
+        file_stream = open(self.args.out + "_importance.txt",'r')
+        for line in file_stream:
+            line = line.strip().split()
+            top_features_names.append(line[0])
+        top_features_names.reverse()
+        
+        top_features_names_dict =  {v:i for i, v in enumerate(self.tot_features_name) for x in top_features_names if v == x}
+        
+        return top_features_names,top_features_names_dict
+    
+    def __get_features_from_dict(self,infile,f_dict):
+        features = []
+        #infile = infile.strip().split(',')
+        for files in infile:
+            file_stream = open(files,'r')
+            for line in file_stream:
+                l = line.strip().split()
+                if len(l) < 3:
+                    logging.error('The call file should have 3 space delimited columns')
+                    continue
+                ## parse the line
+                if l[0] == "#":
+                    if l[1] == "tumour":
+                        tfile = l[2]
+    
+                    elif l[1] == "normal":
+                        nfile = l[2]
+    
+                    if l[1] == "reference":
+                        rfile = l[2]
+                    continue
+
+                ## check if required bam files/reference are specified in the training data
+                if not all((tfile, nfile, rfile)):
+                    logging.warning("'%s' does not contain the required paths to bam/reference files" % infile)
+                    continue
+            
+                chromosome = l[0]
+                pos = l[1]
+                key = ';'.join([rfile,nfile,tfile,chromosome,pos])
+                try:
+                    features.append(eval(f_dict[key]))
+                except KeyError:
+                    logging.warning('error: cannot find key "%s"\n' % str(key))
+        return features 
+    
+    def boxplot_plot(self,labels):
+        pdfout = PdfPages(self.args.out+'_plots_train.pdf')
+        for i,v in enumerate(self.top_features_name):
+            index = self.top_features_map[v]
+            if not self.tot_features_name[index] == v:
+                logging.error('the feature name and feature values don\'t match')
+                
+            fvalue = []
+            
+            for feature in self.features_list:
+                fv = []
+                for p in feature:
+                    fv.append(p[index])
+                fvalue.append(fv)
+            
+            fvalue_count = [len(x) for x in fvalue]
+
+            fig = plt.figure()
+            fig.text(0.90, 0.97, 'importance:'+str(i+1), rotation='horizontal',horizontalalignment='center', verticalalignment='bottom',fontsize = 8)
+            
+            xlabel_description = 'Features (Count of positions) (Outliers above the plot, Outliers below the plot)'
+            bplot = plt.boxplot(fvalue)
+            
+            fliers = []
+            for i in xrange(len(bplot['boxes'])):
+                fliers_above = len(bplot['fliers'][i*2]._y)
+                fliers_below = len(bplot['fliers'][i*2+1]._y)
+                fliers.append(str(fliers_above)+','+str(fliers_below))
+                
+            xlabel_names = ['%s(%s)\n(%s)' % (labels[i].split('/')[-1], y,fliers[i]) for i,y in enumerate(fvalue_count)]
+            
+            label_ylim_upper = None
+            label_upper_cap =None
+            label_lower_cap = None
+            label_ylim_lower = None   
+            for i in xrange(len(bplot['boxes'])):
+                try:
+                    uppercap = bplot['caps'][i*2]._y[0]
+                    highestflier = max(bplot['fliers'][i*2]._y)
+                    if highestflier > uppercap*100:
+                        if not uppercap == 0:
+                            if uppercap>label_upper_cap:
+                                label_upper_cap = uppercap
+                            if highestflier>label_ylim_upper:
+                                label_ylim_upper = highestflier
+                except:
+                    #if unable to set the axis, continue without changing them
+                    pass
+             
+                try:
+                    lowercap = bplot['caps'][i*2+1]._y[0]
+                    lowestflier = min(bplot['fliers'][i*2+1]._y)
+                    if lowestflier > lowercap/100:
+                        if not lowercap == 0:
+                            if lowercap < label_lower_cap:
+                                label_lower_cap = lowercap
+                            if lowestflier < label_ylim_lower:
+                                label_ylim_lower = lowestflier  
+                except:
+                    #if unable to set the axis, continue without changing them
+                    pass
+            
+            if label_ylim_upper and label_upper_cap is not None:
+                if label_ylim_upper > label_upper_cap*100:
+                    label_ylim_upper = int(label_upper_cap*100)
+            
+            if not label_ylim_lower and label_lower_cap is not None:
+                if label_ylim_lower < label_lower_cap/100:
+                    label_ylim_upper = int(label_lower_cap/100)
+            if label_ylim_upper is not None:
+                prev_val = plt.ylim()
+                if not label_ylim_upper == 0:
+                    plt.ylim(prev_val[0],label_ylim_upper)
+                    fig.text(0.02, 0.03,'*Upper limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=6)
+            if label_ylim_lower is not None:
+                prev_val = plt.ylim()
+                if not label_ylim_lower == 0:
+                    plt.ylim(label_ylim_lower,prev_val[1])
+                    fig.text(0.02, 0.02,'*Lower limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=6)
+            
+            #just +-1 to show boundaries(if overlaps with axis)
+            ylims = plt.ylim() 
+            plt.ylim(ylims[0]-1, ylims[1]+1)                
+            plt.title(v)
+            plt.ylabel('Distribution', fontsize=8)
+            plt.xlabel(xlabel_description, fontsize=8)
+            plt.xticks(range(1, len(xlabel_names) + 1), xlabel_names, rotation=45, fontsize=8)
+            plt.tight_layout()
+            pdfout.savefig(fig)
+        pdfout.close()
+        
+    
+        
+    
+
     
         
     

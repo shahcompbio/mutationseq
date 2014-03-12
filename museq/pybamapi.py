@@ -150,7 +150,6 @@ class Bam(object):
                     break
                 else:
                     yield t
-            
 
 class PairedBam(object):
     def __init__(self, tumour, normal, reference, rmdups, coverage):
@@ -183,18 +182,18 @@ class PairedBam(object):
 
             else:
                 self.t_bam.pileup.set_region(tp[0], tp[1], tp[2])
-                self.n_bam.pileup.set_region(tp[0], tp[1], tp[2])
+                self.n_bam.pileup.set_region(tp[0], tp[1], tp[2]) 
                 
             while True:
                 tt = self.t_bam.pileup.get_tuple() 
                 nt = self.n_bam.pileup.get_tuple() 
             
-                ## check for none tuples
                 if not all((tt, nt)):
                     break
                 
-                ## check if the position is the same for both tumour/normal 
+                ## check if the position is the same for both tumour/normal
                 while tt[0] != nt[0]:
+                    
                     if tt[0] < nt[0]:
                         tt = self.t_bam.pileup.get_tuple()
                         if tt is None:
@@ -205,6 +204,7 @@ class PairedBam(object):
                             break
                         
                 if not all((tt, nt)):
+                    ##TODO: should extend the window and try one more time, if failed again break
                     break
                 yield (tt, nt)    
 

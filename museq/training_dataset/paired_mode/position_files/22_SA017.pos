@@ -1,0 +1,12 @@
+# tumour /share/lustre/archive/SA017/illumina_exoncapture/HS2277/bwa_aligned/SA017_HS2277_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA017N/illumina_exoncapture/HS2061/bwa_aligned/SA017N_HS2061_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 58650257 SOMATIC
+12 113599823 WILDTYPE
+6 39267299 SOMATIC
+6 105680110 SOMATIC
+2 111132506 SOMATIC
+X 43475442 SOMATIC
+X 71409866 SOMATIC
+X 84405966 SOMATIC
+8 17544489 SOMATIC

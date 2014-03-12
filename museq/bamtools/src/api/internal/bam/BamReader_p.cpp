@@ -151,20 +151,18 @@ bool BamReaderPrivate::GetNextAlignmentCore(BamAlignment& alignment) {
         // skip if region is set but has no alignments
         if ( m_randomAccessController.HasRegion() &&
              !m_randomAccessController.RegionHasAlignments() )
-        {
             return false;
-        }
 
         // if can't read next alignment
         if ( !LoadNextAlignment(alignment) )
-            return false;
+        	return false;
 
         // check alignment's region-overlap state
         BamRandomAccessController::RegionState state = m_randomAccessController.AlignmentState(alignment);
 
         // if alignment starts after region, no need to keep reading
         if ( state == BamRandomAccessController::AfterRegion )
-            return false;
+        	return false;
 
         // read until overlap is found
         while ( state != BamRandomAccessController::OverlapsRegion ) {
@@ -190,6 +188,7 @@ bool BamReaderPrivate::GetNextAlignmentCore(BamAlignment& alignment) {
         const string streamError = e.what();
         const string message = string("encountered error reading BAM alignment: \n\t") + streamError;
         SetErrorString("BamReader::GetNextAlignmentCore", message);
+
         return false;
     }
 }
@@ -309,6 +308,10 @@ bool BamReaderPrivate::LoadNextAlignment(BamAlignment& alignment) {
             alignment.CigarData.push_back(op);
         }
     }
+
+    //TODO: remove this
+    if (!readCharDataOK)
+    	cout << alignment.Name << endl;
 
     // return success/failure
     return readCharDataOK;

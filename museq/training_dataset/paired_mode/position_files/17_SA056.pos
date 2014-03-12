@@ -1,0 +1,12 @@
+# tumour /share/lustre/archive/SA056/illumina_exoncapture/HS2167/bwa_aligned/SA056_HS2167_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA056N/illumina_exoncapture/HS2080/bwa_aligned/SA056N_HS2080_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+15 26157502 WILDTYPE
+15 30709138 WILDTYPE
+14 31631506 WILDTYPE
+14 31632332 WILDTYPE
+14 31632334 WILDTYPE
+16 45263782 WILDTYPE
+2 174528481 WILDTYPE
+6 26560409 WILDTYPE
+X 118487857 WILDTYPE

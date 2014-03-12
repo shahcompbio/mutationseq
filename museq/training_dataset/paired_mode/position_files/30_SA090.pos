@@ -1,0 +1,7 @@
+# tumour /share/lustre/archive/SA090/illumina_exoncapture/HS2136/bwa_aligned/SA090_HS2136_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA090N/illumina_exoncapture/HS2098/bwa_aligned/SA090N_HS2098_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 52845092 SOMATIC
+1 200247008 SOMATIC
+3 144775637 SOMATIC
+6 90511758 SOMATIC

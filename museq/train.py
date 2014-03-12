@@ -36,6 +36,9 @@ if args.model is None:
     logging.info("generating a model")
     model.generate()
     
+    logging.info("fitting a model")
+    model.fit()
+    
     logging.info("saving the trained model")
     model.save()
 
@@ -43,10 +46,7 @@ else:
     logging.info("loading the model")
     model.load()
 
-logging.info("fitting a model")
-model.fit()
-
-logging.info("writting the sorted list of featuers' importance")
+logging.info("writing the sorted list of features' importance")
 model.print_feature_importance()
 
 ## validate the model and save the results of validation into args.out/
@@ -55,7 +55,10 @@ if args.validate:
     model.validate()
     
 else:
-    logging.info("cross valiating the new model")
+    logging.info("cross validating the new model")
     model.cross_validate()
+
+logging.info("generating boxplots for the new model")
+model.generate_boxplot() 
     
 logging.warning("model training successfully completed.\n")

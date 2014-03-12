@@ -8,7 +8,7 @@ Created on Thu Nov 21 10:47:18 2013
 from __future__ import division
 import numpy
 
-name = "TCGA Benchmark 4 featureset with coverage info"
+name = "TCGA Benchmark 4 feature set with coverage info"
 version = "4.0.0_single"
         
 class Features:
@@ -16,7 +16,7 @@ class Features:
         self.it = input_tuple
         self.rt = reference_tuple
         
-        if self.it is None:
+        if self.it is None or self.it[5][0] == 0:
             self.it = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
 
         if self.rt is None:
