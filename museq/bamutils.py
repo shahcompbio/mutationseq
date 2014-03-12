@@ -24,7 +24,7 @@ from datetime import datetime
 from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 
-mutationSeq_version = "4.1.0"
+mutationSeq_version = "4.2.0"
 
 #==============================================================================
 # Classifier class 

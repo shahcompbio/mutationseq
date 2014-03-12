@@ -9,7 +9,7 @@ from math import log
 from scipy.stats import binom
 
 name = "TCGA Benchmark 4 feature set with coverage info"
-version = "4.0.0"
+version = "4.1.0"
 
 class Features:
     def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, purity=70):
