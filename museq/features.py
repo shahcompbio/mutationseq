@@ -249,7 +249,7 @@ class Features:
         
         ## normalize 
         weight = sum(sum(p_mat))
-        p_mat = p_mat / weight
+        p_mat = p_mat / (weight + self.ep)
     
         ## p_SOMATIC = p_aa,ab + p_aa,bb
         self.p_somatic = p_mat[1][0] + p_mat[2][0]
