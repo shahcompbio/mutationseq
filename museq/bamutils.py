@@ -332,8 +332,13 @@ class Classifier(object):
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
+            #MUT-238 If the ref base is 4(N) ignore the position
+            if rt[0] >= 4: 
+                logging.error(str(position)+' position references base N and has been ignored')
+                continue
+            
             ## calculate features     
-            feature_set = self.features_module.Features(it, rt)
+            feature_set = self.features_module.Features(it, rt, self.type)
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
         
@@ -365,6 +370,11 @@ class Classifier(object):
             
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
+            
+            #MUT-238 If the ref base is 4(N) ignore the position
+            if rt[0] >= 4:
+                logging.error(str(position)+' position references base N and has been ignored')
+                continue
             
             ## calculate features and buffer it     
             feature_set = self.features_module.Features(tt, nt, rt)
@@ -642,7 +652,7 @@ class Trainer(object):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
-        file_stream_w = open('feature_db.txt','w')
+        file_stream_w = open(self.args.out+'_feature_db_train.txt','w')
 
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
@@ -653,7 +663,7 @@ class Trainer(object):
             if not self.args.single:
                 n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
             
-            for chromosome, position, label, c in self.data[(tfile, nfile, rfile)]:
+            for chromosome, position, label, c,label_name in self.data[(tfile, nfile, rfile)]:
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
                 tt = t_bam.get_tuple(chromosome, position)
                 if not self.args.single:
@@ -661,6 +671,11 @@ class Trainer(object):
             
                 rt = t_bam.get_reference_tuple(chromosome_id, position)            
                 
+                #MUT-238 If the ref base is 4(N) ignore the position
+                if rt[0] >= 4: 
+                    logging.error(str(position)+' position references base N and has been ignored')
+                    continue
+            
                 ## check for None tuples
                 if self.args.single:
                     if not all([tt, rt]):
@@ -673,13 +688,13 @@ class Trainer(object):
                 
                 ## calculate features
                 if self.args.single:
-                    feature_set = self.feature_module.Features(tt, rt)
+                    feature_set = self.feature_module.Features(tt, rt,self.type)
                     
                 else:
                     feature_set = self.feature_module.Features(tt, nt, rt)
 
                 temp_features = feature_set.get_features()   
-                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\n' )
+                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\t'+label_name+'\n' )
                 
                 features_buffer.append(temp_features)
                 labels_buffer.append(label)
@@ -689,6 +704,7 @@ class Trainer(object):
         self.features = numpy.array(features_buffer)
         self.labels = numpy.array(labels_buffer)
         self.keys = numpy.array(keys_buffer)
+
         
     def generate(self, infiles=None):
         if infiles is None:
