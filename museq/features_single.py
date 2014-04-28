@@ -7,14 +7,16 @@ Created on Thu Nov 21 10:47:18 2013
 
 from __future__ import division
 import numpy
+from scipy.stats import binom
 
 name = "TCGA Benchmark 4 feature set with coverage info"
-version = "4.0.0_single"
+version = "4.0.2_single"
         
 class Features:
-    def __init__(self, input_tuple=None, reference_tuple=None, purity=70):
+    def __init__(self, input_tuple=None, reference_tuple=None, sample_type = None, purity=70):
         self.it = input_tuple
         self.rt = reference_tuple
+        self.type = sample_type
         
         if self.it is None or self.it[5][0] == 0:
             self.it = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
@@ -30,6 +32,10 @@ class Features:
         
         ## to avoid division by zero
         self.ep = 1e-5 
+        
+        self.__get_nonref_index()
+        self.__get_nonref_count()
+        self.__snvmix()
 
         
         self.feature_set = (
@@ -63,6 +69,10 @@ class Features:
         ("tumour_variant_distance", (self.it[5][3] - self.it[self.b][3]) / (self.it[5][0] - self.it[self.b][0] + self.ep)),
         ("tumour_variant_depth_ratio", ((self.it[5][0] - self.it[self.b][0]) / self.it[5][0])),
         ("tumour_variant_mapq_mean", (self.it[5][2] - self.it[self.b][2]) / (self.it[5][0] - self.it[self.b][0] + self.ep)),
+        
+        ("probability_hom", self.hom),
+        ("probability_het", self.het),
+        ("probability_hom_alt", self.hom_alt),
         )
         
         self.coverage_features = (
@@ -70,6 +80,49 @@ class Features:
         ("tumour_contamination", self.cd[2] / 100),
         ("whole_genome", self.cd[3])
         )
+        
+    def __snvmix(self):
+        ## normal allele frequency
+        aa = 0.01
+        ab = 0.50
+        bb = 0.99
+        n_prob = [aa, ab, bb]
+        
+        ## tumour allele frequency
+        aa = 0.01
+        ab = 0.30
+        bb = 0.90
+        t_prob = [aa, ab, bb]
+        
+        ## binomial pmf for three different probabilities
+        if self.type == 't':
+            binom_val = [binom.pmf(self.it_nonref_count, self.it[5][0], p) for p in t_prob]
+        else:
+            binom_val = [binom.pmf(self.it_nonref_count, self.it[5][0], p) for p in n_prob]
+        binom_val = [val/(sum(binom_val)+self.ep) for val in binom_val]
+        
+        self.hom = binom_val[0]
+        self.het = binom_val[1]
+        self.hom_alt = binom_val[2]
+
+
+    def __get_nonref_index(self):
+        nonrefbases = [x for x in range(4) if x != self.b - 1]
+        max_nonrefbase_depth = 0
+        nonref_index = nonrefbases[1]  
+        
+        for nb in nonrefbases:
+            index = nb + 1
+            tumour_nonrefbase_depth = self.it[index][0]
+            if tumour_nonrefbase_depth != 0 and tumour_nonrefbase_depth > max_nonrefbase_depth:
+                max_nonrefbase_depth = self.it[index][0]
+                nonref_index = index
+                
+        self.nonref_index = nonref_index
+    
+    def __get_nonref_count(self):
+        self.it_nonref_count = self.it[self.nonref_index][0]
+
         
             ##TODO: eventually this function should be removed    
     def __isvalid(self, x):
