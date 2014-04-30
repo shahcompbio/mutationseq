@@ -15,6 +15,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
 import matplotlib.gridspec as gridspec
 import os
+from scipy.integrate import trapz,simps
 
 #====================================================
 #Probability and ROC plots
@@ -26,7 +27,7 @@ class museq_plots(object):
             
         self.generated_reffiles = []
         
-        #if the callfiles are vcf then generate their corresponding callfiles
+        #if the reference files are vcf then generate their corresponding reference files
         for reference_files in self.args.reference_files:
             for reference_file in reference_files.strip().split(','):
                 if self.__is_vcf(reference_file):
@@ -39,10 +40,13 @@ class museq_plots(object):
         #parse the text files generated into dictionary
         ref_dict = self.__parse_ref_files(self.generated_reffiles)
         
+        #y_true list with 0 for False and 1 for True. y_score contains corresponding probability, vr = ta/ta+tr
         self.y_true, self.y_score, self.vr, pos_accessed = self.__parse_input_vcf_files(ref_dict)
         
+        #lists with T/F P/N positions and corresponding counts
         self.__get_pos_neg_lists_counts()
         
+        #get the positions present in reference but missing in input vcf
         self.__get_pos_present_ref_absent_input(pos_accessed,ref_dict)
         
             
@@ -51,7 +55,7 @@ class museq_plots(object):
     
     # get the positions that are present in reference_file but not in input
     def __get_pos_present_ref_absent_input(self,pos_accessed,ref_dict):     
-        file_stream = open(self.args.out+'present_in_ref_absent_in_input','w')
+        file_stream = open(self.args.out+'present_in_ref_absent_in_input.txt','w')
         keys = ref_dict.keys()
         listvals = [key for key in keys if key not in pos_accessed]
         for val in listvals:
@@ -247,16 +251,15 @@ class museq_plots(object):
                         
                 vr.append(float(ta)/(ta+tr))
                      
-                if ref == 'FALSE':
-                    y_true.append(0)
-                elif ref == 'TRUE':
+                if ref in self.args.positive_labels:
                     y_true.append(1)
                 else:
-                    logging.error('The call value is neither True nor False')
+                    y_true.append(0)
+                    
                 y_score.append(pr)
                 poslist_stream.write(tfile +'\n'+nfile+'\n'+rfile+'\n'+' '+chromosome+' '+
                                      pos+' '+ref+' '+str(pr)+'\n')
-                if ref == 'TRUE':
+                if ref in self.args.positive_labels:
                     if pr > self.args.filter_threshold:
                         tplist_stream.write(tfile +'\n'+nfile+'\n'+rfile+'\n'+' '+chromosome+' '+
                                             pos+' '+ref+' '+str(pr)+'\n')
@@ -304,8 +307,21 @@ class museq_plots(object):
     def __roc_plot(self,fig,subplot_pos):
         fpr,tpr,thresholds = metrics.roc_curve(self.y_true,self.y_score)
         
+        #Get the index and then area for vals 0-0.1
+        prev_val = 0
+        index = 0
+        roc_auc = 0
+        for i,val in enumerate(fpr.tolist()):
+            if val > 0.1 and prev_val < 0.1:
+                index = i
+                break
+            prev_val = val
+        fpr_10 = fpr.tolist()[:index+1]
+        tpr_10 = tpr.tolist()[:index+1]
+        
         try:
             roc_auc = metrics.auc(fpr,tpr)
+            roc_auc_10 = metrics.auc(fpr_10,tpr_10)
             self.__write_info_log(fpr,tpr,thresholds,roc_auc)
         except ValueError:
             logging.error('ERROR: fpr or tpr array contains NaN or infinity')
@@ -315,29 +331,66 @@ class museq_plots(object):
         ax.plot(fpr[0:50],tpr[0:50],'k--', 
                     label='ROC curve (area = %0.3f)' %float(roc_auc))
         
+        ax.annotate(str(round(roc_auc_10,4))+'\n('+str(round(val,4))+')',(fpr[index+1],tpr[index+1]),
+                xytext=(-20, 30), textcoords='offset points',
+                arrowprops=dict(facecolor='gray', shrink=0.1),
+                horizontalalignment='right', verticalalignment='bottom',fontsize = '4' )
+        
         ax.set_title('ROC curve (area = %0.3f)' %float(roc_auc),fontsize = 8)
         ax.set_xlabel('False Positive Rate',fontsize = 8)
         ax.set_ylabel('True Positive Rate',fontsize = 8)
         ax.yaxis.set_tick_params(labelsize=8)
         ax.xaxis.set_tick_params(labelsize=8)
                          
-    def __probability_plot(self,probabilities,fig,subplot_pos):
-        
+    def __probability_plot(self,probabilities,fig,title,subplot_pos):
+        file_stream = open(self.args.out+title+'_prob_plot_auc','w')
         probability_values = list(set(probabilities))
         probability_values.sort()
         
         probability_counts = [probabilities.count(p) for p in probability_values]
         
         ax=fig.add_subplot(subplot_pos[0],subplot_pos[1],subplot_pos[2])
-        plot_title = ""+self.args.model_name+" calls, "+str(len(probabilities))+" positions"
-        
+        plot_title = ""+self.args.model_name+" "+title+" calls, "+str(len(probabilities))+" positions"
         ax.plot(probability_values,probability_counts)
+
+        for i,vals in enumerate(probability_values):
+            index = probability_values.index(vals)
+            if index == 0:
+                continue
+            diffx = ax.get_xticks()[1]-ax.get_xticks()[0]
+            auc = simps(probability_counts[:index],dx=diffx)   
+            file_stream.write(str(vals)+'\t'+str(auc)+'\n')
+            if len(probability_values)>1000:
+                if i%100:
+                    continue
+            if len(probability_values)>100:
+                if i%20:
+                    continue
+            elif len(probability_values)>20:
+                if i%5:
+                    continue
+            elif len(probability_values)>5:
+                if i%3:
+                    continue
+                
+            index = probability_values.index(vals)
+            if index == 0:
+                continue
+            diffx = ax.get_xticks()[1]-ax.get_xticks()[0]
+            auc = simps(probability_counts[:index],dx=diffx)   
+            auc=round(auc,3)         
+            ax.annotate(str(auc)+'\n('+str(vals)+')',(vals,probability_counts[index]),
+                xytext=(-20, 30), textcoords='offset points',
+                arrowprops=dict(facecolor='gray', shrink=0.1),
+                horizontalalignment='right', verticalalignment='bottom',fontsize = '4' )
+                
         ax.set_xlabel('probability',fontsize = 8)
         ax.set_ylabel('frequency',fontsize = 8)
         ax.set_title(plot_title,fontsize = 8)
         ax.yaxis.set_tick_params(labelsize=8)
         ax.xaxis.set_tick_params(labelsize=8)
-    
+        file_stream.close()
+        
     def __scatter_plot(self,fig,subplot_pos):
         ax=fig.add_subplot(subplot_pos[0],subplot_pos[1],subplot_pos[2])
         ax.scatter(self.positives_vr,self.positives_list,color = 'b', 
@@ -371,8 +424,8 @@ class museq_plots(object):
         
     def generate_plots(self):
         fig = pyplot.figure(figsize=(15, 15))
-        self.__probability_plot(self.positives_list,fig,(2,3,1))
-        self.__probability_plot(self.negatives_list,fig,(2,3,2))
+        self.__probability_plot(self.positives_list,fig,'Positive',(2,3,1))
+        self.__probability_plot(self.negatives_list,fig,'Negative',(2,3,2))
         self.__scatter_plot(fig,(2,3,3))
         self.__roc_plot(fig,(2,3,4))
         self.__feature_importance_bar_plot(fig,(2,3,5))
@@ -387,193 +440,101 @@ class box_plots():
     def __init__(self,args,reffiles):
         self.args = args
         
+        #if not set then generate single boxplot
         if not self.args.separate_plots:
             fileargs = ','.join(reffiles)
             reffiles=[]
             reffiles.append(fileargs)
-            
+        
+        #ensure that the name of importance file and model matches.    
         model_impfile = self.args.ranked_features.strip().split('/')[-1]
         if not self.args.model_name in model_impfile:
             logging.error('The importance file doesn\'t match with model provided')
         
+        #length of labels and boxplots should be same.
         if self.args.boxplot_labels != None:
             if len(reffiles) != len(self.args.boxplot_labels):
                 logging.error('The length of reference files and labels do not match')
         else:
             self.args.boxplot_labels = [('input '+str(x) ) for x in range(len(reffiles))]
         
-        self.tot_features_name = self.__get_feature_names(reffiles)
+        #get names of features from features file
+        self.tot_features_name = self.__get_feature_names()
         
-        self.input_files = []
-        for input_args in reffiles:
-            self.input_files.append(input_args.split(','))
-            
+        #generate feature_db 
+        if self.args.feature_db == None:
+            outputname = self.args.out+"feature_db_test.txt"
+            self.__generate_feature_db(outputname,reffiles)
+            self.args.feature_db = outputname
+        
+        #read feature_db into dict
+        self.features_vals_dict = self.__get_features_dict()
+        self.top_features_name, self.top_features_map = self.__get_top_features()
+        
+        #read ref files into a dict and generate list of features.
+        self.input_ref_dict = self.__get_input_dict(reffiles)            
         inputs = []
         for input_args in reffiles:
             for files in input_args.split(','):
                 inputs.append(files)
-                
-        #generate files filtered by labels
-        self.finalargs = self.__update_pos_files_bylabels(reffiles,inputs)
-            
-        #filter by correctness
-        if self.args.input_files:
-            self.vcf_dict = self.__get_vcf_dict()
-            self.posneg_files,self.posneg_labels = self.__get_posneg_files(inputs)
-                
-        #generate feature_db 
-        if self.args.feature_db == None:
-            outputname = self.args.out+"feature_db"
-            self.__generate_feature_db(outputname,reffiles)
-            self.args.feature_db = outputname
+        self.features_list = [self.__get_features_from_dict(infile, self.features_vals_dict, self.input_ref_dict) for infile in self.input_ref_dict]
         
-        self.features_vals_dict = self.__get_features_dict()
-        self.top_features_name, self.top_features_map = self.__get_top_features()
-        self.features_list_label = [self.__get_features_from_dict(infile, self.features_vals_dict) for infile in self.finalargs]
-        self.features_list_normal = [self.__get_features_from_dict(infile, self.features_vals_dict) for infile in self.input_files]
-        if self.args.input_files:
-            self.features_list_posneg = [self.__get_features_from_dict(infile, self.features_vals_dict) for infile in self.posneg_files]        
-
-    def __update_pos_files_bylabels(self,reffiles,inputs):
-        outputargs = []
-        finalargs = []
-                
-        self.labels = self.__get_labels(inputs)
-        for label in self.labels:
-            for input_file in inputs:
-                output = []
-                file_stream = open(input_file)
+        #get all labels in ref data and generate list of all features
+        self.labels = self.__get_label_names(reffiles)
+        self.features_list_label= [self.__get_features_from_feature_db(self.features_vals_dict, label) for label in self.labels]
+       
+        #get T/P F/N and generate list 
+        self.features_list_posneg,self.posneg_labels = self.__get_features_posneg()
+        
+    def __get_label_names(self, reference_files):
+        labels = set()
+        for files in reference_files:
+            for filename in files.split(','):
+                file_stream = open(filename)
                 for line in file_stream:
-                    if line[0]=='#':
-                        output.append(line)
+                    if line[0] == '#':
                         continue
-                    l=line.strip().split()
-                    if l[2]==label:
-                        output.append(line)
-                file_stream.close()
-                outfile_stream = open(self.args.out+''+input_file.strip().split('/')[-1]+'_'+label,'w')
-                for l in output:
-                    outfile_stream.write(l)
-                outfile_stream.close()
-                outputargs.append(self.args.out+''+input_file.strip().split('/')[-1]+'_'+label)
-            finalargs.append(outputargs)
-            outputargs = []
-        return finalargs
+                    line = line.strip().split()
+                    labels.add(line[2])
+        return list(labels)
     
-    def __get_feature_names(self,reffiles):
-        tfile= None
-        nfile=None
-        rfile=None
-        feature_names = None
-        for infiles in reffiles:
-            for infile in infiles.strip().split(','):
-                infile_stream = open(infile)
-                for line in infile_stream:
-                    line=line.strip().split()
-                    if line[0]=='#':
-                        if line[1]=='tumour':
-                            tfile = line[2]
-                        if line[1]=='normal':
-                            nfile = line[2]
-                        if line[1]=='reference':
-                            rfile = line[2]
+                  
+    def __get_input_dict(self,reffiles):
+        out_dict = defaultdict(list)
+        tfile = None
+        rfile = None
+        nfile = None
+        for files in reffiles:
+            files = files.strip().split(',')
+            for filename in files:
+                tfile = None
+                rfile = None
+                nfile = None
+                file_stream = open(filename)
+                for line in file_stream:
+                    if line[0] =='#':
+                        l = line.strip().split()
+                        if l[1]=='tumour':
+                            tfile = l[2]
+                        if l[1]=='normal':
+                            nfile = l[2]
+                        if l[1] == 'reference':
+                            rfile = l[2]
                     else:
-                        chromosome = line[0]
-                        position = line[1]
-                        t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
-                        n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
-                        tt = t_bam.get_tuple(chromosome, int(position) )
-                        nt = n_bam.get_tuple(chromosome, int(position) )
-                        chromosome_id = tt[-1]
-                        rt = t_bam.get_reference_tuple(chromosome_id, position)
-                        feature_set = features.Features(tt, nt, rt)
-                        feature_names = feature_set.get_feature_names()
-                        break
+                        if not all( (tfile,nfile,rfile) ):
+                            logging.error('could not read bam paths in ref file')
+                        l = line.strip().split()
+                        chromosome = l[0]
+                        pos = l[1]
+                        out_dict[str(files)].append( (tfile,nfile,rfile,chromosome,pos) )
+                file_stream.close()
+        return out_dict
+    
+    def __get_feature_names(self):
+        feature_set = features.Features()
+        feature_names = feature_set.get_feature_names()
         return feature_names
-                        
-    def __get_posneg_files(self,inputs):
-        tp_files=[]
-        fp_files=[]
-        tn_files=[]
-        fn_files=[]
-        for files in inputs:
-            tfile = None
-            rfile = None
-            nfile = None
-            tp=[]
-            fp=[]
-            tn=[]
-            fn=[]
-            tp_files.append(self.args.out+''+files.strip().split('/')[-1]+'_tp')
-            fp_files.append(self.args.out+''+files.strip().split('/')[-1]+'_fp')
-            tn_files.append(self.args.out+''+files.strip().split('/')[-1]+'_tn')
-            fn_files.append(self.args.out+''+files.strip().split('/')[-1]+'_fn')
-            
-            file_stream = open(files)
-            for line in file_stream:
-                if line[0] == '#':
-                    line = line.strip().split()
-                    if line[1]=='tumour':
-                        tfile = line[2]
-                    if line[1]=='normal':
-                        nfile = line[2]
-                    if line[1] == 'reference':
-                        rfile = line[2]
-                else:
-                    if not all((tfile,nfile,rfile)):
-                        logging.error('Couldn\'t retreive paths for bams ')
-                    line = line.strip().split()
-                    chromosome = line[0]
-                    position = line[1]
-                    label = None
-                    if (line[2] =='SOMATIC' or line[2] == 'TRUE'):
-                        label = 'TRUE'
-                    else:
-                        label = 'FALSE'
-                    if self.vcf_dict.has_key((tfile,nfile,rfile,chromosome,position)):
-                        pr = self.vcf_dict[(tfile,nfile,rfile,chromosome,position)]
-                        
-                        if label == 'TRUE':
-                            if pr[0]>=self.args.filter_threshold:
-                                tp.append(chromosome+' '+position+' TP')
-                            else:
-                                fn.append(chromosome+' '+position+' FN')
-                        else:
-                            if pr[0]<self.args.filter_threshold:
-                                tn.append(chromosome+' '+position+' TN')
-                            else:
-                                fp.append(chromosome+' '+position+' FP')
-                        
-            tp_file_stream = open(self.args.out+''+files.strip().split('/')[-1]+'_tp','w')
-            tp_file_stream.write('# tumour '+tfile+'\n')
-            tp_file_stream.write('# normal '+nfile+'\n')
-            tp_file_stream.write('# reference '+rfile+'\n')
-            for line in tp:
-                tp_file_stream.write(line+'\n')
-                    
-            fp_file_stream = open(self.args.out+''+files.strip().split('/')[-1]+'_fp','w')
-            fp_file_stream.write('# tumour '+tfile+'\n')
-            fp_file_stream.write('# normal '+nfile+'\n')
-            fp_file_stream.write('# reference '+rfile+'\n')
-            for line in fp:
-                fp_file_stream.write(line+'\n')
-                    
-            tn_file_stream = open(self.args.out+''+files.strip().split('/')[-1]+'_tn','w')
-            tn_file_stream.write('# tumour '+tfile+'\n')
-            tn_file_stream.write('# normal '+nfile+'\n')
-            tn_file_stream.write('# reference '+rfile+'\n')
-            for line in tn:
-                tn_file_stream.write(line+'\n')
-                   
-            fn_file_stream = open(self.args.out+''+files.strip().split('/')[-1]+'_fn','w')  
-            fn_file_stream.write('# tumour '+tfile+'\n')
-            fn_file_stream.write('# normal '+nfile+'\n')
-            fn_file_stream.write('# reference '+rfile+'\n')
-            for line in fn:
-                fn_file_stream.write(line+'\n')
-                    
-        return [tp_files,fn_files,tn_files,fp_files],['True Positives','False Negatives','True Negatives','False Positives']  
-                     
+                                             
     def __get_vcf_dict(self):
         output = defaultdict(list)
         for vcffile in self.args.input_files:
@@ -607,18 +568,7 @@ class box_plots():
                 pr = float(info[0].split('=')[1])
                 output[(tfile,nfile,rfile,chromosome,pos)].append(pr)
         return output                      
-            
-    def __get_labels(self,inputs):
-        labels =set()
-        for files in inputs:
-            file_stream = open(files)
-            for line in file_stream:
-                if line[0] == '#':
-                    continue
-                line = line.strip().split()
-                labels.add(line[2])
-        return list(labels)
-                    
+                                
     def remove_temp_files(self):
         try:
             for files in self.posneg_files:
@@ -664,26 +614,30 @@ class box_plots():
             
                     chromosome = l[0]
                     pos = l[1]
-                    missing_positions.append((chromosome,pos,tfile,nfile,rfile))
+                    label = l[2]
+                    missing_positions.append((chromosome,pos,tfile,nfile,rfile,label))
         return missing_positions
     
     def __write_feature_db(self,missing_positions,outputname):
         feature, keys = self.__extract_features(missing_positions)
         file_stream = open(outputname,'w')
         for i,_ in enumerate(keys):
-            
+                     
             k = ';'.join(keys[i])
-            f = feature[i].tolist()
-            file_stream.write(k+'\t'+str(f)+'\n')
+            f = feature[i].tolist()[0]
+            label = feature[i].tolist()[1]
+            file_stream.write(k+'\t'+str(f)+'\t'+ str(label)+'\n')
         file_stream.close()
         
     def __get_features_dict(self):
         features_vals_dict = {}
         file_stream = open(self.args.feature_db,'r')
         for line in file_stream:
-            key = line.strip().split('\t')[0].split()[0]
-            value = line.strip().split('\t')[1]
-            features_vals_dict[key] = value
+            l = line.strip().split('\t')
+            key = l[0].split()[0]
+            value = l[1]
+            label = l[2]
+            features_vals_dict[key] = (value,label)
         return features_vals_dict    
         
     def __get_top_features(self):
@@ -699,40 +653,53 @@ class box_plots():
         top_features_names_dict =  {v:i for i, v in enumerate(self.tot_features_name) for x in top_features_names if v == x}
         
         return top_features_names,top_features_names_dict
-        
-    def __get_features_from_dict(self,infile,f_dict):
+    
+    #new function that reads all stuff from feature_db
+    def __get_features_from_feature_db(self,feature_dict,label):
         features = []
-        for files in infile:
-            file_stream = open(files,'r')
-            for line in file_stream:
-                l = line.strip().split()
-                if len(l) < 3:
-                    logging.error('The call file should have 3 space delimited columns')
-                    continue
-                ## parse the line
-                if l[0] == "#":
-                    if l[1] == "tumour":
-                        tfile = l[2]
+        for key,value in feature_dict.iteritems():
+            key = key.strip().split(';')
+            label_feature_dict = value[1]
+            if not label == label_feature_dict:
+                continue
+            features.append(eval(value[0]))
+        return features
     
-                    elif l[1] == "normal":
-                        nfile = l[2]
-    
-                    if l[1] == "reference":
-                        rfile = l[2]
-                    continue
-
-                ## check if required bam files/reference are specified in the training data
-                if not all((tfile, nfile, rfile)):
-                    logging.warning("'%s' does not contain the required paths to bam/reference files" % infile)
-                    continue
+    #retrieve and filter features from feature_db_dict        
+    def __get_features_posneg(self):
+        vcf_dict = self.__get_vcf_dict()
+        true_positives = []
+        true_negatives = []
+        false_positives = []
+        false_negatives = []
+        for key,value in self.features_vals_dict.items():
+            rfile,nfile,tfile,chromosome,pos = key.strip().split(';')
+            label = value[1]
+            features = value[0]
+            pr = vcf_dict[(tfile,nfile,rfile,chromosome,pos)]
             
-                chromosome = l[0]
-                pos = l[1]
-                key = ';'.join([rfile,nfile,tfile,chromosome,pos])
-                try:
-                    features.append(eval(f_dict[key]))
-                except KeyError:
-                    logging.error('error: cannot find key "%s"\n' % str(key))
+            if label in self.args.positive_labels:
+                if pr[0]>=self.args.filter_threshold:
+                    true_positives.append( eval(features) )
+                else:
+                    false_negatives.append( eval(features) )
+            else:
+                if pr[0]<self.args.filter_threshold:
+                    true_negatives.append( eval(features) )
+                else:
+                    false_positives.append( eval(features) )
+        
+        return [true_positives,true_negatives,false_positives,false_negatives],['True Positives','True Negatives','False Positives','False Negatives']
+    
+        
+    def __get_features_from_dict(self,label,f_dict,ref_dict):
+        features = []
+        for tfile,nfile,rfile,chromosome,pos in ref_dict.get(label):      
+            key = ';'.join([rfile,nfile,tfile,chromosome,pos])
+            try:
+                features.append(eval(f_dict[key][0]))
+            except KeyError:
+                logging.error('error: cannot find key "%s"\n' % str(key))
         return features 
        
        
@@ -740,8 +707,8 @@ class box_plots():
         data = defaultdict(list)
         contamination = (float(30), float(30), float(70), float(0))
         
-        for chromosome,pos,tfile,nfile,rfile in missing_positions:
-            data[(tfile,nfile,rfile)].append((chromosome,int(pos),contamination))
+        for chromosome,pos,tfile,nfile,rfile,label in missing_positions:
+            data[(tfile,nfile,rfile)].append((chromosome,int(pos),label))
         
         features_buffer = []
         keys_buffer    = []
@@ -752,7 +719,7 @@ class box_plots():
             t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
             n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
         
-            for chromosome, position, _ in data[(tfile, nfile, rfile)]:
+            for chromosome, position, label in data[(tfile, nfile, rfile)]:
                 tt = t_bam.get_tuple(chromosome, position)
                 nt = n_bam.get_tuple(chromosome, position)
                 if tt == None or nt == None:
@@ -768,100 +735,126 @@ class box_plots():
                 feature_set = features.Features(tt, nt, rt)
                 temp_features = feature_set.get_features()
             
-                features_buffer.append(temp_features)
+                features_buffer.append((temp_features,label))
                 keys_buffer.append((rfile, nfile, tfile, chromosome, position))
         
         features_buffer = numpy.array(features_buffer)
         keys_buffer = numpy.array(keys_buffer)
         return features_buffer, keys_buffer
 
-
+    def __get_flier_counts(self, bplot_obj,fval):
+        #get the outliers
+            ax_fliers = []
+            for i in xrange(len(bplot_obj['boxes'])):
+                fliers_above = len(bplot_obj['fliers'][i*2]._y)
+                fliers_below = len(bplot_obj['fliers'][i*2+1]._y)
+                ax_fliers.append( str(fliers_above)+','+str(fliers_below) )
+            
+            #if some value in vector is [],then no boxplot.so we need to adjust the value to appropriate plot    
+            if not len(ax_fliers) == len(fval):
+                indices = [i for i, j in enumerate(fval) if j == [] ]
+                for val in indices:
+                    ax_fliers.insert(val, [])
+                                    
+            #get the upper most and lower most flier positions and caps for boxplot         
+            ylim_upper = None
+            upper_cap =None
+            lower_cap = None
+            ylim_lower = None   
+            for i in xrange(len(bplot_obj['boxes'])):
+                try:
+                    uppercap = bplot_obj['caps'][i*2]._y[0]
+                    highestflier = max(bplot_obj['fliers'][i*2]._y)
+                    if highestflier > uppercap*100:
+                        if not uppercap == 0:
+                            if uppercap>upper_cap:
+                                upper_cap = uppercap
+                            if highestflier>ylim_upper:
+                                ylim_upper = highestflier
+                except:
+                    #if unable to set the axis, continue without changing them
+                    pass
+             
+                try:
+                    lowercap = bplot_obj['caps'][i*2+1]._y[0]
+                    lowestflier = min(bplot_obj['fliers'][i*2+1]._y)
+                    if lowestflier > lowercap/100:
+                        if not lowercap == 0:
+                            if lowercap < lower_cap:
+                                lower_cap = lowercap
+                            if lowestflier < ylim_lower:
+                                ylim_lower = lowestflier  
+                except:
+                    #if unable to set the axis, continue without changing them
+                    pass
+            
+            if ylim_upper and upper_cap is not None:
+                if ylim_upper > upper_cap*100:
+                    ylim_upper = int(upper_cap*100)
+            
+            if ylim_lower and lower_cap is not None:
+                if ylim_lower < lower_cap/100:
+                    ylim_upper = int(lower_cap/100)
+            return ylim_lower,ylim_upper,ax_fliers
+        
+    def __plot_fvals(self,fval,axes,labels):
+        fval_count = [len(x) for x in fval]
+        bplot = axes.boxplot(fval)
+        if axes.axis()[3] >40000:
+            axes.set_yscale('symlog')
+        ylim_lower,ylim_upper,ax_fliers = self.__get_flier_counts(bplot, fval)
+        normal_xlabel_names = ['%s(%s)\n(%s)' % (labels[i], y,ax_fliers[i]) for i,y in enumerate(fval_count)]
+         
+        axes.tick_params(axis='x', labelsize=8)
+        axes.set_ylabel('Distribution',fontsize = 8)
+        axes.set_xticklabels( normal_xlabel_names, rotation=45, fontsize=8)
+        axes.set_title('Feature Distributions for whole data',fontsize = 8)
+        axes.yaxis.set_tick_params(labelsize=8)
+        return ylim_lower, ylim_upper
+   
+    def __rescale_plots(self,normal_ylim_lower,normal_ylim_upper,label_ylim_lower,label_ylim_upper,posneg_ylim_lower,posneg_ylim_upper,f):
+        if not normal_ylim_lower==None or label_ylim_lower==None or posneg_ylim_lower==None:
+            prev_val = pyplot.ylim()
+            lower_val = min(normal_ylim_lower, label_ylim_lower, posneg_ylim_lower)
+            if not lower_val == 0:
+                pyplot.ylim(lower_val,prev_val[1])
+                f.text(0.02, 0.01,'*Lower limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=8)
+                
+        if normal_ylim_upper or label_ylim_upper or posneg_ylim_upper is not None:
+            prev_val = pyplot.ylim()
+            upper_val = max(normal_ylim_upper, label_ylim_upper, posneg_ylim_upper)
+            if not upper_val == 0:
+                pyplot.ylim(prev_val[0], upper_val)
+                f.text(0.02, 0.02,'*Upper limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=8)
+            
+        #just to show boundaries(if overlaps with axis)
+        ylims = pyplot.ylim()
+        if ylims[0] == 0:
+            pyplot.ylim((ylims[0]-0.05*ylims[1]), (1.10*ylims[1]))
+        else:
+            pyplot.ylim( (0.90*ylims[0]), (1.10*ylims[1]) )  
+     
     def boxplot_plot(self):
         plots = []
         for i,v in enumerate(self.top_features_name):
             index = self.top_features_map[v]
             if not self.tot_features_name[index] == v:
                 logging.error('the feature name and feature values don\'t match')
-                
-            xlabel_description = 'Features (Count of positions) (Outliers above the plot, Outliers below the plot)'
             
             f = pyplot.figure(figsize=(15, 15))
             f.set_dpi(150)
             gs1 = gridspec.GridSpec(1, 3)           
-            f.text(0.90, 0.98, 'importance:'+str(i+1), rotation='horizontal',horizontalalignment='center', verticalalignment='bottom',fontsize = 8)
-            
+   
             #normal
             fnvalue = []
-            for feature in self.features_list_normal:
+            for feature in self.features_list:
                 fnv = []
                 for p in feature:
                     fnv.append(p[index])
                 fnvalue.append(fnv)
-            fnvalue_count = [len(x) for x in fnvalue]
             ax1 = f.add_subplot(gs1[0])
-            bplot = ax1.boxplot(fnvalue)
-            if ax1.axis()[3] >40000:
-                ax1.set_yscale('symlog')
-            #get the outliers
-            ax1_fliers = []
-            for i in xrange(len(bplot['boxes'])):
-                fliers_above = len(bplot['fliers'][i*2]._y)
-                fliers_below = len(bplot['fliers'][i*2+1]._y)
-                ax1_fliers.append( str(fliers_above)+','+str(fliers_below) )
-            
-            #if some value in vector is [],then no boxplot.so we need to adjust the value to appropriate plot    
-                if not len(ax1_fliers) == len(fnvalue):
-                    indices = [i for i, j in enumerate(fnvalue) if j == [] ]
-                    for val in indices:
-                        ax1_fliers.insert(val, [])
-                                    
-            normal_xlabel_names = ['%s(%s)\n(%s)' % (self.args.boxplot_labels[i], y,ax1_fliers[i]) for i,y in enumerate(fnvalue_count)]
-                         
-            normal_ylim_upper = None
-            normal_upper_cap =None
-            normal_lower_cap = None
-            normal_ylim_lower = None   
-            for i in xrange(len(bplot['boxes'])):
-                try:
-                    uppercap = bplot['caps'][i*2]._y[0]
-                    highestflier = max(bplot['fliers'][i*2]._y)
-                    if highestflier > uppercap*100:
-                        if not uppercap == 0:
-                            if uppercap>normal_upper_cap:
-                                normal_upper_cap = uppercap
-                            if highestflier>normal_ylim_upper:
-                                normal_ylim_upper = highestflier
-                except:
-                    #if unable to set the axis, continue without changing them
-                    pass
-             
-                try:
-                    lowercap = bplot['caps'][i*2+1]._y[0]
-                    lowestflier = min(bplot['fliers'][i*2+1]._y)
-                    if lowestflier > lowercap/100:
-                        if not lowercap == 0:
-                            if lowercap < normal_lower_cap:
-                                normal_lower_cap = lowercap
-                            if lowestflier < normal_ylim_lower:
-                                normal_ylim_lower = lowestflier  
-                except:
-                    #if unable to set the axis, continue without changing them
-                    pass
-            
-            if normal_ylim_upper and normal_upper_cap is not None:
-                if normal_ylim_upper > normal_upper_cap*100:
-                    normal_ylim_upper = int(normal_upper_cap*100)
-            
-            if normal_ylim_lower and normal_lower_cap is not None:
-                if normal_ylim_lower < normal_lower_cap/100:
-                    normal_ylim_upper = int(normal_lower_cap/100)
-         
-            ax1.tick_params(axis='x', labelsize=8)
-            ax1.set_ylabel('Distribution',fontsize = 8)
-            ax1.set_xticklabels( normal_xlabel_names, rotation=45, fontsize=8)
-            ax1.set_title('Feature Distributions for whole data',fontsize = 8)
-            ax1.yaxis.set_tick_params(labelsize=8)
-                                      
+            normal_ylim_lower,normal_ylim_upper = self.__plot_fvals(fnvalue,ax1,self.args.boxplot_labels)
+                                         
             #labels
             flvalue = []
             for feature in self.features_list_label:
@@ -869,73 +862,11 @@ class box_plots():
                 for p in feature:
                     flv.append(p[index])
                 flvalue.append(flv)
-                
-            flvalue_count = [len(x) for x in flvalue]
-            
             ax2 = f.add_subplot(gs1[1],sharey=ax1)
-            bplot = ax2.boxplot(flvalue)
-            #get the outliers
-            ax2_fliers = []
-            for i in xrange(len(bplot['boxes'])):
-                fliers_above = len(bplot['fliers'][i*2].get_data()[1])
-                fliers_below = len(bplot['fliers'][i*2+1].get_data()[1])
-                ax2_fliers.append(str(fliers_above)+','+str(fliers_below))
-            #if some value in vector is [],then no boxplot.so we need to adjust the value to appropriate plot    
-                if not len(ax2_fliers) == len(flvalue):
-                    indices = [i for i, j in enumerate(flvalue) if j == [] ]
-                    for val in indices:
-                        ax2_fliers.insert(val, [])
-                                    
-            label_xlabel_names = ['%s(%s)\n(%s)' % (self.labels[i], y,ax2_fliers[i]) for i,y in enumerate(flvalue_count)]
-                
-            label_ylim_upper = None
-            label_upper_cap =None
-            label_lower_cap = None
-            label_ylim_lower = None   
-            for i in xrange(len(bplot['boxes'])):
-                try:
-                    uppercap = bplot['caps'][i*2]._y[0]
-                    highestflier = max(bplot['fliers'][i*2]._y)
-                    if highestflier > uppercap*100:
-                        if not uppercap == 0:
-                            if uppercap>label_upper_cap:
-                                label_upper_cap = uppercap
-                            if highestflier>label_ylim_upper:
-                                label_ylim_upper = highestflier
-                except:
-                    #if unable to set the axis, continue without changing them
-                    pass
-             
-                try:
-                    lowercap = bplot['caps'][i*2+1]._y[0]
-                    lowestflier = min(bplot['fliers'][i*2+1]._y)
-                    if lowestflier > lowercap/100:
-                        if not lowercap == 0:
-                            if lowercap < label_lower_cap:
-                                label_lower_cap = lowercap
-                            if lowestflier < label_ylim_lower:
-                                label_ylim_lower = lowestflier  
-                except:
-                    #if unable to set the axis, continue without changing them
-                    pass
-            
-            if label_ylim_upper and label_upper_cap is not None:
-                if label_ylim_upper > label_upper_cap*100:
-                    label_ylim_upper = int(label_upper_cap*100)
-            
-            if not label_ylim_lower and label_lower_cap is not None:
-                if label_ylim_lower < label_lower_cap/100:
-                    label_ylim_upper = int(label_lower_cap/100)
-                              
-            ax2.set_xticklabels( label_xlabel_names, rotation=45, fontsize=8)
-            ax2.set_title('Feature Distributions by labels',fontsize = 8)
-            ax2.yaxis.set_tick_params(labelsize=8)
-            
+            label_ylim_lower, label_ylim_upper = self.__plot_fvals(flvalue, ax2,self.labels)
+
             posneg_ylim_upper = None
-            posneg_upper_cap =None
-            posneg_lower_cap = None
             posneg_ylim_lower = None
-            ax3_fliers = []
             #posneg
             if self.args.input_files:
                 fpnvalue = []
@@ -944,82 +875,13 @@ class box_plots():
                     for p in feature:
                         fpnv.append(p[index])
                     fpnvalue.append(fpnv)
-                fpnvalue_count = [len(x) for x in fpnvalue]
-                
                 ax3 = f.add_subplot(gs1[2],sharey=ax1)
-                bplot = ax3.boxplot(fpnvalue)
-                
-                #get the outliers
-                for i in xrange(len(bplot['boxes'])):
-                    fliers_above = len(bplot['fliers'][i*2].get_data()[1])
-                    fliers_below = len(bplot['fliers'][i*2+1].get_data()[1])
-                    ax3_fliers.append(str(fliers_above)+','+str(fliers_below))
-                
-                #if some value in vector is [],then no boxplot.so we need to adjust the value to appropriate plot    
-                if not len(ax3_fliers) == len(fpnvalue):
-                    indices = [i for i, j in enumerate(fpnvalue) if j == [] ]
-                    for val in indices:
-                        ax3_fliers.insert(val, [])
-                    
-                posneg_xlabel_names = ['%s(%s)\n(%s)' % (self.posneg_labels[i], y,ax3_fliers[i]) for i,y in enumerate(fpnvalue_count)]
-                
-                for i in xrange(len(bplot['boxes'])):
-                    try:
-                        uppercap = bplot['caps'][i*2]._y[0]
-                        highestflier = max(bplot['fliers'][i*2]._y)
-                        if highestflier > uppercap*100:
-                            if not uppercap == 0:
-                                if uppercap>posneg_upper_cap:
-                                    posneg_upper_cap = uppercap
-                                if highestflier>posneg_ylim_upper:
-                                    posneg_ylim_upper = highestflier
-                    except:
-                        #if unable to set the axis, continue without changing them
-                        pass
-                    
-                    try:
-                        lowercap = bplot['caps'][i*2+1]._y[0]
-                        lowestflier = min(bplot['fliers'][i*2+1]._y)
-                        if lowestflier > lowercap/100:
-                            if not lowercap == 0:
-                                if lowercap < posneg_lower_cap:
-                                    posneg_lower_cap = lowercap
-                                if lowestflier < posneg_ylim_lower:
-                                    posneg_ylim_lower = lowestflier  
-                    except:
-                        #if unable to set the axis, continue without changing them
-                        pass
+                posneg_ylim_lower,posneg_ylim_upper = self.__plot_fvals(fpnvalue, ax3,self.posneg_labels)
+
+            self.__rescale_plots(normal_ylim_lower, normal_ylim_upper, label_ylim_lower, label_ylim_upper, posneg_ylim_lower, posneg_ylim_upper, f)
             
-                if posneg_ylim_upper and posneg_upper_cap is not None:
-                    if posneg_ylim_upper > posneg_upper_cap*100:
-                        posneg_ylim_upper = int(posneg_upper_cap*100)
-               
-                if posneg_ylim_lower and posneg_lower_cap is not None: 
-                    if posneg_ylim_lower < posneg_lower_cap/100:
-                        posneg_ylim_upper = int(posneg_lower_cap/100)
-                    
-                ax3.set_xticklabels( posneg_xlabel_names, rotation=70, fontsize=8)
-                ax3.set_title('Feature Distributions by T/F P/N',fontsize = 8 )
-                ax3.yaxis.set_tick_params(labelsize=8)
-            
-            if not normal_ylim_lower==None or label_ylim_lower==None or posneg_ylim_lower==None:
-                prev_val = pyplot.ylim()
-                lower_val = min(normal_ylim_lower, label_ylim_lower, posneg_ylim_lower)
-                if not lower_val == 0:
-                    pyplot.ylim(lower_val,prev_val[1])
-                    f.text(0.02, 0.01,'*Lower limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=8)
-                
-            if normal_ylim_upper or label_ylim_upper or posneg_ylim_upper is not None:
-                prev_val = pyplot.ylim()
-                upper_val = max(normal_ylim_upper, label_ylim_upper, posneg_ylim_upper)
-                if not upper_val == 0:
-                    pyplot.ylim(prev_val[0], upper_val)
-                    f.text(0.02, 0.02,'*Upper limit (y-axis) rescaled, some datapoints are not shown', horizontalalignment='left',verticalalignment='top',fontsize=8)
-            
-            #just +-1 to show boundaries(if overlaps with axis)
-            ylims = pyplot.ylim() 
-            pyplot.ylim(ylims[0]-1, ylims[1]+1)    
-            
+            xlabel_description = 'Features (Count of positions) (Outliers above the plot, Outliers below the plot)'
+            f.text(0.90, 0.98, 'importance:'+str(i+1), rotation='horizontal',horizontalalignment='center', verticalalignment='bottom',fontsize = 8)
             f.text(0.90, 0.97,'Threshold ='+str(self.args.filter_threshold), horizontalalignment='center',verticalalignment='top',fontsize=8)
             f.text(0.50, 0.02, xlabel_description, rotation='horizontal',horizontalalignment='center', verticalalignment='top',fontsize = 10)
             f.text(0.50, 0.97, v+' ('+self.args.model_name+')', rotation='horizontal',horizontalalignment='center', verticalalignment='bottom',fontsize = 10)

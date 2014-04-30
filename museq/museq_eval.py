@@ -33,18 +33,10 @@ logging.info(args)
 
 def run_classifier(arguments,reffiles):
     output_vcf = []
-    if not args.out==None and len(args.out) == len(reffiles):
-        logging.error('There should be an outputfile for each positions file specified')
-    arguments.interval = None
-    
+    output_folder = arguments.out
+        
     for i in xrange( len(reffiles) ):   
         reference_file = reffiles[i]
-        
-        if not args.out:
-            arguments.out = os.getcwd()+'/'+reference_file.strip().split('/')[-1]+'.vcf'
-        else:
-            arguments.out = args.out[i]
-        output_vcf.append(arguments.out)
         #parse the pos file
         file_stream = open(reference_file,'r')
         tfile =None
@@ -63,19 +55,24 @@ def run_classifier(arguments,reffiles):
             else:
                 output.append(l[0]+':'+l[1]+'\n')
         file_stream.close()
-        
+        #update arguments 
+        if not all((tfile,nfile,rfile)):
+            logging.error('Invalid input (one of paths is missing)')    
+               
+            
+        arguments.out = output_folder+reffiles[i].strip().split('/')[-1]+'.vcf'
         #create a positions file for classifier
-        file_stream_w = open(arguments.out+'.tmp','w')
+        file_stream_w = open(arguments.out + '.tmp','w')
         for line in output:
             file_stream_w.write(line)
         file_stream_w.close()
         
-        #update arguments 
-        if not all((tfile,nfile,rfile)):
-            logging.error('Invalid input (one of paths is missing)')
+        output_vcf.append(arguments.out )
         
-        arguments.positions_file = arguments.out +'.tmp'
-        arguments.samples = ['tumour:'+tfile, 'normal:'+nfile, 'reference:'+rfile, 'model:'+args.model]
+        arguments.interval = None
+        arguments.positions_file = arguments.out + '.tmp'
+        arguments.samples = ['tumour:'+tfile, 'normal:'+nfile, 'reference:'+rfile, 'model:'+arguments.model]
+        
         
         logging.info("initializing a Classifier")
         classifier = bamutils.Classifier(arguments)
@@ -89,7 +86,7 @@ def run_classifier(arguments,reffiles):
         logging.info("generating features iterator")
         features = classifier.get_features(tuples)
 
-        if args.export_features is not None:
+        if arguments.export_features is not None:
             logging.info("exporting features")
             classifier.export_features(features)
 
@@ -97,22 +94,24 @@ def run_classifier(arguments,reffiles):
         classifier.print_results(probabilities)
 
         logging.warning("successfully completed.\n")
-        os.remove(arguments.out+'.tmp')
+        
+        #remove the positions file
+        os.remove(arguments.out + '.tmp')
         
     return output_vcf
     
 def run_museqeval(arguments,features_only):
-    if args.out:
+    if arguments.out:
         pdfout = PdfPages(arguments.out+''+arguments.model_name+'_test.pdf')
     else:
         pdfout = PdfPages('boxplots_test.pdf')
         
     if not features_only:
-        plots = museq_eval_utils.museq_plots(args)
+        plots = museq_eval_utils.museq_plots(arguments)
         fig = plots.generate_plots()
         pdfout.savefig(fig)
 
-    boxplot = museq_eval_utils.box_plots(args,arguments.reference_files)
+    boxplot = museq_eval_utils.box_plots(arguments,arguments.reference_files)
     plots = boxplot.boxplot_plot()
     for plot in plots:
         pdfout.savefig(plot)
@@ -126,35 +125,22 @@ def run_museqeval(arguments,features_only):
     
 if args.input_files == None and args.plot_features_only == False:
     reffiles = []
+    #create a list of all ref files, irrespective of comma
     for refs in args.reference_files:
         for ref in refs.strip().split(','):
-            reffiles.append(ref)
+            reffiles.append(ref)          
+    #check for trailing /, o.w. files are saved in parent dir
+    if not args.out[-1] == '/':
+        args.out = args.out + '/'
+        
     arguments = copy.deepcopy(args)
-    
     vcf_outputs = run_classifier(arguments,reffiles)
     
     args.input_files = vcf_outputs
-    if args.out:
-        #get path from out
-        args.out = args.out[0].strip().split('/')
-        if len(args.out) == 1:
-            args.out = os.getcwd()+'/'
-        else:
-            args.out = '/'.join(args.out[:-1])+'/'
-    else:
-        args.out= os.getcwd()  +'/'  
     args.model_name = args.model.strip().split('/')[-1]
     
     run_museqeval(args,args.plot_features_only)
 else:
-    if args.out:
-        args.out = args.out[0].strip().split('/')
-        if len(args.out) == 1:
-            args.out = os.getcwd()+'/'
-        else:
-            args.out = '/'.join(args.out[:-1])+'/'
-    else:
-        args.out = os.getcwd()+'/'
             
     args.model_name = args.model.strip().split('/')[-1]
     run_museqeval(args,args.plot_features_only)

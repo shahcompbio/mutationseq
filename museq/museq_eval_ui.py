@@ -11,8 +11,7 @@ Created on Feb 21, 2014
 #model: path to the model being used
 #separate_plots: if this flag is set then the code generates separate boxplots for each of the space sep values(same plot for comma sep values)
 #top_features: No of features to be plotted(Default is all features)
-#out : paths of output vcf files(for each ref file)(If not provided, code saves vcf in current directory).
-#out: If plotting only mode: path to the output folder(if more than one paths are there then picks the first path)
+#out : path to the output directory. Required. output vcf files have same name as corresponding ref file(ensure that all ref files have different names)
 #log file is concatenated to museq log
 #boxplot_labels: labels for the left most boxplot(len should be equal to no of plots)
 
@@ -26,16 +25,16 @@ parser = argparse.ArgumentParser(prog='mutationSeq Classify and Validate',
 
 ##Arguments required for classification               
 parser.add_argument("-a", "--all", 
-                    default=False, action="store_true", 
+                    default=True, action="store_true", 
                     help= '''force to print out even if the predicted probability of the 
-                    candidate position(s) is(are) less than the specified threshld.''')
+                    candidate position(s) is(are) less than the specified threshold.''')
 
 parser.add_argument("-b", "--buffer_size",
                     default="2G",
                     help='''specify max amount of memory usage''')
 
 parser.add_argument("--coverage", 
-                    default=4,
+                    default=0,
                     type=int,
                     help='''specify min depth (coverage) to be considered''')
                     
@@ -52,7 +51,7 @@ parser.add_argument("-l", "--log_file",
                     help='''specify name or path of the log file''')
                     
 parser.add_argument("--no_filter", 
-                    default=False, action="store_true", 
+                    default=True, action="store_true", 
                     help= '''force to print out even if the position(s) does(do) not satisfy 
                     the initial criteria for Somatic call''')
                     
@@ -103,7 +102,7 @@ parser.add_argument("-c", "--config",
 ## MuseqEval arguments
 parser.add_argument('-r','--reference_files',
                     nargs = '*', required = True,
-                    help = 'path to the reference file. Format: pos file ')
+                    help = 'path to the reference file. Format: pos file. Files must have different names')
 
 parser.add_argument('-m','--model',
                     required = True,
@@ -120,7 +119,7 @@ parser.add_argument('--ranked_features',
 
 parser.add_argument('--top_features',
                     type=int, default=None, 
-                    help='specifies the top X number of features to plot; default is 5')
+                    help='specifies the top X number of features to plot; default is all features')
 
 parser.add_argument('--feature_db',
                     help = 'features_file (not needed, but will decrease runtime)'
@@ -128,7 +127,7 @@ parser.add_argument('--feature_db',
 
 parser.add_argument('--boxplot_labels',
                     nargs='+',
-                    help='specifies the x-tick labels; default being the filename(s) specified in "--boxplot_inputs"')
+                    help='specifies the x-tick labels; default is input x (x ranges from 1 to num_boxplots)')
 
 parser.add_argument('--input_files','-i',
                     nargs = '*',default = None,
@@ -136,7 +135,7 @@ parser.add_argument('--input_files','-i',
 
 parser.add_argument('--plot_features_only',
                     action='store_true', default = False,
-                    help = 'Plots feature distributions, Museq will not run in this mode')
+                    help = 'Plots feature distributions only, Museq will not run in this mode')
 
 parser.add_argument('--separate_plots',
                     action='store_true',default = False,
@@ -144,9 +143,13 @@ parser.add_argument('--separate_plots',
                     )
 
 parser.add_argument("-o", "--out", 
-                    default=None, nargs = '*',
-                    #required=True, 
-                    help='''specify the path/to/out.vcf to save output to a file''')
+                    default=None,
+                    required=True, 
+                    help='''specify the path/to/output folder(vcf files will have same names as corresponding ref files)''')
+
+parser.add_argument( '--positive_labels',
+                    default = 'TRUE',nargs = '*',
+                    help = '''Specify labels to be considered positive''' )
 
 
 args = parser.parse_args()

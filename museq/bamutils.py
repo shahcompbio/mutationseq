@@ -13,21 +13,20 @@ import pybamapi
 import resource
 import re
 import features, features_single, features_deep, features_deep_single
+import matplotlib
+matplotlib.use('Agg',warn=False)
+import matplotlib.pyplot as plt
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 from sklearn import cross_validation
 from sklearn.metrics import roc_curve, auc
-from scipy.stats import binom
 from string import Template
 from datetime import datetime
 from collections import defaultdict
-import matplotlib
-matplotlib.use('Agg',warn=False)
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-mutationSeq_version = '4.2.0'
+mutationSeq_version = "4.2.0"
 
 #==============================================================================
 # Classifier class 
@@ -202,7 +201,7 @@ class Classifier(object):
                 target_positions.append(temp_tp)
                 
         return target_positions
-
+    
     def __make_outstr(self, tt, refbase, nt=None):
         t_coverage = tt[5][0]
         n_coverage = 0
@@ -290,7 +289,6 @@ class Classifier(object):
         outstr = [chromosome_name, position, out_id, refbase, altbase, filter_flag, info]
         
         return outstr  
-  
     
     def __flush(self):
         logging.info("flushing memory. Usage was: " + str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024) + "M")
@@ -336,8 +334,13 @@ class Classifier(object):
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
+            #MUT-238 If the ref base is 4(N) ignore the position
+            if rt[0] >= 4: 
+                logging.error(str(position)+' position references base N and has been ignored')
+                continue
+            
             ## calculate features     
-            feature_set = self.features_module.Features(it, rt, self.type)
+            feature_set = self.features_module.Features(it, rt,self.type)
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
         
@@ -370,6 +373,11 @@ class Classifier(object):
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
             
+            #MUT-238 If the ref base is 4(N) ignore the position
+            if rt[0] >= 4: 
+                logging.error(str(position)+' position references base N and has been ignored')
+                continue
+
             ## calculate features and buffer it     
             feature_set = self.features_module.Features(tt, nt, rt)
             temp_feature = feature_set.get_features()
@@ -402,8 +410,7 @@ class Classifier(object):
             logging.info("loading model")
             return joblib.load(self.model)
         
-        except Exception,e:
-            print e
+        except:
             logging.error("error: failed to load model")
             raise Exception("failed to load model")
         
@@ -455,7 +462,7 @@ class Classifier(object):
         except:
             logging.warning("warning: failed to load metadata file.")
             return
-        
+            
     def print_results(self, probabilities_outstrs):
         ## open the output vcf file to write        
         if self.args.out is None:
@@ -640,21 +647,20 @@ class Trainer(object):
             
                 chromosome = l[0]
                 position = int(l[1])
-                label_name = l[2]
-                if label_name in positive_labels:
+                label = l[2]
+                if label in positive_labels:
                     label = 1
 
                 else:
                     label = -1
                     
-                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination,label_name))
-
-   
+                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination))
+    
     def __get_features(self):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
-        file_stream_w = open(self.args.out+'_feature_db.txt','w')
+        file_stream_w = open('feature_db.txt','w')
 
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
@@ -665,7 +671,7 @@ class Trainer(object):
             if not self.args.single:
                 n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
             
-            for chromosome, position, label, c,label_name in self.data[(tfile, nfile, rfile)]:
+            for chromosome, position, label, c in self.data[(tfile, nfile, rfile)]:
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
                 tt = t_bam.get_tuple(chromosome, position)
                 if not self.args.single:
@@ -673,6 +679,11 @@ class Trainer(object):
             
                 rt = t_bam.get_reference_tuple(chromosome_id, position)            
                 
+                #MUT-238 If the ref base is 4(N) ignore the position
+                if rt[0] >= 4: 
+                    logging.error(str(position)+' position references base N and has been ignored')
+                    continue
+
                 ## check for None tuples
                 if self.args.single:
                     if not all([tt, rt]):
@@ -691,7 +702,7 @@ class Trainer(object):
                     feature_set = self.feature_module.Features(tt, nt, rt)
 
                 temp_features = feature_set.get_features()   
-                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\t'+label_name+'\n' )
+                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\n' )
                 
                 features_buffer.append(temp_features)
                 labels_buffer.append(label)
@@ -731,7 +742,6 @@ class Trainer(object):
     def fit(self):
         self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True) 
         self.model.fit(self.features, self.labels)
-        #self.model.feature_importances_ = numpy.array([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20])
         
     def save(self):
 #         numpy.savez(self.args.out, self.version, self.features, self.labels)
@@ -854,44 +864,11 @@ class Trainer(object):
         return list(labels)
         
     def __get_feature_names(self):
-        tfile= None
-        nfile=None
-        rfile=None
-        feature_names = None
-        for infiles in self.args.infiles:
-            infile_stream = open(infiles.name)
-            for line in infile_stream:
-                line=line.strip().split()
-                if line[0]=='#':
-                    if self.args.single:
-                        if line[1] == "tumour" or line[1] == "normal":
-                            tfile = nfile = line[2]
-                    else:
-                        if line[1]=='tumour':
-                            tfile = line[2]
-                        elif line[1]=='normal':
-                            nfile = line[2]
-                    if line[1]=='reference':
-                        rfile = line[2]
-                else:
-                    chromosome = line[0]
-                    position = line[1]
-                    
-                    t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
-                    tt = t_bam.get_tuple(chromosome, int(position) )
-                    if not self.args.single:
-                        n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
-                        nt = n_bam.get_tuple(chromosome, int(position) )
-                    
-                    chromosome_id = tt[-1]
-                    rt = t_bam.get_reference_tuple(chromosome_id, position)
-                    if self.args.single:
-                        feature_set = features_single.Features(tt, rt)
-                    else:
-                        feature_set = features.Features(tt, nt, rt)
-                    feature_names = feature_set.get_feature_names()
-                    break
-            #infile_stream.close()
+        if self.args.single:
+            feature_set = features_single.Features()
+        else:
+            feature_set = features.Features()
+        feature_names = feature_set.get_feature_names()
         return feature_names
 
         
@@ -991,7 +968,16 @@ class Trainer(object):
                 fliers_below = len(bplot['fliers'][i*2+1]._y)
                 fliers.append(str(fliers_above)+','+str(fliers_below))
                 
-            xlabel_names = ['%s(%s)\n(%s)' % (labels[i], y,fliers[i]) for i,y in enumerate(fvalue_count)]
+            #xlabel_names = ['%s(%s)\n(%s)' % (labels[i], y,fliers[i]) for i,y in enumerate(fvalue_count)]
+             
+            try:   
+                xlabel_names = ['%s(%s)\n(%s)' % (labels[i], y,fliers[i]) for i,y in enumerate(fvalue_count)]
+            except:
+                print '\nlabels',labels
+                print '\ny',y 
+                print '\nfliers',fliers
+                print '\ni',i 
+                print '\nfvalue_count',fvalue_count
             
             label_ylim_upper = None
             label_upper_cap =None
@@ -1056,11 +1042,3 @@ class Trainer(object):
             plt.tight_layout()
             pdfout.savefig(fig)
         pdfout.close()
-        
-    
-        
-    
-
-    
-        
-    
