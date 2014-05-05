@@ -25,6 +25,7 @@ from string import Template
 from datetime import datetime
 from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy.stats import binom
 
 mutationSeq_version = "4.2.0"
 
@@ -201,6 +202,54 @@ class Classifier(object):
                 target_positions.append(temp_tp)
                 
         return target_positions
+
+    def __get_genotype(self,nonref_count,count_all):
+        aa = 0.01
+        ab = 0.50
+        bb = 0.99
+        prob = [aa, ab, bb]
+        
+        ## binomial pmf for three different probabilities
+        binom_val = [binom.pmf(nonref_count, count_all, p) for p in prob]
+        
+        if sum(binom_val)==0:
+            binom_val = [val/(sum(binom_val)+1e-150) for val in binom_val]
+        else:
+            binom_val = [val/sum(binom_val) for val in binom_val]
+        
+        pr_aa = round(binom_val[0],4)
+        pr_ab = round(binom_val[1],4)
+        pr_bb = round(binom_val[2],4)
+        
+        if pr_aa == max(pr_aa,pr_ab,pr_bb):
+            gt = '0/0'
+        if pr_ab == max(pr_aa,pr_ab,pr_bb):
+            gt = '0/1'
+        if pr_bb == max(pr_aa,pr_ab,pr_bb):
+            gt = '1/1'
+        
+        if pr_aa == 0:
+            pr_aa = 255
+        elif pr_aa == 1:
+            pr_aa = 0
+        else:
+            pr_aa = -10*log10(pr_aa) 
+        
+        if pr_ab == 0:
+            pr_ab = 255
+        elif pr_ab == 1:
+            pr_ab = 0
+        else:
+            pr_ab = -10*log10(pr_ab) 
+            
+        if pr_bb == 0:
+            pr_bb = 255
+        elif pr_bb == 1:
+            pr_bb = 0
+        else:
+            pr_bb = -10*log10(pr_bb) 
+            
+        return int(pr_aa),int(pr_ab),int(pr_bb),gt
     
     def __make_outstr(self, tt, refbase, nt=None):
         t_coverage = tt[5][0]
@@ -272,8 +321,14 @@ class Classifier(object):
         tc = self.bam.get_trinucleotide_context(chromosome_id, position)
 
         ## generate information for the INFO column in the output vcf               
-        if self.args.single and self.type == 'n':
-            info = [NR, NA, TR, TA, tc, insertion, deletion]
+        if self.args.single:
+            pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])
+            
+            ## generate information for the INFO column in the output vcf               
+            if self.type == 'n':
+                info = [NR, NA, TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+            else:
+                info = [TR, TA, NR, NA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
             
         else:
             info = [TR, TA, NR, NA, tc, insertion, deletion]
@@ -455,6 +510,9 @@ class Classifier(object):
                                            MODEL=model,
                                            THRESHOLD=self.args.threshold
                                            )
+                if not self.args.single:
+                    if 'ID=GT' in l or 'ID=PL' in l:
+                        continue
                 header += l
             cfg_file.close()
             return header
@@ -513,6 +571,10 @@ class Classifier(object):
                             ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
                             ";NA=" + outstr[-1][3] + ";TC=" + outstr[-1][4] + \
                             ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
+
+                if self.args.single:   
+                    info_str = info_str+";GT=" + outstr[-1][7] +";PL="+outstr[-1][8]+\
+                               ','+outstr[-1][9]+','+outstr[-1][10]
                 
                 ## calculate phred quality
                 if p == 0:
@@ -660,7 +722,7 @@ class Trainer(object):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
-        file_stream_w = open(self.args.out+'feature_db.txt','w')
+        file_stream_w = open(self.args.out+'_feature_db_train.txt','w')
 
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
@@ -908,7 +970,7 @@ class Trainer(object):
         
     def __generate_feature_dict(self):
         features_vals_dict = {}
-        file_stream = open(self.args.out+'feature_db.txt','r')
+        file_stream = open(self.args.out+'_feature_db_train.txt','r')
         for line in file_stream:
             l = line.strip().split('\t')
             key = l[0].split()[0]
