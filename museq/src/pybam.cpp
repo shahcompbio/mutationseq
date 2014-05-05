@@ -461,6 +461,7 @@ public:
 		{
 			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+1));
 		}
+		referenceBase = toupper(referenceBase);
 		
 		// get reference sequence for a window of length 500
 		string referenceSeq;
@@ -539,7 +540,7 @@ public:
 			{
 				throw runtime_error("unable to get base at:" + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+i));
 			}
-			tempRefSeq[i] = currentBase;
+			tempRefSeq[i] = toupper(currentBase);
 		}
 
 		tempRefSeq[windowLength] = '\0';
@@ -557,6 +558,7 @@ public:
 		{
 			throw runtime_error("unable to get base at " + lexical_cast<string>(refId) + ":" + lexical_cast<string>(position+1));
 	    }
+	    referenceBase = toupper(referenceBase);
 
 		return referenceBase;
 	}
@@ -648,6 +650,8 @@ private:
 		{
 			throw runtime_error("unable to get base at:" + lexical_cast<string>(position+1));
 		}
+		currentBase = toupper(currentBase);
+		nextBase = toupper(nextBase);
 
 	    while (currentBase == nextBase)
 	    {
@@ -658,6 +662,7 @@ private:
 			{
 				throw runtime_error("unable to get base at:" + lexical_cast<string>(position+1));
 			}
+			nextBase = toupper(nextBase);
 	    }
 	    return count;
 	}
@@ -682,6 +687,8 @@ private:
 		{
 			throw runtime_error("unable to get base at:" + lexical_cast<string>(position-1));
 		}
+		currentBase = toupper(currentBase);
+		previousBase = toupper(previousBase);
 
 	    while (currentBase == previousBase && position > 2)
 	    {
@@ -692,6 +699,7 @@ private:
 			{
 				throw runtime_error("unable to get base at:" + lexical_cast<string>(position-1));
 			}
+			previousBase = toupper(previousBase);
 	    }
 	    return count;
 	}

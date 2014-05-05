@@ -647,20 +647,20 @@ class Trainer(object):
             
                 chromosome = l[0]
                 position = int(l[1])
-                label = l[2]
-                if label in positive_labels:
+                label_name = l[2]
+                if label_name in positive_labels:
                     label = 1
 
                 else:
                     label = -1
                     
-                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination))
+                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination,label_name))
     
     def __get_features(self):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
-        file_stream_w = open('feature_db.txt','w')
+        file_stream_w = open(self.args.out+'feature_db.txt','w')
 
         for tfile, nfile, rfile in self.data.keys():            
             logging.info(tfile)
@@ -671,7 +671,7 @@ class Trainer(object):
             if not self.args.single:
                 n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
             
-            for chromosome, position, label, c in self.data[(tfile, nfile, rfile)]:
+            for chromosome, position, label, c, label_name in self.data[(tfile, nfile, rfile)]:
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
                 tt = t_bam.get_tuple(chromosome, position)
                 if not self.args.single:
@@ -702,7 +702,7 @@ class Trainer(object):
                     feature_set = self.feature_module.Features(tt, nt, rt)
 
                 temp_features = feature_set.get_features()   
-                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\n' )
+                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\t'+label_name+'\n' )
                 
                 features_buffer.append(temp_features)
                 labels_buffer.append(label)
@@ -908,7 +908,7 @@ class Trainer(object):
         
     def __generate_feature_dict(self):
         features_vals_dict = {}
-        file_stream = open(self.args.out+'_feature_db.txt','r')
+        file_stream = open(self.args.out+'feature_db.txt','r')
         for line in file_stream:
             l = line.strip().split('\t')
             key = l[0].split()[0]
