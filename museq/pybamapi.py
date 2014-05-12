@@ -13,6 +13,7 @@ class Bam(object):
         self.ref = kwargs.get("reference") 
         rmdups   = kwargs.get("rmdups") 
         coverage = kwargs.get("coverage")
+        qual_threshold = kwargs.get("qual_threshold")
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
@@ -22,10 +23,14 @@ class Bam(object):
         ## set the default for the coverage
         if coverage is None:
             coverage = 4
+        
+        ## set the default for qual_threshold
+        if qual_threshold is None:
+            qual_threshold = 10
             
         ## make a pileup for bam file
         if self.bam is not None:
-            self.pileup = np.pileup(coverage, rmdups)
+            self.pileup = np.pileup(coverage, rmdups, qual_threshold)
             self.pileup.open(self.bam)
     
         if  self.ref is not None:

@@ -27,7 +27,7 @@ from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 
-mutationSeq_version = "4.2.0"
+mutationSeq_version = "4.2.1"
 
 #==============================================================================
 # Classifier class 
@@ -87,13 +87,13 @@ class Classifier(object):
                 self.type = 'n'
 
                 logging.info("initializing a normal Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
+                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
         
             else:
                 self.type = 't'
                 
                 logging.info("initializing a tumour Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups)
+                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
         
         ## paired mode
         else:
@@ -107,7 +107,7 @@ class Classifier(object):
         
             logging.info("initializing a PairedBam")
             self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
-                                                reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups)
+                                                reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
         
         ## check if the version of the input model matches that of the feature set  
 #         try:
@@ -469,9 +469,23 @@ class Classifier(object):
             logging.error("error: failed to load model")
             raise Exception("failed to load model")
         
+    def __verify_model_features(self,model):
+        features = self.features_module.Features()
+        if not model.version == features.version:
+            return False
+        if not model.name == features.name:
+            return False
+        return True
+        
+        
     def predict(self, features_outstrs):
         #model = self.__fit_model()
         model = self.__load_model()
+        
+        #verify the model against the features
+        if not self.__verify_model_features(model):
+            logging.error('The features and the model do not match')
+            raise Exception('mismatched model')
         
         logging.info("predicting probabilities ")
         for features, outstrs in features_outstrs:
@@ -642,7 +656,6 @@ class Trainer(object):
         else:
             self.feature_module = features
             
-        self.version = self.feature_module.version
         
     def __isvalid_label(self, labels):
         for l in labels:
@@ -729,9 +742,9 @@ class Trainer(object):
             if not self.args.single:
                 logging.info(nfile)
             
-            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
+            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1, qual_threshold=1)
             if not self.args.single:
-                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
+                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1, qual_threshold=1)
             
             for chromosome, position, label, c, label_name in self.data[(tfile, nfile, rfile)]:
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
@@ -774,6 +787,8 @@ class Trainer(object):
         self.features = numpy.array(features_buffer)
         self.labels = numpy.array(labels_buffer)
         self.keys = numpy.array(keys_buffer)
+        self.feature_set_name = feature_set.name
+        self.feature_set_version = feature_set.version
         
     def generate(self, infiles=None):
         if infiles is None:
@@ -802,8 +817,10 @@ class Trainer(object):
         self.model = joblib.load(self.args.model)
         
     def fit(self):
-        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1, compute_importances=True) 
+        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1) 
         self.model.fit(self.features, self.labels)
+        self.model.name = self.feature_set_name
+        self.model.version = self.feature_set_version
         
     def save(self):
 #         numpy.savez(self.args.out, self.version, self.features, self.labels)

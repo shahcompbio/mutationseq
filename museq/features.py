@@ -8,15 +8,15 @@ import numpy
 from math import log
 from scipy.stats import binom
 
-name = "TCGA Benchmark 4 feature set with coverage info"
-version = "4.1.0"
+
 
 class Features:
     def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, purity=70):
         self.tt = tumour_tuple
         self.nt = normal_tuple
         self.rt = reference_tuple
-        
+        self.name = "TCGA Benchmark 4 feature set with coverage info"
+        self.version = "4.1.1"
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
             self.tt = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)

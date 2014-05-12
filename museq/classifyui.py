@@ -6,7 +6,7 @@ Created on Wed Oct 23 11:34:48 2013
 """
 import argparse
 
-mutationSeq_version="4.2.0"
+mutationSeq_version="4.2.1"
 
 #==============================================================================
 # make a UI 
@@ -67,6 +67,11 @@ parser.add_argument("-p", "--purity",
                     default=70, 
                     type=int,
                     help='''pass sample purity to features''')
+
+parser.add_argument("-q", "--quality_threshold", 
+                    default=10, 
+                    type=int,
+                    help='''set threshold for the mapping quality''')
 
 parser.add_argument("-s", "--single",
                     default=False, action="store_true",

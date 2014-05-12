@@ -9,14 +9,15 @@ from __future__ import division
 import numpy
 from scipy.stats import binom
 
-name = "TCGA Benchmark 4 feature set with coverage info"
-version = "4.0.2_single"
+
         
 class Features:
     def __init__(self, input_tuple=None, reference_tuple=None, sample_type = None, purity=70):
         self.it = input_tuple
         self.rt = reference_tuple
         self.type = sample_type
+        self.name = "TCGA Benchmark 4 feature set with coverage info"
+        self.version = "4.0.2_single"
         
         if self.it is None or self.it[5][0] == 0:
             self.it = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
