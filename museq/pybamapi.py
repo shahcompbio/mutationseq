@@ -157,9 +157,9 @@ class Bam(object):
                     yield t
 
 class PairedBam(object):
-    def __init__(self, tumour, normal, reference, rmdups, coverage):
-        self.t_bam = Bam(bam=tumour, reference=reference, coverage=coverage, rmdups=rmdups)
-        self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups)
+    def __init__(self, tumour, normal, reference, rmdups, coverage,qual_threshold):
+        self.t_bam = Bam(bam=tumour, reference=reference, coverage=coverage, rmdups=rmdups, qual_threshold=qual_threshold)
+        self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups, qual_threshold=qual_threshold)
     
     def get_chromosome_name(self, chromosome_id):
         return self.t_bam.get_chromosome_name(chromosome_id)
