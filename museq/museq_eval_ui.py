@@ -70,6 +70,11 @@ parser.add_argument("-p", "--purity",
                     type=int,
                     help='''pass sample purity to features''')
 
+parser.add_argument("-q", "--quality_threshold", 
+                    default=0, 
+                    type=int,
+                    help='''set threshold for the mapping quality''')
+
 parser.add_argument("-s", "--single",
                     default=False, action="store_true",
                     help='''single sample analysis''')

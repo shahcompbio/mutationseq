@@ -49,7 +49,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		}
 		
 		// remove the reads with qual<threshold
-		if (ba.MapQuality <= readQualThreshold)
+		if (ba.MapQuality < readQualThreshold)
 		{
 			continue;
 		}

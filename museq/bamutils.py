@@ -742,9 +742,9 @@ class Trainer(object):
             if not self.args.single:
                 logging.info(nfile)
             
-            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1, qual_threshold=1)
+            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1, qual_threshold=0)
             if not self.args.single:
-                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1, qual_threshold=1)
+                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1, qual_threshold=0)
             
             for chromosome, position, label, c, label_name in self.data[(tfile, nfile, rfile)]:
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
@@ -817,7 +817,7 @@ class Trainer(object):
         self.model = joblib.load(self.args.model)
         
     def fit(self):
-        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1) 
+        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1,compute_importances = True) 
         self.model.fit(self.features, self.labels)
         self.model.name = self.feature_set_name
         self.model.version = self.feature_set_version
