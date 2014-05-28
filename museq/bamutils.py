@@ -41,6 +41,18 @@ class Classifier(object):
         self.features_buffer = []
         self.__get_buffer_size()
         
+        self.threshold = self.args.threshold
+        self.coverage = self.args.coverage
+        self.quality_threshold = self.args.quality_threshold
+        self.no_filter = self.args.no_filter
+        
+        #if the all option is specified then override other options and run on all positions 
+        if self.args.all:
+            self.quality_threshold = 0
+            self.no_filter = True
+            self.threshold = 0.0
+            self.coverage = 0
+        
         ## parse the positional argument to get tumour/normal bam, reference fasta and model
         for s in self.args.samples:
             self.samples[s.split(':')[0]] = s.split(':')[1]
@@ -87,13 +99,13 @@ class Classifier(object):
                 self.type = 'n'
 
                 logging.info("initializing a normal Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
         
             else:
                 self.type = 't'
                 
                 logging.info("initializing a tumour Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
         
         ## paired mode
         else:
@@ -107,7 +119,7 @@ class Classifier(object):
         
             logging.info("initializing a PairedBam")
             self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
-                                                reference=self.samples.get("reference"), coverage=self.args.coverage, rmdups=rmdups, qual_threshold=self.args.quality_threshold)
+                                                reference=self.samples.get("reference"), coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
         
         ## check if the version of the input model matches that of the feature set  
 #         try:
@@ -340,6 +352,9 @@ class Classifier(object):
         
         ## get chromosome name of the given chromosome ID
         chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+
+        ##remove chr from chromosome
+        chromosome_name = chromosome_name.replace('chr','')
         
         outstr = [chromosome_name, position, out_id, refbase, altbase, filter_flag, info]
         
@@ -380,7 +395,7 @@ class Classifier(object):
             nonrefbases = [x for x in range(4) if x != refbase]
         
             ## ignore tumour tuples with no/few variants in the bam file
-            if not self.args.no_filter:
+            if not self.no_filter:
                 if  it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                     it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
                     it[nonrefbases[2] + 1][0] < self.args.tumour_variant:
@@ -418,7 +433,7 @@ class Classifier(object):
             nonrefbases = [x for x in range(4) if x != refbase]
             
             ## ignore tumour tuples with no/few variants in the tumour or too many variants in the normal
-            if not self.args.no_filter:
+            if not self.no_filter:
                 if  tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                     tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
                     tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
@@ -465,7 +480,7 @@ class Classifier(object):
             logging.info("loading model")
             return joblib.load(self.model)
         
-        except:
+        except Exception, e:
             logging.error("error: failed to load model")
             raise Exception("failed to load model")
         
@@ -522,7 +537,7 @@ class Classifier(object):
                                            TUMOUR=tumour,
                                            NORMAL=normal,
                                            MODEL=model,
-                                           THRESHOLD=self.args.threshold
+                                           THRESHOLD=self.threshold
                                            )
                 if not self.args.single:
                     if 'ID=GT' in l or 'ID=PL' in l:
@@ -568,14 +583,14 @@ class Classifier(object):
                     p = 0
                 
                 ## do not print positions with p < threshold if --all option is not set
-                if not self.args.all and p < self.args.threshold:
+                if p < self.threshold:
                     continue 
 
                 any_result = True
 
                 ## set the filter_flag
                 if filter_flag is None:
-                    if p >= self.args.threshold:
+                    if p >= self.threshold:
                         filter_flag = "PASS"
                     
                     else:
@@ -817,7 +832,7 @@ class Trainer(object):
         self.model = joblib.load(self.args.model)
         
     def fit(self):
-        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1,compute_importances = True) 
+        self.model = RandomForestClassifier(random_state=0, n_estimators=3000, n_jobs=1) 
         self.model.fit(self.features, self.labels)
         self.model.name = self.feature_set_name
         self.model.version = self.feature_set_version
