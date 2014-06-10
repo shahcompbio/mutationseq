@@ -6,14 +6,9 @@ Created on Wed Sep 18 11:22:08 2013
 """
 import logging
 import classifyui
-import classify_run_tests
 
 mutationSeq_version="4.2.1"
 args = classifyui.args 
-
-if args.samples and args.samples[0] == 'test':
-    classify_run_tests.run_tests(args)
-    raise SystemExit()
 
 if args.verbose:
     level = logging.DEBUG    
