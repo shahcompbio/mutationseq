@@ -1,0 +1,9 @@
+mock
+nose
+coverage
+pylint
+nosexcover
+numpy
+scipy
+scikit-learn
+matplotlib
