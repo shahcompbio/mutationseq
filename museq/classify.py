@@ -23,12 +23,15 @@ logging.basicConfig(filename = args.log_file,
 
 logging.warning("<<< mutationSeq_" + mutationSeq_version + " started >>>")
 logging.info("importing required modules")
+
 import bamutils
 
-logging.info(args)
+
 #==============================================================================
 # main body
 #==============================================================================
+
+logging.info(args)
 logging.info("initializing a Classifier")
 classifier = bamutils.Classifier(args)
 

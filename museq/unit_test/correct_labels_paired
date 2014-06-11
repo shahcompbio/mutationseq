@@ -1,0 +1,24 @@
+##fileformat=VCFv4.1
+##fileDate=20140131 
+##source=mutationSeq_4.1.0
+##reference=human_all.fasta
+##tumour=DAH147_A12957_3_lanes_dupsFlagged_1Mbp.bam
+##normal=DAH147N_A12969_3_lanes_hg18_dupsFlagged_1Mbp.bam
+##threshold=0.5
+##INFO=<ID=PR,Number=1,Type=Float,Description="Probability of somatic mutation">
+##INFO=<ID=TR,Number=1,Type=String,Description="Count of tumour with reference to REF">
+##INFO=<ID=TA,Number=1,Type=String,Description="Count of tumour with reference to ALT">
+##INFO=<ID=NR,Number=1,Type=String,Description="Count of normal with reference to REF">
+##INFO=<ID=NA,Number=1,Type=String,Description="Count of normal with reference to ALT">
+##INFO=<ID=TC,Number=1,Type=String,Description="Tri-nucleotide context">
+##INFO=<ID=NI,Number=1,Type=String,Description="Number of insertions in the vicinity of a position">
+##INFO=<ID=ND,Number=1,Type=String,Description="Number of deletions in the vicinity of a position">
+##FILTER=<ID=threshold,Description="Threshold on probability of positive call">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+20	176156	.	G	A	4.35	INDL	PR=0.63;TR=15;TA=2;NR=18;NA=0;TC=AGA;NI=1;ND=10
+20	185815	.	C	A	4.62	INDL	PR=0.66;TR=20;TA=2;NR=30;NA=0;TC=TCA;NI=18;ND=0
+20	321807	.	A	T	3.83	PASS	PR=0.59;TR=19;TA=3;NR=17;NA=0;TC=AAA;NI=0;ND=0
+20	338111	.	T	C	3.51	INDL	PR=0.55;TR=15;TA=2;NR=22;NA=0;TC=CTT;NI=0;ND=12
+20	385736	.	A	G	3.06	PASS	PR=0.51;TR=30;TA=3;NR=33;NA=0;TC=CAT;NI=0;ND=0
+20	638492	.	A	G	6.56	INDL	PR=0.78;TR=11;TA=4;NR=9;NA=0;TC=CAC;NI=0;ND=8
+20	671037	.	C	A	6.25	INDL	PR=0.76;TR=22;TA=2;NR=36;NA=0;TC=TCT;NI=2;ND=2

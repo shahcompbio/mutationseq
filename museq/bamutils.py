@@ -26,6 +26,7 @@ from datetime import datetime
 from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
+import sys
 
 mutationSeq_version = "4.2.1"
 
@@ -89,37 +90,37 @@ class Classifier(object):
         if self.args.single:
             if self.args.deep:
                 self.features_module = features_deep_single
-                rmdups = False
+                self.rmdups = False
             
             else:
                 self.features_module = features_single
-                rmdups = True
+                self.rmdups = True
 
             if not self.samples.get("tumour"):
                 self.type = 'n'
 
                 logging.info("initializing a normal Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.coverage, rmdups=self.rmdups, qual_threshold=self.quality_threshold)
         
             else:
                 self.type = 't'
                 
                 logging.info("initializing a tumour Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.coverage, rmdups=self.rmdups, qual_threshold=self.quality_threshold)
         
         ## paired mode
         else:
             if self.args.deep:
                 self.features_module = features_deep
-                rmdups = False
+                self.rmdups = False
                 
             else:
                 self.features_module = features
-                rmdups = True
+                self.rmdups = True
         
             logging.info("initializing a PairedBam")
             self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
-                                                reference=self.samples.get("reference"), coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+                                                reference=self.samples.get("reference"), coverage=self.coverage, rmdups=self.rmdups, qual_threshold=self.quality_threshold)
         
         ## check if the version of the input model matches that of the feature set  
 #         try:
