@@ -41,22 +41,30 @@ class verify_dependencies(unittest.TestCase):
     def test_verify_numpy(self):
         numpy_version = numpy.version.full_version
         numpy_version = numpy_version.strip().split('.')
-        self.assertEqual(numpy_version[0], str(1), 'the numpy version doesn\'t'
+        numpy_version = map(int,numpy_version)
+        
+        self.assertGreaterEqual(numpy_version[0], 1, 'the numpy version doesn\'t'
                          ' match the required version')
-        self.assertEqual(numpy_version[1], str(7), 'The numpy version doesn\'t'
-                        'match the required version')
-        self.assertEqual(numpy_version[2], str(1), 'The numpy version doesn\'t'
-                         ' match the required version')
+        
+        if numpy_version == 1:
+            self.assertGreaterEqual(numpy_version[1], 7, 'The numpy version doesn\'t'
+                                    'match the required version')
+
         
     def test_verify_scipy(self):
         scipy_version = scipy.version.full_version
         scipy_version = scipy_version.strip().split('.')
-        self.assertEqual(scipy_version[0], str(0), 'the scipy version doesn\'t'
+        
+        scipy_version = map(int,scipy_version)
+        
+        self.assertGreaterEqual(scipy_version[0], 0, 'the numpy version doesn\'t'
                          ' match the required version')
-        self.assertEqual(scipy_version[1], str(12),'the scipy version doesn\'t'
-                         ' match the required version')
-        self.assertEqual(scipy_version[2], str(0), 'the scipy version doesn\'t'
-                         ' match the required version')
+        
+        if scipy_version == 0:
+            self.assertGreaterEqual(scipy_version[1], 12, 'The numpy version doesn\'t'
+                                    'match the required version')
+
+
 
     def test_verify_sklearn(self):
         sklearn_version = sklearn.__version__
@@ -71,12 +79,14 @@ class verify_dependencies(unittest.TestCase):
     def test_verify_matplotlib(self):
         matplotlib_version = matplotlib.__version__
         matplotlib_version = matplotlib_version.strip().split('.')
-        self.assertEqual(matplotlib_version[0], str(1), 'the matplotlib version'
-                         ' doesn\'t match the required version')
-        self.assertEqual(matplotlib_version[1], str(2), 'the matplotlib version'
-                         ' doesn\'t match the required version')
-        self.assertEqual(matplotlib_version[2], str(1), 'the matplotlib version'
-                         ' doesn\'t match the required version')
+        matplotlib_version = map(int,matplotlib_version)
+        
+        self.assertGreaterEqual(matplotlib_version[0], 1, 'the numpy version doesn\'t'
+                         ' match the required version')
+        
+        if matplotlib_version == 1:
+            self.assertGreaterEqual(matplotlib_version[1], 2, 'The numpy version doesn\'t'
+                                    'match the required version')
     
     def test_verify_imports(self):
         self.assertNotEqual(logging, None, 'logging couldn\'t be imported')
