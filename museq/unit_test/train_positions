@@ -1,0 +1,8 @@
+# tumour  unit_test/DAH147_A12957_3_lanes_dupsFlagged_1Mbp.bam
+# normal unit_test/DAH147N_A12969_3_lanes_hg18_dupsFlagged_1Mbp.bam
+# reference  unit_test/human_all.fasta
+1 100	SOMATIC
+1 1000	GERMLINE
+2 200	SOMATIC
+1 5500	SOMATIC
+1 9900	GERMLINE

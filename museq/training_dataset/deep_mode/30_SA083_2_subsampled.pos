@@ -1,0 +1,9 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_TTCTCC.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_TTCTCC.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 31438785 SOMATIC
+13 47984155 SOMATIC
+16 66567534 SOMATIC
+1 212884612 SOMATIC
+5 56581153 SOMATIC
+6 33277240 SOMATIC

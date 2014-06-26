@@ -1,0 +1,4 @@
+# tumour /share/lustre/archive/SA076/illumina_exoncapture/HS2111/bwa_aligned/SA076_HS2111_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA076N/illumina_exoncapture/HS2088/bwa_aligned/SA076N_HS2088_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+7 95676106 SOMATIC

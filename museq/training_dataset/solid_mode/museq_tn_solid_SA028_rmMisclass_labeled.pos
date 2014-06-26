@@ -1,0 +1,8 @@
+# normal /share/lustre/archive/SA028N/abi_solid/A03623/bioscope_aligned/SA028N_A03623_4_slides_hg18_dupsFlagged.bam
+# tumour /share/lustre/archive/SA028/abi_solid/A03589/bioscope_aligned/SA028_A03589_4_slides_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 79251034 GERMLINE
+10 79260516 GERMLINE
+3 102959911 GERMLINE
+5 149454252 WILDTYPE
+9 139202780 WILDTYPE

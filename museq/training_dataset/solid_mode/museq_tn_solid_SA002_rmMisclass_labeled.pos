@@ -1,0 +1,14 @@
+# normal /share/lustre/archive/SA002N/abi_solid/HS3095/bioscope_aligned/SA002N_HS3095_5_slides_hg18_dupsFlagged.bam
+# tumour /share/lustre/archive/SA002/abi_solid/HS3094/bioscope_aligned/SA002_HS3094_4_slides_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+1 10383089 WILDTYPE
+11 386957 WILDTYPE
+1 21678439 WILDTYPE
+1 26321413 WILDTYPE
+16 85994164 WILDTYPE
+1 75381552 WILDTYPE
+21 44824616 WILDTYPE
+2 238326811 WILDTYPE
+4 114354930 WILDTYPE
+5 60018805 WILDTYPE
+7 123116424 WILDTYPE

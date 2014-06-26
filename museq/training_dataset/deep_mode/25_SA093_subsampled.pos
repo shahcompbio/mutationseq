@@ -1,0 +1,9 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AAGACT.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AAGACT.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 9439834 SOMATIC
+18 13090359 WILDTYPE
+14 24806180 GERMLINE
+17 41677901 SOMATIC
+17 74585409 WILDTYPE
+16 56555940 SOMATIC

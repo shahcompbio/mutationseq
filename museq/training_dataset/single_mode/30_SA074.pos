@@ -1,0 +1,10 @@
+# tumour /share/lustre/archive/SA074/illumina_exoncapture/HS2186/bwa_aligned/SA074_HS2186_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA074N/illumina_exoncapture/HS2086/bwa_aligned/SA074N_HS2086_3_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+12 4424870 SOMATIC
+21 37420251 WILDTYPE
+17 36659710 SOMATIC
+17 5152817 SOMATIC
+17 7517822 SOMATIC
+3 180418785 SOMATIC
+8 103642191 WILDTYPE

@@ -1,0 +1,13 @@
+# tumour /share/lustre/archive/SA210/illumina_exoncapture/HS2192/bwa_aligned/SA210_HS2192_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA210N/illumina_exoncapture/HS2201/bwa_aligned/SA210N_HS2201_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 68603909 SOMATIC
+15 42566067 SOMATIC
+16 66477394 SOMATIC
+19 5659369 SOMATIC
+3 143700142 SOMATIC
+7 29001915 SOMATIC
+7 99547385 SOMATIC
+6 123411520 SOMATIC
+9 17779460 SOMATIC
+8 55703391 SOMATIC

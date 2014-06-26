@@ -1,0 +1,6 @@
+# normal /share/lustre/archive/INX/INX424/C04HMACXX_7_GATCAG.bam
+# tumour /share/lustre/archive/INX/INX425/C04HMACXX_8_GATCAG.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 9582860 SOMATIC
+2 202060810 SOMATIC
+16 30575021 SOMATIC

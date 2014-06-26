@@ -1,0 +1,10 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_AGATAG.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_AGATAG.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 44750145 SOMATIC
+12 106669946 SOMATIC
+20 32559168 SOMATIC
+22 37775460 SOMATIC
+18 75760218 SOMATIC
+2 219213726 SOMATIC
+9 33566850 WILDTYPE

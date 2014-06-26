@@ -1,0 +1,4 @@
+# tumour /share/lustre/archive/SA100/illumina_exoncapture/HS1654/bwa_aligned/SA100_HS1654_2_lanes_hg18_dupsFlagged.bam
+# normal /share/lustre/archive/SA100N/illumina_exoncapture/HS2074/bwa_aligned/SA100N_HS2074_2_lanes_hg18_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+5 76682659 GERMLINE

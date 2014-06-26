@@ -1,0 +1,40 @@
+=====================
+= mutationSeq_4.2.0 =
+=====================
+
+New in this version
+-------------------
+Bugs fixed:
+- PQ-11
+- MUT-176
+
+Other changes:
+- in feature set:
+- added jointsnvmix to the model
+- added allele normalization
+- replaced ratio with sum
+
+model: 
+- we now store the model: MUT-161
+
+Downlaod and usage
+------------------
+The package is available to academics under the terms of the GPL3. 
+Non-academic users should contact Dr. Patrick Rebstein at the BC Cancer Agency Technology Development Office for license agreements.
+
+Installation
+------------
+Please see the "mutationSeq_user_manual.pdf" provided in the packege.
+
+Known Issues
+------------
+Currently it only supports paired version.
+ 
+Contact
+-------
+For more information please check Shah Lab for Computational Cancer Biology:
+http://compbio.bccrc.ca/
+
+or contact us via email:
+Jafar Taghiyar <jtaghiyar@bccrc>
+Dr. Sohrab Shah <sshah@bccrc.ca>

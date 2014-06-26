@@ -1,0 +1,6 @@
+# normal /share/lustre/archive/INX/INX428/D08H8ACXX_1_CAACTA.bam
+# tumour /share/lustre/archive/INX/INX429/D08H8ACXX_2_CAACTA.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+10 134604538 SOMATIC
+7 128157278 SOMATIC
+X 47191906 SOMATIC

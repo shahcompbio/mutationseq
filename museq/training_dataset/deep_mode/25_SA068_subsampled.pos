@@ -1,0 +1,4 @@
+# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_ATCACG.subSampled.bam
+# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_ATCACG.subSampled.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+19 22063969 SOMATIC
