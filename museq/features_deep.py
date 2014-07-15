@@ -12,11 +12,11 @@ from scipy.stats import binom
 from scipy.special import gammaln
 import logging
 
-name = "TCGA Benchmark 4 featureset with coverage info"
-version = "5_deep"
-
 class Features:
     def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, tumour_bg=None, normal_bg=None, reference_bg=None, purity=70):
+        self.name = "TCGA Benchmark 4 featureset with coverage info"
+        self.version = "5_deep"
+
         self.tt = tumour_tuple
         self.nt = normal_tuple
         self.rt = reference_tuple

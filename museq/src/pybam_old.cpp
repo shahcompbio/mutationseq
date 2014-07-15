@@ -28,7 +28,7 @@ using namespace boost;
 using namespace BamTools;
 
 
-bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int coverage, bool rmdups, int mapQualThreshold, int baseQualThreshold)
+bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int coverage, bool rmdups, int readQualThreshold)
 {
 	int ntData[5][6] = {{0}};
 	int ambiguous = 0;
@@ -57,24 +57,11 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		}
 		
 		// remove the reads with qual<threshold
-		if (ba.MapQuality < mapQualThreshold)
+		if (ba.MapQuality < readQualThreshold)
 		{
 			continue;
 		}
-		
-		
-		//remove the reads with basequal<threshold
-		//reads with deletion dont have basequalities
-		if (!pa.IsCurrentDeletion)
-		{
-			int baseq = (ba.Qualities.at(pa.PositionInAlignment) - 33);
-			if (pa.IsCurrentDeletion || baseq < baseQualThreshold)
-			{
-				continue;
-			}
-		
-		}
-		
+
 		//TODO: remove this, this is for mut-174
 		//if (ba.Qualities.at(pa.PositionInAlignment) - 33 < 10)
 		//	continue;
@@ -227,7 +214,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 
 struct PileupQueue : PileupVisitor
 {
-	PileupQueue(int refId=-1, int start=-1, int stop=-1, int c=4, bool r=true, int mq = 10, int bq = 10) : RefId(refId), StartPosition(start), StopPosition(stop), Coverage(c), Rmdups(r), MapQualThreshold(mq), BaseQualThreshold(bq)
+	PileupQueue(int refId=-1, int start=-1, int stop=-1, int c=4, bool r=true, int rq = 10) : RefId(refId), StartPosition(start), StopPosition(stop), Coverage(c), Rmdups(r), ReadQualThreshold(rq)
 	{
 	}
 	
@@ -246,7 +233,7 @@ struct PileupQueue : PileupVisitor
 		}
 		
 		python::tuple tpl;
-		if(CreatePileupTuple(pileupData, tpl, Coverage, Rmdups, MapQualThreshold, BaseQualThreshold))
+		if(CreatePileupTuple(pileupData, tpl, Coverage, Rmdups, ReadQualThreshold))
 		{
 			Pileups.push(tpl);
 		}
@@ -264,15 +251,14 @@ struct PileupQueue : PileupVisitor
 	int StopPosition;
 	int Coverage;
 	bool Rmdups;
-	int MapQualThreshold;
-	int BaseQualThreshold;
+	int ReadQualThreshold;
 };
 
 
 class PyPileup
 {
 public:
-	PyPileup(int c=4, bool r=true, int mq = 10, int bq = 10) : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1), Coverage(c), Rmdups(r), MapQualThreshold(mq), BaseQualThreshold(bq)
+	PyPileup(int c=4, bool r=true, int rq = 10) : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1), Coverage(c), Rmdups(r), ReadQualThreshold(rq)
 	{
 	}
 
@@ -410,7 +396,7 @@ private:
 		
 		delete m_PileupQueue;
 
-		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition, Coverage, Rmdups, MapQualThreshold, BaseQualThreshold);
+		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition, Coverage, Rmdups, ReadQualThreshold);
 		
 		m_PileupEngine->AddVisitor(m_PileupQueue);
 	}
@@ -438,11 +424,9 @@ private:
 	// flag to remove/keep duplicates. Used for the deepseq data.
 	bool Rmdups;
 
-	//Mapping Q Threshold (filter out reads with low quality)
-	int MapQualThreshold;
+	//flag to filter out reads with low quality
+	int ReadQualThreshold;
 
-	//BaseQual Threshold (filter out reads with low quality)
-	int BaseQualThreshold;
 };
 
 class PyFasta
@@ -774,7 +758,7 @@ BOOST_PYTHON_MODULE(pybam)
 {
 	using namespace python;
 	
-	class_<PyPileup>("pileup", init<int, bool, int, int>())
+	class_<PyPileup>("pileup", init<int, bool, int>())
 		.def_readonly("refnames", &PyPileup::RefNames)
 		.def_readonly("samheader", &PyPileup::SamHeader)
 		.def("open", &PyPileup::Open)

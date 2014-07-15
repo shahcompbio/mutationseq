@@ -14,6 +14,7 @@ import resource
 import re
 import features, features_single, features_deep, features_deep_single
 import matplotlib
+import subprocess
 matplotlib.use('Agg',warn=False)
 import matplotlib.pyplot as plt
 from math import log10
@@ -27,7 +28,6 @@ from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
-import gc
 
 mutationSeq_version = "4.2.1"
 
@@ -45,12 +45,14 @@ class Classifier(object):
         
         self.threshold = self.args.threshold
         self.coverage = self.args.coverage
-        self.quality_threshold = self.args.quality_threshold
+        self.mapq_threshold = self.args.mapq_threshold
+        self.baseq_threshold = self.args.baseq_threshold
         self.no_filter = self.args.no_filter
         
         #if the all option is specified then override other options and run on all positions 
         if self.args.all:
-            self.quality_threshold = 0
+            self.mapq_threshold = 0
+            self.baseq_threshold = 0
             self.no_filter = True
             self.threshold = 0.0
             self.coverage = 0
@@ -101,13 +103,19 @@ class Classifier(object):
                 self.type = 'n'
 
                 logging.info("initializing a normal Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("normal"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("normal"),
+                                        reference=self.ref, coverage=self.coverage,
+                                        rmdups=rmdups, mapq_threshold=self.mapq_threshold,
+                                        baseq_threshold = self.baseq_threshold)
         
             else:
                 self.type = 't'
                 
                 logging.info("initializing a tumour Bam")
-                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), reference=self.ref, coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+                self.bam = pybamapi.Bam(bam=self.samples.get("tumour"), 
+                                        reference=self.ref, coverage=self.coverage, 
+                                        rmdups=rmdups, mapq_threshold=self.mapq_threshold,
+                                        baseq_threshold = self.baseq_threshold)
         
         ## paired mode
         else:
@@ -120,8 +128,12 @@ class Classifier(object):
                 rmdups = True
         
             logging.info("initializing a PairedBam")
-            self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"), normal=self.samples.get("normal"), 
-                                                reference=self.samples.get("reference"), coverage=self.coverage, rmdups=rmdups, qual_threshold=self.quality_threshold)
+            self.bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"),
+                                           normal=self.samples.get("normal"), 
+                                           reference=self.samples.get("reference"),
+                                           coverage=self.coverage, rmdups=rmdups,
+                                           mapq_threshold=self.mapq_threshold,
+                                           baseq_threshold = self.baseq_threshold)
         
         ## check if the version of the input model matches that of the feature set  
 #         try:
@@ -220,26 +232,48 @@ class Classifier(object):
 
         except:
             return [chromosome, None, None]
+    
+    def __parse_positions_file(self, pch, interval_positions = None):
+        target_positions = []
+        logging.info("parsing the position_file")
+        try:
+            positions_file = open(self.args.positions_file, 'r')
+            for l in positions_file.readlines():
+                temp_tp = self.__parse_positions(l.strip(), pch)
+                
+                if interval_positions:         
+                    if interval_positions[0] == temp_tp[0]:
+                        #if only chr is provided
+                        if None in interval_positions:
+                            target_positions.append(temp_tp)
+                            continue
+                        start = max(interval_positions[1],temp_tp[1])
+                        stop = min(interval_positions[2],temp_tp[2])
+                        if start > stop:
+                            continue
+                        target_positions.append([interval_positions[0],start,stop])
+                else:
+                    target_positions.append(temp_tp)
+            positions_file.close()
+            
+        except Exception,e:
+            logging.error("error: failed to load the positions file " + self.args.positions_file)
+            raise Exception("failed to load the positions file")
+        return target_positions
         
     def get_positions(self, pch=':'):
         target_positions = []
         
-        if self.args.interval:
+        if self.args.interval and self.args.positions_file:
+            interval_positions = self.__parse_positions(self.args.interval, pch)
+            target_positions = self.__parse_positions_file(pch,interval_positions)
+            
+        elif self.args.interval:
             temp_tp = self.__parse_positions(self.args.interval, pch)
             target_positions.append(temp_tp) 
         
         elif self.args.positions_file:
-            logging.info("parsing the position_file")
-            try:
-                positions_file = open(self.args.positions_file, 'r')
-                for l in positions_file.readlines():
-                    temp_tp = self.__parse_positions(l.strip(), pch)
-                    target_positions.append(temp_tp)
-                positions_file.close()
-            
-            except:
-                logging.error("error: failed to load the positions file " + self.args.positions_file)
-                raise Exception("failed to load the positions file")
+            target_positions = self.__parse_positions_file(pch)
 
         else:
             ## get all the common chromosome names
@@ -372,13 +406,8 @@ class Classifier(object):
 
         ## generate information for the INFO column in the output vcf               
         if self.args.single:
-            pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])
-            
-            ## generate information for the INFO column in the output vcf               
-            if self.type == 'n':
-                info = [NR, NA, TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
-            else:
-                info = [TR, TA, NR, NA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+            pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])    
+            info = [TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
             
         else:
             info = [TR, TA, NR, NA, tc, insertion, deletion]
@@ -615,6 +644,59 @@ class Classifier(object):
             probabilities = [x[1] for x in probabilities] 
             
             yield probabilities, outstrs
+            
+    def __get_mean_cov(self,bampath,type):
+        #calculate the mean coverage for each chromosome
+        if bampath == 'N/A':
+            return 'N/A'
+        
+        if self.args.samtools is None:
+            return 'N/A'
+        
+        cmd = self.args.samtools+" flagstat "+bampath
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
+        cmdout,cmderr = proc.communicate()
+        
+        if cmderr != "":
+            logging.error("Cannot retreive the flagstat information: "+cmderr)
+            return 'N/A'
+        #get the number of reads
+        try:
+            cmdout = cmdout.split('\n')[0]
+            cmdout = cmdout.split()
+            numreads = int(cmdout[0]) + int(cmdout[2])
+        except:
+            logging.error('couldn\'t parse flagstat output:' + cmdout)
+            return 'N/A'
+        
+        if self.args.single:
+            header = self.bam.pileup.samheader
+        else:
+            if type == 'tumour':
+                header = self.bam.t_bam.pileup.samheader
+            elif type == 'normal':
+                header = self.bam.n_bam.pileup.samheader
+        
+        #get length of genome
+        length = 0
+        header = header.split('\n')
+        for line in header:
+            if line == '':
+                continue
+            line = line.strip().split()
+            if line[0] == '@SQ':
+                val = line[2].strip().split(':')
+                
+                if val[0] != 'LN':
+                    logging.error('Error parsing header: '+header)
+                    return 'N/A'
+                
+                length += int(val[1])
+        
+        if length == 0:
+            return 'N/A'
+        #assuming length of each read is 100
+        return float(numreads*100)/length
     
     def __meta_data(self):
         tumour = self.samples.get("tumour")
@@ -627,7 +709,22 @@ class Classifier(object):
         
         elif normal is None:
             normal = "N/A"
-            
+        
+        tumourval = None
+        normalval = None
+        if self.args.single and self.type == 't':
+            tumourval = 'TUMOUR'
+            normalval = ''
+        elif self.args.single and self.type == 'n':
+            tumourval = ''
+            normalval = 'NORMAL'
+        else:
+            tumourval = 'TUMOUR'
+            normalval = 'NORMAL'
+        
+        meancov_tum = self.__get_mean_cov(tumour,'tumour')
+        meancov_norm = self.__get_mean_cov(normal,'normal')
+                
         try:
             cfg_file = open(self.args.config, 'r')
             header = ""
@@ -638,8 +735,12 @@ class Classifier(object):
                                            REFERENCE=reference,
                                            TUMOUR=tumour,
                                            NORMAL=normal,
+                                           TUMOURVAL = tumourval,
+                                           NORMALVAL = normalval,
                                            MODEL=model,
-                                           THRESHOLD=self.threshold
+                                           THRESHOLD=self.threshold,
+                                           TUMOURCOV=meancov_tum,
+                                           NORMALCOV=meancov_norm
                                            )
                 if not self.args.single:
                     if 'ID=GT' in l or 'ID=PL' in l:
@@ -697,15 +798,19 @@ class Classifier(object):
                     
                     else:
                         filter_flag = "FAIL"
-                
-                info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
-                            ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
-                            ";NA=" + outstr[-1][3] + ";TC=" + outstr[-1][4] + \
-                            ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
 
-                if self.args.single:   
-                    info_str = info_str+";GT=" + outstr[-1][7] +";PL="+outstr[-1][8]+\
-                               ','+outstr[-1][9]+','+outstr[-1][10]
+                if self.args.single:
+                    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][2] + \
+                                "\tRC:AC:ND:NI:GT:PL\t"+outstr[-1][0]+":"+outstr[-1][1]+":"+ \
+                                outstr[-1][4]+":"+outstr[-1][3]+""+outstr[-1][5] +":"+outstr[-1][6]+\
+                                ","+outstr[-1][7]+","+outstr[-1][8]
+                else:
+                    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][4] + \
+                                "\tRC:AC:ND:NI\t"+outstr[-1][0]+":"+outstr[-1][1]+":"+ \
+                                outstr[-1][6]+":"+outstr[-1][5]+"\t"+outstr[-1][2]+":"+ \
+                                outstr[-1][3]+":"+outstr[-1][8]+":"+outstr[-1][7]
+
+            
                 
                 ## calculate phred quality
                 if p == 0:
