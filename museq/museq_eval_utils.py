@@ -10,6 +10,7 @@ import logging
 from collections import defaultdict
 import pybamapi
 import features
+import features_deep
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as pyplot
@@ -17,7 +18,7 @@ import matplotlib.gridspec as gridspec
 import os
 from scipy.integrate import trapz,simps
 
-mutationSeq_version="4.2.1"
+mutationSeq_version="4.2.2"
 #====================================================
 #Probability and ROC plots
 #====================================================
@@ -234,9 +235,10 @@ class museq_plots(object):
                 info = l[7].split(';')
                 try:
                     pr = float(info[0].split('=')[1])
-                    tr = float(info[1].split('=')[1])
-                    ta = float(info[2].split('=')[1])
+                    tr = float(l[9].split(':')[0])
+                    ta = float(l[9].split(':')[1])
                 except:
+                    print line
                     logging.error("invalid vcf file")
                     
                 if ref_dict.has_key((tfile,nfile,rfile,chromosome,pos)):
@@ -486,6 +488,30 @@ class box_plots():
        
         #get T/P F/N and generate list 
         self.features_list_posneg,self.posneg_labels = self.__get_features_posneg()
+
+
+    def __parse_manifest(self,manifest_file):
+        manifest = defaultdict(list)
+        if not self.args.deep:
+            logging.error('manifest is only required in deep mode')
+            raise Exception('Manifest file is only required in deep mode')
+        
+        if not manifest_file:
+            return None
+        
+        man_stream = open(manifest_file)
+        for line in man_stream:
+            line = line.strip().split()
+            if line[0]=='chrom':
+                continue
+            chrom = line[0]
+            pos = line[1]
+            ref = line[2]
+            alt = line[3]
+            start = line[4]
+            end = line[5]
+            manifest[(chrom,pos)].append((ref,alt,start,end))
+        return manifest
         
     def __get_label_names(self, reference_files):
         labels = set()
@@ -532,7 +558,10 @@ class box_plots():
         return out_dict
     
     def __get_feature_names(self):
-        feature_set = features.Features()
+        if self.args.deep:
+            feature_set = features_deep.Features()
+        else:
+            feature_set = features.Features()
         feature_names = feature_set.get_feature_names()
         return feature_names
                                              
@@ -587,6 +616,7 @@ class box_plots():
         
     def __get_missing_positions(self,reffiles):
         missing_positions = []
+        manfile = None
         for infile in reffiles:
             infile = infile.strip().split(',')
             for files in infile:
@@ -606,6 +636,9 @@ class box_plots():
     
                         if l[1] == "reference":
                             rfile = l[2]
+
+                        if l[1] == 'manifest':
+                            manfile = l[2]
                         continue
 
                     ## check if required bam files/reference are specified in the training data
@@ -616,7 +649,7 @@ class box_plots():
                     chromosome = l[0]
                     pos = l[1]
                     label = l[2]
-                    missing_positions.append((chromosome,pos,tfile,nfile,rfile,label))
+                    missing_positions.append((chromosome,pos,tfile,nfile,rfile,manfile,label))
         return missing_positions
     
     def __write_feature_db(self,missing_positions,outputname):
@@ -702,25 +735,37 @@ class box_plots():
             except KeyError:
                 logging.error('error: cannot find key "%s"\n' % str(key))
         return features 
-       
+
+    def __get_flanking_regions(self,chromosome,position,manifest):
+        if manifest != None:
+            vals = manifest.get((chromosome,position))
+            if vals != None:
+                start = vals[2]
+                end = vals[3]
+                return start,end
+
+        #If manifest file is not provided or region not available in manifest
+        start = position - 25
+        end = position + 26
+        return start,end
        
     def __extract_features(self,missing_positions):
         data = defaultdict(list)
         contamination = (float(30), float(30), float(70), float(0))
         
-        for chromosome,pos,tfile,nfile,rfile,label in missing_positions:
-            data[(tfile,nfile,rfile)].append((chromosome,int(pos),label))
+        for chromosome,pos,tfile,nfile,rfile,manfile,label in missing_positions:
+            data[(tfile,nfile,rfile,manfile)].append((chromosome,int(pos),label))
         
         features_buffer = []
         keys_buffer    = []
     
-        for tfile, nfile, rfile in data.keys():
+        for tfile, nfile, rfile,manfile in data.keys():
             logging.info("reading from tumour:"+ tfile)
             logging.info("reading from normal:"+ nfile)
             t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1)
             n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1)
         
-            for chromosome, position, label in data[(tfile, nfile, rfile)]:
+            for chromosome, position, label in data[(tfile, nfile, rfile, manfile)]:
                 tt = t_bam.get_tuple(chromosome, position)
                 nt = n_bam.get_tuple(chromosome, position)
                 if tt == None or nt == None:
@@ -731,9 +776,40 @@ class box_plots():
                 if not all([tt, nt, rt]):
                     logging.error('ERROR: Could not retreive all three tuples')
                     continue
+                
+                if self.args.deep:
+                    chromosome = t_bam.get_chromosome_name(chromosome_id)
+                    self.manifest = self.__parse_manifest(manfile)
+                    start,end = self.__get_flanking_regions(chromosome, position, self.manifest)
+                    bam  = pybamapi.PairedBam(tumour=tfile,
+                                              normal=nfile, 
+                                              reference=rfile,
+                                              coverage=self.args.coverage, rmdups=False,
+                                              mapq_threshold=self.args.mapq_threshold,
+                                              baseq_threshold = self.args.baseq_threshold)
             
+                    tt_bg = bam.t_bam.get_tuples([[chromosome,start,end]])
+                    tt_bg = [tval for tval in tt_bg if tval[0]!=position]
+                
+                    nt_bg = bam.n_bam.get_tuples([[chromosome,start,end]])
+                    nt_bg = [nval for nval in nt_bg if nval[0]!=position]
+                    
+                    rt_bg = []
+                    for posval in range(start,end+1):
+                        if posval == position:
+                            continue
+                        rt_bg.append([posval,bam.t_bam.get_reference_tuple(chromosome_id,posval)])
+                    
+                    if self.manifest:
+                        indexes = self.manifest.get((chromosome,position))
+                    else:
+                        indexes = None
+
                 ## calculate features
-                feature_set = features.Features(tt, nt, rt)
+                if self.args.deep:
+                    feature_set = features_deep.Features(tt,nt,rt,tt_bg,nt_bg,rt_bg,indexes)
+                else:
+                    feature_set = features.Features(tt,nt,rt)
                 temp_features = feature_set.get_features()
             
                 features_buffer.append((temp_features,label))
@@ -879,7 +955,8 @@ class box_plots():
                 ax3 = f.add_subplot(gs1[2],sharey=ax1)
                 posneg_ylim_lower,posneg_ylim_upper = self.__plot_fvals(fpnvalue, ax3,self.posneg_labels)
 
-            self.__rescale_plots(normal_ylim_lower, normal_ylim_upper, label_ylim_lower, label_ylim_upper, posneg_ylim_lower, posneg_ylim_upper, f)
+            if self.args.rescale:
+                self.__rescale_plots(normal_ylim_lower, normal_ylim_upper, label_ylim_lower, label_ylim_upper, posneg_ylim_lower, posneg_ylim_upper, f)
             
             xlabel_description = 'Features (Count of positions) (Outliers above the plot, Outliers below the plot)'
             f.text(0.90, 0.98, 'importance:'+str(i+1), rotation='horizontal',horizontalalignment='center', verticalalignment='bottom',fontsize = 8)

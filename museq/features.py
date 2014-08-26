@@ -16,7 +16,7 @@ class Features:
         self.nt = normal_tuple
         self.rt = reference_tuple
         self.name = "TCGA Benchmark 4 feature set with coverage info"
-        self.version = "4.1.1"
+        self.version = "4.1.1_sb"
  
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
@@ -153,8 +153,8 @@ class Features:
         ("tumour_variant_quality", self.tt[self.nonref_index][1]),
 
         ("probability_pos", self.pos),
-        ("normal_reads_indel",self.nt[-2]),
-        ("tumour_reads_indel",self.tt[-2]),
+        ("normal_indel_ratio",self.nt[-2]),
+        ("tumour_indel_ratio",self.tt[-2]),
         
 #         ("normal_direction", self.nt[5][4]),
 #         ("tumour_direction", self.tt[5][4]),

@@ -13,9 +13,11 @@ from scipy.special import gammaln
 import logging
 
 class Features:
-    def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, tumour_bg=None, normal_bg=None, reference_bg=None, purity=70):
+    def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, tumour_bg=None, normal_bg=None, reference_bg=None, indexes=None, purity=70):
+        base_index = {'A':1,'C':2,'G':3,'T':4}
+
         self.name = "TCGA Benchmark 4 featureset with coverage info"
-        self.version = "5_deep"
+        self.version = "0.2_deep"
 
         self.tt = tumour_tuple
         self.nt = normal_tuple
@@ -24,6 +26,15 @@ class Features:
         self.tt_bg = tumour_bg
         self.nt_bg = normal_bg
         self.rt_bg = reference_bg
+        
+        if indexes != None:
+            self.man_ref = base_index.get(indexes[0])
+            self.man_nonref = base_index.get(indexes[1])
+            #self.man_ref,self.man_nonref = indexes
+
+        else:
+            self.man_ref = None
+            self.man_nonref = None
         
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
@@ -34,6 +45,15 @@ class Features:
         
         if self.rt is None:
             self.rt = (0, 0, 0, 0, 0)
+
+        if self.tt_bg is None:
+            self.tt_bg = [[1, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None]]*10
+
+        if self.nt_bg is None:
+            self.nt_bg = [[1, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None]]*10
+
+        if self.rt_bg is None:
+            self.rt_bg = [[1,(1, 0, 0, 0, 0)]]*10
             
         ## reference base index + 1 = index of the same base in the tumour/normal bam tuple
         self.b  = self.rt[0] + 1  
@@ -124,8 +144,8 @@ class Features:
         ("tumour_normal_jointsnvmix_loh", self.p_loh),
         ("tumour_normal_jointsnvmix_error", self.p_error),
         
-        ("normal_reads_indel",self.nt[-2]),
-        ("tumour_reads_indel",self.tt[-2]),
+        ("normal_indel_ratio",self.nt[-2]),
+        ("tumour_indel_ratio",self.tt[-2]),
         
         ("tumour_background_average_variant_mean",self.tt_bg_avg_var_freq),
         ("tumour_p_value",self.tum_p_val),
@@ -154,8 +174,11 @@ class Features:
     def __get_tumour_nonref_index(self,ref,tt):
         nonrefbases = [x for x in range(4) if x != ref - 1]
         max_nonrefbase_depth = 0
+
         nonref_index = nonrefbases[1]  
-        
+        if nonref_index == ref:
+            nonref_index = nonrefbases[2]
+
         for nb in nonrefbases:
             index = nb + 1
             tumour_nonrefbase_depth = tt[index][0]
@@ -290,38 +313,56 @@ class Features:
         
         for tt in self.tt_bg:
             rt = [val for val in self.rt_bg if val[0] == tt[0]]
+            
             if rt == []:
+                print self.rt_bg
                 raise Exception('Error: reference tuple for position '+ str(tt[0])+ ' couldn\'t be extracted')
             
             ref = rt[0][1][0] + 1
             nonref_index = self.__get_tumour_nonref_index(ref,tt)
-            tt_bg_avg_var_freq.append(tt[nonref_index][0]/tt[5][0])
+                
+            tt_bg_avg_var_freq.append(tt[nonref_index][0]/ (tt[nonref_index][0]+tt[ref][0]) )
             
         for nt in self.nt_bg:
-            tt = [val for val in self.tt_bg if val[0] == nt[0]]
-            if tt == []:
-                logging.warning('Skipping the position:'+ str(nt[0])+' as tumour tuple not present')
-                continue
+            #tt = [val for val in self.tt_bg if val[0] == nt[0]]
+            #if tt == []:
+            #    logging.error('Skipping the position:'+ str(nt[0])+' as tumour tuple not present')
+            #    continue
             
-            rt = [val for val in self.rt_bg if val[0] == tt[0][0]]
+            rt = [val for val in self.rt_bg if val[0] == nt[0]]
             if rt == []:
+                print self.rt_bg
                 raise Exception('Error: reference tuple for position '+ str(tt[0])+ ' couldn\'t be extracted')
             
-
-            
             ref = rt[0][1][0] +1
-            nonref_index = self.__get_tumour_nonref_index(ref,tt[0])
-            nt_bg_avg_var_freq.append(nt[nonref_index][0]/nt[5][0])
-            
+            nonref_index = self.__get_tumour_nonref_index(ref,nt)
+            nt_bg_avg_var_freq.append(nt[nonref_index][0]/ (nt[nonref_index][0] + nt[ref][0]))
+        
         try:
             self.tt_bg_avg_var_freq = sum(tt_bg_avg_var_freq)/len(tt_bg_avg_var_freq)
             self.nt_bg_avg_var_freq = sum(nt_bg_avg_var_freq)/len(nt_bg_avg_var_freq)
         except Exception,e:
             print e
             
-        self.tum_p_val = binom.sf(self.tt_nonref_count,self.tt[5][0],self.tt_bg_avg_var_freq)
-        self.norm_p_val = binom.sf(self.nt_nonref_count,self.nt[5][0],self.nt_bg_avg_var_freq)
-            
+        if self.man_ref:
+            if self.b != self.man_ref:
+                raise Exception
+            tum_nref_count = self.tt[self.man_nonref][0]
+            norm_nref_count = self.nt[self.man_nonref][0]
+            tum_depth = self.tt[self.man_nonref][0]+self.tt[self.b][0]
+            norm_depth = self.nt[self.man_nonref][0]+self.nt[self.b][0]
+        else:
+            tum_nref_count = self.tt_nonref_count
+            norm_nref_count = self.nt_nonref_count
+            tum_depth = self.tt[self.nonref_index][0]+self.tt[self.b][0]
+
+            norm_nref_index = self.__get_tumour_nonref_index(self.b,self.nt)
+            norm_depth = self.nt[norm_nref_index][0]+self.nt[self.b][0]
+        
+        self.tum_p_val = binom.sf(tum_nref_count-1,tum_depth,self.tt_bg_avg_var_freq)
+        self.norm_p_val = binom.sf(norm_nref_count-1,norm_depth,self.nt_bg_avg_var_freq)
+
+        
         
         
         

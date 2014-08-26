@@ -23,6 +23,7 @@ from collections import defaultdict
 from classify_test_api import base_class,initargs
 import time
 
+mutationSeq_version="4.2.2"
 
 #============================================
 # Check the versions of all the dependencies

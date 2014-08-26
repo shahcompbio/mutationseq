@@ -29,7 +29,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 
-mutationSeq_version = "4.2.1"
+mutationSeq_version = "4.2.2"
 
 #==============================================================================
 # Classifier class 
@@ -169,23 +169,25 @@ class Classifier(object):
             if line[0]=='chrom':
                 continue
             chrom = line[0]
+            coord = line[1]
+            ref = line[2]
+            alt = line[3]
             start = line[4]
             end = line[5]
-            manifest[chrom].append((start,end))
+            manifest[(chrom,coord)] = (ref,alt,start,end)
         return manifest
     
     def __get_flanking_regions(self,chromosome,position,manifest):
-        if manifest:
-            amplicons = manifest.get(chromosome) 
-            for amp in amplicons:
-                start = int(amp[0])
-                end = int(amp[1])
-                if position>start and position<end:
-                    return start,end
+        if manifest != None:
+            vals = manifest.get((chromosome,position))
+            if vals != None:
+                start = vals[2]
+                end = vals[3]
+                return start,end
 
         #If manifest file is not provided or region not available in manifest
         start = position - 25
-        end = position + 25
+        end = position + 26
         return start,end
 
     def __get_buffer_size(self):
@@ -410,7 +412,7 @@ class Classifier(object):
             info = [TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
             
         else:
-            info = [TR, TA, NR, NA, tc, insertion, deletion]
+            info = [TR, TA, NR, NA, tc, insertion, deletion, nt[-5], nt[-3]]
             
         info = map(str, info) 
 
@@ -551,7 +553,6 @@ class Classifier(object):
             
             ## get corresponding reference tuple
             rt = self.bam.get_reference_tuple(chromosome_id, position)
-            
             #MUT-238 If the ref base is 4(N) ignore the position
             if rt[0] >= 4:
                 logging.error(str(position)+' position references base N and has been ignored')
@@ -561,20 +562,32 @@ class Classifier(object):
             ## get chromosome name of the given chromosome ID
             chromosome = self.bam.get_chromosome_name(chromosome_id)
             start,end = self.__get_flanking_regions(chromosome, position, self.manifest)
+            
             #get all tuples in flanking region and remove the position(foreground)
-            tt_bg = self.bam.t_bam.get_tuples([[chromosome,start,end]])
-            tt_bg = [tt for tt in tt_bg if tt[0]!=position]
+            bam  = pybamapi.PairedBam(tumour=self.samples.get("tumour"),
+                                      normal=self.samples.get("normal"), 
+                                      reference=self.samples.get("reference"),
+                                      coverage=self.coverage, rmdups=False,
+                                      mapq_threshold=self.mapq_threshold,
+                                      baseq_threshold = self.baseq_threshold)
+            
+            tt_bg = bam.t_bam.get_tuples([[chromosome,start,end]])
+            tt_bg = [tval for tval in tt_bg if tval[0]!=position]
                 
-            nt_bg = self.bam.n_bam.get_tuples([[chromosome,start,end]])
-            nt_bg = [nt for nt in nt_bg if nt[0]!=position]
+            nt_bg = bam.n_bam.get_tuples([[chromosome,start,end]])
+            nt_bg = [nval for nval in nt_bg if nval[0]!=position]
                     
             rt_bg = []
             for posval in range(start,end+1):
                 if posval == position:
                     continue
-                rt_bg.append([posval,self.bam.t_bam.get_reference_tuple(chromosome_id,posval)])
-               
-            feature_set = self.features_module.Features(tt,nt,rt,tt_bg,nt_bg,rt_bg)
+                rt_bg.append([posval,bam.t_bam.get_reference_tuple(chromosome_id,posval)])
+            
+            if self.manifest:
+                indexes = self.manifest.get((chromosome,position))
+            else:
+                indexes = None
+            feature_set = self.features_module.Features(tt,nt,rt,tt_bg,nt_bg,rt_bg,indexes)
  
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
@@ -802,7 +815,7 @@ class Classifier(object):
                 if self.args.single:
                     info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][2] + \
                                 "\tRC:AC:ND:NI:GT:PL\t"+outstr[-1][0]+":"+outstr[-1][1]+":"+ \
-                                outstr[-1][4]+":"+outstr[-1][3]+""+outstr[-1][5] +":"+outstr[-1][6]+\
+                                outstr[-1][4]+":"+outstr[-1][3]+":"+outstr[-1][5] +":"+outstr[-1][6]+\
                                 ","+outstr[-1][7]+","+outstr[-1][8]
                 else:
                     info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][4] + \
@@ -884,6 +897,13 @@ class Trainer(object):
         else:
             self.feature_module = features
             self.rmdups = True
+            
+        if self.args.deep:
+            self.mapq_threshold = 10
+            self.baseq_threshold = 10
+        else:
+            self.mapq_threshold = 0
+            self.baseq_threshold = 0
 
     def __parse_manifest(self,manifest_file):
         manifest = defaultdict(list)
@@ -900,23 +920,25 @@ class Trainer(object):
             if line[0]=='chrom':
                 continue
             chrom = line[0]
+            pos = line[1]
+            ref = line[2]
+            alt = line[3]
             start = line[4]
             end = line[5]
-            manifest[chrom].append((start,end))
+            manifest[(chrom,pos)].append((ref,alt,start,end))
         return manifest
     
     def __get_flanking_regions(self,chromosome,position,manifest):
         if manifest:
-            amplicons = manifest.get(chromosome) 
-            for amp in amplicons:
-                start = int(amp[0])
-                end = int(amp[1])
-                if position>start and position<end:
-                    return start,end
+            vals = manifest.get((chromosome,position)) 
+            if vals != None:
+                start = vals[2]
+                end = vals[3]
+                return start,end
 
         #If manifest file is not provided or region not available in manifest
         start = position - 25
-        end = position + 25
+        end = position + 26
         return start,end            
         
     def __isvalid_label(self, labels):
@@ -995,14 +1017,26 @@ class Trainer(object):
                 else:
                     label = -1
                 
-                if self.args.deep:   
-                    manifest = self.__parse_manifest(manfile)
-                    start,end = self.__get_flanking_regions(chromosome, position, manifest)
-                    position = [position,start,end]
-                    
-                self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination,label_name))
-    
+                if self.args.deep:
+                    if manfile:
+                        manifest = self.__parse_manifest(manfile)
+                        start,end = self.__get_flanking_regions(chromosome, position, manifest)
+                        indexes = manifest.get((chromosome,position))[:2]
+                    else:
+                        start = position -25
+                        end = position + 26
+                        indexes = None
+                    self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination,label_name,indexes,start,end))
+                else:
+                    self.data[(tfile, nfile, rfile)].append((chromosome, position, label, contamination,label_name))
+                
     def __get_features(self):
+        if self.args.deep:
+            features = self.__get_features_deep()
+        else:
+            features = self.__get_features_nondeep()
+    
+    def __get_features_nondeep(self):
         features_buffer = []
         labels_buffer = []
         keys_buffer = []
@@ -1013,34 +1047,17 @@ class Trainer(object):
             if not self.args.single:
                 logging.info(nfile)
             
-            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1,rmdups = self.rmdups)
-            if not self.args.single:
-                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1,rmdups = self.rmdups)
+            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1,rmdups = self.rmdups,
+                                 mapq_threshold = self.mapq_threshold,
+                                 baseq_threshold = self.baseq_threshold)
             
-            for chromosome, pos, label, c,label_name in self.data[(tfile, nfile, rfile)]:
+            if not self.args.single:
+                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1,rmdups = self.rmdups,
+                                     mapq_threshold = self.mapq_threshold,
+                                     baseq_threshold = self.baseq_threshold)
+            
+            for chromosome, position, label, c,label_name in self.data[(tfile, nfile, rfile)]:
                 #unpack pos to get flanking regions in deep mode
-                if self.args.deep:
-                    position=pos[0]
-                    start=pos[1]
-                    end = pos[2]
-                    
-                    chromosome_id = t_bam.get_chromosome_id(chromosome)
-                   
-                    #get all tuples in flanking region and remove the position(foreground)
-                    tt_bg = t_bam.get_tuples([[chromosome,start,end]])
-                    tt_bg = [tt for tt in tt_bg if tt[0]!=position]
-                    
-                    nt_bg = n_bam.get_tuples([[chromosome,start,end]])
-                    nt_bg = [nt for nt in nt_bg if nt[0]!=position]
-                    
-                    rt_bg = []
-                    for posval in range(start,end+1):
-                        if posval == position:
-                            continue
-                        rt_bg.append([posval,t_bam.get_reference_tuple(chromosome_id,posval)])
-                else:
-                    position = pos
-                    
                 chromosome_id = t_bam.get_chromosome_id(chromosome)
                 tt = t_bam.get_tuple(chromosome, position)
                 if not self.args.single:
@@ -1066,13 +1083,85 @@ class Trainer(object):
                 ## calculate features
                 if self.args.single:
                     feature_set = self.feature_module.Features(tt, rt,self.type)
-                    
                 else:
-                    if self.args.deep:
-                        feature_set = self.feature_module.Features(tt, nt, rt, tt_bg, nt_bg, rt_bg)
-                    else:
-                        feature_set = self.feature_module.Features(tt, nt, rt)
+                    feature_set = self.feature_module.Features(tt, nt, rt)
 
+                temp_features = feature_set.get_features()   
+                file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\t'+label_name+'\n' )
+                
+                features_buffer.append(temp_features)
+                labels_buffer.append(label)
+                keys_buffer.append((rfile, nfile, tfile, chromosome, position, label))
+        
+        file_stream_w.close()        
+        self.features = numpy.array(features_buffer)
+        self.labels = numpy.array(labels_buffer)
+        self.keys = numpy.array(keys_buffer)
+        self.feature_set_name = feature_set.name
+        self.feature_set_version = feature_set.version
+        
+    def __get_features_deep(self):
+        features_buffer = []
+        labels_buffer = []
+        keys_buffer = []
+        file_stream_w = open(self.args.out+'_feature_db_train.txt','w')
+
+        for tfile, nfile, rfile in self.data.keys():            
+            logging.info(tfile)
+            if not self.args.single:
+                logging.info(nfile)
+            
+            t_bam = pybamapi.Bam(bam=tfile, reference=rfile, coverage=1,rmdups = self.rmdups,
+                                 mapq_threshold = self.mapq_threshold,
+                                 baseq_threshold = self.baseq_threshold)
+            
+            if not self.args.single:
+                n_bam = pybamapi.Bam(bam=nfile, reference=rfile, coverage=1,rmdups = self.rmdups,
+                                     mapq_threshold = self.mapq_threshold,
+                                     baseq_threshold = self.baseq_threshold)
+            
+            for chromosome, position, label, c,label_name,indexes,start,end in self.data[(tfile, nfile, rfile)]:
+                #unpack pos to get flanking regions in deep mode
+                chromosome_id = t_bam.get_chromosome_id(chromosome)
+                 
+                #get all tuples in flanking region and remove the position(foreground)
+                tt_bg = t_bam.get_tuples([[chromosome,start,end]])
+                tt_bg = [tt for tt in tt_bg if tt[0]!=position]
+                
+                nt_bg = n_bam.get_tuples([[chromosome,start,end]])
+                nt_bg = [nt for nt in nt_bg if nt[0]!=position]
+                    
+                rt_bg = []
+                for posval in range(start,end+1):
+                    if posval == position:
+                        continue
+                    rt_bg.append([posval,t_bam.get_reference_tuple(chromosome_id,posval)])
+                    
+                chromosome_id = t_bam.get_chromosome_id(chromosome)
+                tt = t_bam.get_tuple(chromosome, position)
+                if not self.args.single:
+                    nt = n_bam.get_tuple(chromosome, position)            
+            
+                rt = t_bam.get_reference_tuple(chromosome_id, position) 
+                
+                #MUT-238 If the ref base is 4(N) ignore the position
+                if rt[0] >= 4: 
+                    logging.error(str(position)+' position references base N and has been ignored')
+                    continue
+            
+                ## check for None tuples
+                if self.args.single:
+                    if not all([tt, rt]):
+                        logging.warning(" ".join(["None tuple", tfile, rfile]))
+                        continue
+
+                elif not all([tt, nt, rt]):
+                    logging.warning(" ".join(["None tuple", tfile, nfile, rfile]))
+                    continue
+                
+                ## calculate features
+                feature_set = self.feature_module.Features(tt, nt, rt, tt_bg, nt_bg, rt_bg,indexes)
+                
                 temp_features = feature_set.get_features()   
                 file_stream_w.write(rfile+';'+nfile+';'+tfile+';'+chromosome+';'+str(position)+'\t'+ str(temp_features)+'\t'+label_name+'\n' )
                 
