@@ -374,9 +374,15 @@ class Classifier(object):
             ## indel 
             insertion = tt[-5]
             deletion  = tt[-3]
+            
+            #calculate ratio of variant reads
+            alt_indels = tt[-2][altbase]
+            alt_reads = tt[5][0]
+            
+            ratio = alt_indels/(alt_reads+1e-300)
                         
             ## filter flag
-            if deletion > 0 or insertion > 0:
+            if ratio > self.args.indl_threshold:
                 filter_flag = "INDL"
 
             else:
@@ -637,10 +643,10 @@ class Classifier(object):
         model = self.__load_model()
         
         #verify the model against the features
-        if not self.__verify_model_features(model):
-            logging.error('The features and the model do not match')
-            raise Exception('mismatched model')
-        
+#         if not self.__verify_model_features(model):
+#             logging.error('The features and the model do not match')
+#             raise Exception('mismatched model')
+#         
         logging.info("predicting probabilities ")
         for features, outstrs in features_outstrs:
             if len(features) == 0:

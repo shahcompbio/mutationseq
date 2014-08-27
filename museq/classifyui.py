@@ -44,6 +44,10 @@ parser.add_argument("-e" , "--export_features",
                     default=None, 
                     help='''save exported feature vector to the specified path''')
 
+parser.add_argument("--indl_threshold",
+                    default = 0.05,
+                    help = '''the threshold for the INDL flag (variant reads with indel/ number of variant reads) ''')
+
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
                     help='''specify name or path of the log file''')

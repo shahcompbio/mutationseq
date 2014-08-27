@@ -153,8 +153,8 @@ class Features:
         ("tumour_variant_quality", self.tt[self.nonref_index][1]),
 
         ("probability_pos", self.pos),
-        ("normal_indel_ratio",self.nt[-2]),
-        ("tumour_indel_ratio",self.tt[-2]),
+        #("normal_indel_ratio",sum(self.nt[-2])/self.nt[5][0] ),
+        #("tumour_indel_ratio",sum(self.tt[-2])/self.tt[5][0] ),
         
 #         ("normal_direction", self.nt[5][4]),
 #         ("tumour_direction", self.tt[5][4]),

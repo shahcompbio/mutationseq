@@ -36,14 +36,13 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int deletionCount = 0;
 	int tempQual = 0;
 	int tempMQ = 0;
-	float indelReads = 0;
-	float allCoverage = 0;
 
 	int aData[2] = {0};
 	int cData[2] = {0};
 	int gData[2] = {0};
 	int tData[2] = {0};
 	int allData[2] = {0};
+	int indlData[4] = {0};
 		
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
@@ -92,24 +91,27 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			}
 		}
 
-		//increment if alignment has an indel 
-		allCoverage++;
+		char base = toupper(ba.QueryBases.at(pa.PositionInAlignment));
+		//number of alignments with indel for each base
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
 		{
 			if (opIter->Type == 'I' or opIter->Type == 'D')
 			{
-				indelReads++;
+				switch(base)
+				{
+					case 'A': indlData[0]++; break;
+					case 'C': indlData[1]++; break;
+					case 'G': indlData[2]++; break;
+					case 'T': indlData[3]++; break;	
+				}
 				break;
 			}
 		}
-
 
 		if (pa.IsCurrentDeletion)
 		{
 			continue;
 		}
-		
-		char base = toupper(ba.QueryBases.at(pa.PositionInAlignment));
 		
 		if (base == 'N')
 		{
@@ -204,6 +206,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	python::tuple gtpl = python::make_tuple(gData[0], gData[1]);
 	python::tuple ttpl = python::make_tuple(tData[0], tData[1]);
 	python::tuple alltpl = python::make_tuple(allData[0],allData[1]);
+	python::tuple indlTpl = python::make_tuple(indlData[0], indlData[1], indlData[2], indlData[3]);
 
 	tpl = python::make_tuple(position,
 							  python::make_tuple(ntData[0][0], ntData[0][1], ntData[0][2], ntData[0][3], ntData[0][4], atpl),
@@ -217,7 +220,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 							  insertionCount,
 							  entropy,
 							  deletionCount,
-							  (indelReads/allCoverage),
+							  indlTpl,
 							  pileupData.RefId
 							  );
 	// return success
