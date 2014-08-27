@@ -111,6 +111,8 @@ class Features:
         nonrefbases = [x for x in range(4) if x != self.b - 1]
         max_nonrefbase_depth = 0
         nonref_index = nonrefbases[1]  
+        if nonref_index == self.b:
+            nonref_index = nonrefbases[2]
         
         for nb in nonrefbases:
             index = nb + 1
