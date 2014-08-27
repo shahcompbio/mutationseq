@@ -91,7 +91,13 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			}
 		}
 
+		if (pa.IsCurrentDeletion)
+		{
+			continue;
+		}
+
 		char base = toupper(ba.QueryBases.at(pa.PositionInAlignment));
+		
 		//number of alignments with indel for each base
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
 		{
@@ -108,11 +114,6 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			}
 		}
 
-		if (pa.IsCurrentDeletion)
-		{
-			continue;
-		}
-		
 		if (base == 'N')
 		{
 			ambiguous++;
