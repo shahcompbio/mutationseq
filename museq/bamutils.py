@@ -377,7 +377,7 @@ class Classifier(object):
             
             #calculate ratio of variant reads
             alt_indels = tt[-2][altbase]
-            alt_reads = tt[5][0]
+            alt_reads = tt[altbase+1][0]
             
             ratio = alt_indels/(alt_reads+1e-300)
                         
