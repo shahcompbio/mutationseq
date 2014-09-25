@@ -42,6 +42,7 @@ class Classifier(object):
         self.outstr_buffer = []    
         self.features_buffer = []
         self.__get_buffer_size()
+        self.coverage_info = [0]*4
         
         self.threshold = self.args.threshold
         self.coverage = self.args.coverage
@@ -452,6 +453,14 @@ class Classifier(object):
         #gc.collect()   
         return features, outstrs
     
+    def __update_coverage_info(self, tt=None, nt=None):
+        if tt is not None:
+            self.coverage_info[0] += tt[-3]
+            self.coverage_info[1] += 1
+        if nt is not None:
+            self.coverage_info[2] += nt[-3]
+            self.coverage_info[3] += 1
+    
     def get_features(self, tuples):
         logging.info("getting features")
         
@@ -466,6 +475,8 @@ class Classifier(object):
     
     def __get_features_single(self, tuples):
         for it in tuples: 
+            self.__update_coverage_info(it)
+            
             chromosome_id = it[-1]
             position = it[0]
           
@@ -504,6 +515,7 @@ class Classifier(object):
         
     def __get_features_paired(self, tuples):
         for tt, nt in tuples: 
+            self.__update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
             position = tt[0]
             
@@ -543,6 +555,7 @@ class Classifier(object):
 
     def __get_features_paired_deep(self, tuples):
         for tt, nt in tuples: 
+            self.__update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
             position = tt[0]
             
@@ -663,60 +676,50 @@ class Classifier(object):
             probabilities = [x[1] for x in probabilities] 
             
             yield probabilities, outstrs
-            
-    def __get_mean_cov(self,bampath,type):
-        #calculate the mean coverage for each chromosome
-        if bampath == 'N/A':
-            return 'N/A'
-        
-        if self.args.samtools is None:
-            return 'N/A'
-        
-        cmd = self.args.samtools+" flagstat "+bampath
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,shell=True)
-        cmdout,cmderr = proc.communicate()
-        
-        if cmderr != "":
-            logging.error("Cannot retreive the flagstat information: "+cmderr)
-            return 'N/A'
-        #get the number of reads
-        try:
-            cmdout = cmdout.split('\n')[0]
-            cmdout = cmdout.split()
-            numreads = int(cmdout[0]) + int(cmdout[2])
-        except:
-            logging.error('couldn\'t parse flagstat output:' + cmdout)
-            return 'N/A'
-        
-        if self.args.single:
-            header = self.bam.pileup.samheader
-        else:
-            if type == 'tumour':
-                header = self.bam.t_bam.pileup.samheader
-            elif type == 'normal':
-                header = self.bam.n_bam.pileup.samheader
-        
-        #get length of genome
-        length = 0
-        header = header.split('\n')
-        for line in header:
-            if line == '':
-                continue
-            line = line.strip().split()
-            if line[0] == '@SQ':
-                val = line[2].strip().split(':')
-                
-                if val[0] != 'LN':
-                    logging.error('Error parsing header: '+header)
-                    return 'N/A'
-                
-                length += int(val[1])
-        
-        if length == 0:
-            return 'N/A'
-        #assuming length of each read is 100
-        return float(numreads*100)/length
     
+    def __update_header(self):
+        ep = 1e-5
+        tumour_cov_mean = self.coverage_info[0]/(self.coverage_info[1]+ep)
+        normal_cov_mean = self.coverage_info[2]/(self.coverage_info[3]+ep)
+        
+        ##Doing a byte by byte substitution to avoid rewriting file.
+        
+        try:
+            header = []
+            outfile = open(self.args.out,'r+')
+            for line in outfile:
+                if not line[0] =='#':
+                    break
+                header.append(line)
+            
+            len_header = len(''.join(header))
+            
+            #the length of the mean should be exactly 10 chars
+            tumour_cov_mean = str("%.10f" % tumour_cov_mean)[:10]
+            normal_cov_mean = str("%.10f" % normal_cov_mean)[:10]
+        
+            for i,val in enumerate(header):
+                if '$TUMOURCOV' in val:
+                    header[i] = header[i].replace('$TUMOURCOV',tumour_cov_mean)
+                if '$NORMALCOV' in val:
+                    header[i] = header[i].replace('$NORMALCOV',normal_cov_mean)
+            
+            #if the new header is not the same length as old header, it will overwrite 
+            #the record in next line/leave some text from old header intact 
+            if not len(''.join(header)) == len_header:
+                raise Exception('The new header is not the same length as the older ')
+            
+            outfile.seek(0)
+            for val in header:
+                outfile.write(val)
+            outfile.flush()
+            
+        except Exception,e:
+            logging.error('Error writing the coverage information to the header.\n)'
+            logging.error(e)
+            logging.info('\nThe mean coverage for Tumour: '+ str(tumour_cov_mean)+\
+                            '\nThe mean coverage for normal: '+str(normal_cov_mean))
+            
     def __meta_data(self):
         tumour = self.samples.get("tumour")
         normal = self.samples.get("normal")        
@@ -740,16 +743,13 @@ class Classifier(object):
         else:
             tumourval = 'TUMOUR'
             normalval = 'NORMAL'
-        
-        meancov_tum = self.__get_mean_cov(tumour,'tumour')
-        meancov_norm = self.__get_mean_cov(normal,'normal')
                 
         try:
             cfg_file = open(self.args.config, 'r')
             header = ""
             
             for l in cfg_file:
-                l = Template(l).substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
+                l = Template(l).safe_substitute(DATETIME=datetime.now().strftime("%Y%m%d"),
                                            VERSION=mutationSeq_version,
                                            REFERENCE=reference,
                                            TUMOUR=tumour,
@@ -757,9 +757,7 @@ class Classifier(object):
                                            TUMOURVAL = tumourval,
                                            NORMALVAL = normalval,
                                            MODEL=model,
-                                           THRESHOLD=self.threshold,
-                                           TUMOURCOV=meancov_tum,
-                                           NORMALCOV=meancov_norm
+                                           THRESHOLD=self.threshold
                                            )
                 if not self.args.single:
                     if 'ID=GT' in l or 'ID=PL' in l:
@@ -854,8 +852,9 @@ class Classifier(object):
             
         if not any_result:
             print "**no somatic mutation calls**"
-
+        
         out.close()
+        self.__update_header()
 
     def get_feature_names(self):
         tmp_obj = self.features_module.Features()

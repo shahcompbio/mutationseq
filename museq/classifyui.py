@@ -91,9 +91,6 @@ parser.add_argument("-s", "--single",
                     default=False, action="store_true",
                     help='''single sample analysis''')
 
-parser.add_argument("--samtools",
-                    help="provide path to the samtools executable, mean coverage will only be reported if provided")
-                    
 parser.add_argument("-t", "--threshold", 
                     default=0.5, type=float,
                     help='''set threshold for positive call''') 

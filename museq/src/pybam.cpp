@@ -43,6 +43,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int tData[2] = {0};
 	int allData[2] = {0};
 	int indlData[4] = {0};
+	int allCoverage = 0;
 		
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
@@ -55,6 +56,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			continue;
 		}
 		
+		allCoverage++;
 		// remove the reads with qual<threshold
 		if (ba.MapQuality < mapQualThreshold)
 		{
@@ -221,6 +223,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 							  insertionCount,
 							  entropy,
 							  deletionCount,
+							  allCoverage,
 							  indlTpl,
 							  pileupData.RefId
 							  );
