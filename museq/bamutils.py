@@ -29,7 +29,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 
-mutationSeq_version = "4.2.2"
+mutationSeq_version = "4.3.0"
 
 #==============================================================================
 # Classifier class 
