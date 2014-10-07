@@ -11,7 +11,7 @@ import os
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-mutationSeq_version="4.2.1"
+mutationSeq_version="4.2.2"
 args = museq_eval_ui.args 
 
 if args.verbose:

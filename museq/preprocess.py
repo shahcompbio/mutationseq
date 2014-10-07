@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 18 11:22:08 2013
+'''
+Created on May 20, 2014
 
-@author: jtaghiyar
-"""
+@author: dgrewal
+'''
 import logging
-import classifyui
+import preprocessui
 
 mutationSeq_version="4.2.2"
-args = classifyui.args 
+args = preprocessui.args 
 
 if args.verbose:
     level = logging.DEBUG    
@@ -23,17 +22,14 @@ logging.basicConfig(filename = args.log_file,
 
 logging.warning("<<< mutationSeq_" + mutationSeq_version + " started >>>")
 logging.info("importing required modules")
+import preprocessutils
 
-import bamutils
-
-
+logging.info(args)
 #==============================================================================
 # main body
 #==============================================================================
-
-logging.info(args)
 logging.info("initializing a Classifier")
-classifier = bamutils.Classifier(args)
+classifier = preprocessutils.PreProcess(args)
 
 logging.info("getting positions")
 target_positions = classifier.get_positions()
@@ -43,11 +39,6 @@ tuples = classifier.bam.get_tuples(target_positions)
 
 logging.info("generating features iterator")
 features = classifier.get_features(tuples)
-
-if args.export_features is not None:
-    logging.info("exporting features")
-    classifier.export_features(features)
-
     
 probabilities = classifier.predict(features)
 classifier.print_results(probabilities)
