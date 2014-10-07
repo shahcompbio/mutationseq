@@ -1,0 +1,6 @@
+*.npz -crlf -diff
+*.pdf -crlf -diff
+*.so -crlf -diff
+*.pyc -crlf -diff
+*.doc -crlf -diff
+

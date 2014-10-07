@@ -1,8 +1,2 @@
-*.DS_Store*
-*.py~
 *.pyc
-*.log
-test*
-boost_1_51_0
-build
-#*#
+
