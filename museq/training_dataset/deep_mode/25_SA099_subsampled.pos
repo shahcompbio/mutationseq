@@ -1,5 +1,0 @@
-# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_CGATGT.subSampled.bam
-# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_CGATGT.subSampled.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-1 50805470 SOMATIC
-10 89682960 SOMATIC

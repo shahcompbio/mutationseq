@@ -1,9 +1,0 @@
-# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AAGGAC.subSampled.bam
-# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AAGGAC.subSampled.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-11 59992363 WILDTYPE
-1 223773883 WILDTYPE
-2 128595298 WILDTYPE
-2 43844998 WILDTYPE
-15 68983996 WILDTYPE
-14 95940895 WILDTYPE

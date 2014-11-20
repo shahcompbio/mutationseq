@@ -1,0 +1,13 @@
+# tumour /share/lustre/archive/SA429X2/illumina_wgss/A11847/bwa_aligned/SA429X2_A11847_3_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA429N/illumina_wgss/A11849/bwa_aligned/SA429N_A11849_3_lanes_hg19_sort_rmdup.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+11	3846330	WILDTYPE
+X	23411876	WILDTYPE
+11	3846330	WILDTYPE
+22	50181120	WILDTYPE
+8	77616949	WILDTYPE
+17	62496750	SOMATIC
+21	34923220	SOMATIC
+21	34923218	SOMATIC
+14	75266304	SOMATIC
+8	32621561	SOMATIC

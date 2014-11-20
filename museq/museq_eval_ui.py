@@ -3,18 +3,6 @@ Created on Feb 21, 2014
 
 @author: dgrewal
 '''
-#Extra Arguments (Rest of arguments are from classify)
-#reference_files are required and contain the True/False labels
-#plot_features_only: Do not classify, only generate boxplots (True/False Positives/Negatives boxplots are not generated)
-#input_files(-i): Do not classify, only generate plots(All plots)
-#If both -i and plot_features_only are specified then only boxplots are generated(with True/False Positives/Negatives)
-#model: path to the model being used
-#separate_plots: if this flag is set then the code generates separate boxplots for each of the space sep values(same plot for comma sep values)
-#top_features: No of features to be plotted(Default is all features)
-#out : path to the output directory. Required. output vcf files have same name as corresponding ref file(ensure that all ref files have different names)
-#log file is concatenated to museq log
-#boxplot_labels: labels for the left most boxplot(len should be equal to no of plots)
-
 
 import argparse
 mutationSeq_version="4.3.0"
@@ -45,6 +33,11 @@ parser.add_argument("-d", "--deep",
 parser.add_argument("-e" , "--export_features", 
                     default=None, 
                     help='''save exported feature vector to the specified path''')
+
+parser.add_argument("--indl_threshold",
+                    default = 0.05,
+                    help = '''the threshold for the INDL flag (variant reads\
+                            with indel/ number of variant reads) ''')
 
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
@@ -122,7 +115,8 @@ parser.add_argument('-r','--reference_files',
 parser.add_argument('--rescale',
                     default = False,
                     action = 'store_true',
-                    help = 'path to the reference file. Format: pos file. Files must have different names')
+                    help = 'rescale the plots to ensure that the boxplots fit in the region\
+                            (might remove some outliers from the figure)')
 
 parser.add_argument('-m','--model',
                     required = True,

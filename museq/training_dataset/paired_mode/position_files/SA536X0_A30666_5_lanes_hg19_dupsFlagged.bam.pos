@@ -1,0 +1,11 @@
+# tumour /share/lustre/archive/SA536X0/illumina_wgss/A30666/bwa_aligned/SA536X0_A30666_5_lanes_hg19_dupsFlagged.bam
+# normal /share/lustre/archive/SA536N/illumina_wgss/A30665/bwa_aligned/SA536N_A30665_3_lanes_hg19_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+2	215098807	WILDTYPE
+17	36278704	GERMLINE
+6	122382467	WILDTYPE
+17	20013802	WILDTYPE
+2	215098807	WILDTYPE
+20	46392079	WILDTYPE
+4	55262940	SOMATIC
+4	55262940	SOMATIC

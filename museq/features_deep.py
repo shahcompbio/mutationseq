@@ -16,8 +16,8 @@ class Features:
     def __init__(self, tumour_tuple=None, normal_tuple=None, reference_tuple=None, tumour_bg=None, normal_bg=None, reference_bg=None, indexes=None, purity=70):
         base_index = {'A':1,'C':2,'G':3,'T':4}
 
-        self.name = "TCGA Benchmark 4 featureset with coverage info"
-        self.version = "0.2_deep"
+        self.name = "TCGA Benchmark 4 feature set with coverage info"
+        self.version = "deep_0.2"
 
         self.tt = tumour_tuple
         self.nt = normal_tuple
@@ -38,10 +38,10 @@ class Features:
         
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
-            self.tt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.tt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
 
         if self.nt is None or self.nt[5][0] == 0: 
-            self.nt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.nt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
         
         if self.rt is None:
             self.rt = (0, 0, 0, 0, 0)
@@ -57,6 +57,7 @@ class Features:
             
         ## reference base index + 1 = index of the same base in the tumour/normal bam tuple
         self.b  = self.rt[0] + 1  
+
         
         ## coverage data        
         self.cd = (float(30), float(30), int(purity), float(0))
@@ -144,8 +145,8 @@ class Features:
         ("tumour_normal_jointsnvmix_loh", self.p_loh),
         ("tumour_normal_jointsnvmix_error", self.p_error),
         
-        ("normal_indel_ratio",self.nt[-2]),
-        ("tumour_indel_ratio",self.tt[-2]),
+        ("normal_indel_ratio",sum(self.nt[-2])/self.nt[5][0] ),
+        ("tumour_indel_ratio",sum(self.tt[-2])/self.tt[5][0] ),
         
         ("tumour_background_average_variant_mean",self.tt_bg_avg_var_freq),
         ("tumour_p_value",self.tum_p_val),

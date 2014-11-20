@@ -1,9 +1,0 @@
-# normal /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_1_CGAGAA.subSampled.bam
-# tumour /share/lustre/fdorri/benchmark/sub_sampled/D08H8ACXX_2_CGAGAA.subSampled.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-15 89257524 SOMATIC
-17 7519127 SOMATIC
-19 53579461 GERMLINE
-5 176757471 SOMATIC
-7 100464125 WILDTYPE
-9 133173325 SOMATIC

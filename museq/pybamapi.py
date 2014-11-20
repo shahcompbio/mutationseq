@@ -147,8 +147,7 @@ class Bam(object):
         return self.pileup.get_tuple()
     
     def get_tuples(self, target_positions):
-        """ get the tuples from the bam file for a given set of target positions """
-        
+        """ get the tuples from the bam file for a given set of target positions """ 
         for tp in target_positions: 
             if tp[1] is None:
                 self.pileup.set_region(tp[0])
@@ -190,7 +189,7 @@ class PairedBam(object):
     
     def is_matched_reference(self):
         return self.t_bam.is_matched_reference()
-        
+
     def get_tuples(self, target_positions):
         for tp in target_positions:
             if tp[1] is None:

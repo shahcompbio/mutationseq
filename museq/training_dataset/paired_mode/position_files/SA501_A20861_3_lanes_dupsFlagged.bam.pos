@@ -1,0 +1,6 @@
+# tumour /share/lustre/archive/SA501/illumina_wgss/A20861/bwa_aligned/SA501_A20861_3_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA501N/illumina_wgss/A20875/bwa_aligned/SA501N_A20875_3_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+12	117947771	WILDTYPE
+11	118252198	SOMATIC
+11	118252198	SOMATIC

@@ -1,0 +1,18 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA501-X1.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA501-N2.sorted.bam
+5	169143220
+12	117947771
+X	44929132
+1	204546758
+17	46000496
+1	152127514
+5	145417271
+X	44929071
+X	44929372
+X	44929402
+2	242741301
+4	153690908
+14	74753190
+4	169182097
+20	19953277

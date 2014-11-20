@@ -1,7 +1,0 @@
-# normal /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_7_AATAGG.subSampled.bam
-# tumour /share/lustre/fdorri/benchmark/sub_sampled/C04HMACXX_8_AATAGG.subSampled.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-11 74824231 SOMATIC
-10 60753841 SOMATIC
-12 130188669 SOMATIC
-18 9246269 WILDTYPE

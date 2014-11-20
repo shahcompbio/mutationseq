@@ -1,7 +1,0 @@
-# normal /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_4_AGGCCG.subSampled.bam
-# tumour /share/lustre/fdorri/benchmark/sub_sampled/62RT7AAXX_5_AGGCCG.subSampled.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-19 40813901 GERMLINE
-20 31711439 WILDTYPE
-22 35663574 WILDTYPE
-16 79768997 GERMLINE

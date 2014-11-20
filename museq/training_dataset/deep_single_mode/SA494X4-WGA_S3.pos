@@ -1,0 +1,9 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA494X4-WGA_S3.realigned.sorted.bam
+1	179520438
+2	46394421
+11	76928149
+8	2130432
+8	2130444
+5	145768952
+7	103207234

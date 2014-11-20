@@ -1,27 +1,12 @@
 import unittest
-import pybamapi
+
 import bamutils
 import sys
-import numpy
-import scipy
-import sklearn
-import matplotlib
-
 import logging
 import os
 import resource
 import re
-import features, features_single, features_deep, features_deep_single
-import matplotlib.pyplot as plt
-from math import log10
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import cross_validation
-from sklearn.metrics import roc_curve, auc
-from string import Template
-from datetime import datetime
-from collections import defaultdict
 from classify_test_api import base_class,initargs
-import time
 
 mutationSeq_version="4.3.0"
 
@@ -40,6 +25,7 @@ class verify_dependencies(unittest.TestCase):
                          ' match the required version')
     
     def test_verify_numpy(self):
+        import numpy
         numpy_version = numpy.version.full_version
         numpy_version = numpy_version.strip().split('.')
         numpy_version = map(int,numpy_version)
@@ -53,6 +39,7 @@ class verify_dependencies(unittest.TestCase):
 
         
     def test_verify_scipy(self):
+        import scipy
         scipy_version = scipy.version.full_version
         scipy_version = scipy_version.strip().split('.')
         
@@ -68,6 +55,7 @@ class verify_dependencies(unittest.TestCase):
 
 
     def test_verify_sklearn(self):
+        import sklearn
         sklearn_version = sklearn.__version__
         sklearn_version = sklearn_version.strip().split('.')
         self.assertEqual(sklearn_version[0], str(0), 'the SciKit Learn version'
@@ -78,6 +66,7 @@ class verify_dependencies(unittest.TestCase):
                          ' doesn\'t match the required version')
     
     def test_verify_matplotlib(self):
+        import matplotlib
         matplotlib_version = matplotlib.__version__
         matplotlib_version = matplotlib_version.strip().split('.')
         matplotlib_version = map(int,matplotlib_version)
@@ -91,13 +80,23 @@ class verify_dependencies(unittest.TestCase):
     
     def test_verify_imports(self):
         self.assertNotEqual(logging, None, 'logging couldn\'t be imported')
+        
+        import pybamapi
         self.assertNotEqual(pybamapi, None, 'pybamapi couldn\'t be imported')
+        
+        
         self.assertNotEqual(os, None, 'os couldn\'t be imported')
         self.assertNotEqual(resource, None, 'resource couldn\'t be imported')
         self.assertNotEqual(re, None, 're couldn\'t be imported')
+        
+        from math import log10
         self.assertNotEqual(log10, None, 'log10 couldn\'t be imported')
+
+        from sklearn.ensemble import RandomForestClassifier
         self.assertNotEqual(RandomForestClassifier, None, 'RandomForestClassifier'
                             'couldn\'t be imported')
+        
+        import features, features_single, features_deep, features_deep_single
         self.assertNotEqual(features, None, 'features couldn\'t be imported')
         self.assertNotEqual(features_single, None, 'features_single couldn\'t'
                             ' be imported')
@@ -105,18 +104,30 @@ class verify_dependencies(unittest.TestCase):
                             'be imported')
         self.assertNotEqual(features_deep_single, None, 'features_deep_single'
                             ' couldn\'t be imported')
+        
+        import matplotlib.pyplot as plt
         self.assertNotEqual(plt, None, 'plt couldn\'t be imported')
+        
+        from sklearn import cross_validation
         self.assertNotEqual(cross_validation, None, 'cross_validation '
                             'couldn\'t be imported')
+        
+        from sklearn.metrics import roc_curve, auc
         self.assertNotEqual(roc_curve, None, 'roc_curve couldn\'t be '
                             'imported')
         self.assertNotEqual(auc, None, 'auc couldn\'t be imported')
+        
+        from string import Template
         self.assertNotEqual(Template, None, 'Template couldn\'t be imported')
+        
+        from datetime import datetime
         self.assertNotEqual(datetime, None, 'datetime couldn\'t be imported')
+        
+        from collections import defaultdict
         self.assertNotEqual(defaultdict, None, 'defaultdict couldn\'t be imported')        
     
 #===================================================
-#Test for error in reading single alignment(MUT-140)
+#Test for error in reading single position(MUT-140)
 #===================================================
 class single_position_error(unittest.TestCase,base_class):
     def setUp(self):
@@ -549,54 +560,7 @@ class check_memory_footprint(unittest.TestCase,base_class):
 #check for  Reference file
 #=================================
 
-# class verify_reference_file(unittest.TestCase,base_class):
-#     
-#     def setUp(self):
-#         self.args.positions_file = None
-#         self.args.interval = None
-#            
-#     def test_reference_file(self):
-#         #Ensure that refbase is always less than 5
-#         #MUT-20 : Test fails if invalid pos is present in ref file
-#         tuples,classifier = self.get_tuples(self.args)
-#         if self.args.single:
-#             for it in tuples:
-#                 chromosome_id = it[-1]
-#                 position = it[0]
-#                 refbase = classifier.bam.get_reference_base(chromosome_id,
-#                                                              position, index=True)
-#                 chromosome_name = classifier.bam.get_chromosome_name(chromosome_id)
-#                 #Museq bails if it gets anything other than 0-3
-#                 self.assertLess(refbase, 5, 'The reference base should be'
-#                                 ' A,C,G,T or N at '+""+str(chromosome_name)+
-#                                 ":"+str(position)+"\n")
-#         else:
-#             for tt,_ in tuples: 
-#                 chromosome_id = tt[-1]
-#                 position = tt[0]
-#                 refbase = classifier.bam.get_reference_base(chromosome_id,
-#                                                              position, index=True)
-#                 chromosome_name = classifier.bam.get_chromosome_name(chromosome_id)
-#                 #Museq bails if it gets anything other than 0-3
-#                 self.assertLess(refbase, 5, 'The reference base should be A,C,G,T or N'
-#                                 ' at '+""+str(chromosome_name)+":"+str(position)+"\n")
-# 
-#     #made changes in bamutils for this code. line:222,321,289
-#     def test_invalid_refbase(self):
-#         #MUT-20:Checks if invalid refbase raises any errors
-#         #try inserting invalid values for refbase and see if museq throws error
-#         #trinucleotide just overwrites
-#         #the filter doesnt work for those wrong positions.
-#         #could compare outputs instead too
-#         #paired mode fails in the filter,single doesnt
-#         self.args.invalid = True
-#         self.args.out = "unit_test/output_ref"
-#         try:
-#             self.run_classifier(self.args)
-#             self.assertEqual(True,False,'MuSeq should fail when invalid'
-#                              ' positions are inserted in refbase')
-#         except TypeError:
-#             pass
+
 #===========================================
 #Ensure all features are setup correctly
 #===========================================
@@ -851,36 +815,24 @@ class verify_individual_functions(unittest.TestCase,base_class):
                     except RuntimeError:
                         pass
 
+#========================================
+#tests for deep seuencing mode - paired
+#========================================
 
-#========================================
-#Ensure chr only fails with runtime error
-#========================================
-class verify_position_with_chr(unittest.TestCase,base_class):
-    
+class verify_individual_functions(unittest.TestCase,base_class):
     def setUp(self):
-        self.args_paired = initargs()
-        args_single = initargs()
-        args_single.set_single()
-        self.args_single = args_single
-        self.args_paired.positions_file = "unit_test/position_chr"
-        self.args_single.positions_file = "unit_test/position_chr"
-        self.args_single.interval = None
-        self.args_paired.interval = None
+        pass
+    
+    def test_tuples(self):
+        """
+        ensure correctness of the tuples
+        MUT-255
+        test will fail due to a bug in samtools api
+        """
+        pass
+    
+    def tearDown(self):
+        pass
 
-    def test_position_with_chr_paired(self):
-        try:
-            self.run_classifier(self.args_paired)
-            self.assertEqual(True, False, 'chr should fail in classifier')
-        except Exception as ex:
-            self.assertEqual(type(ex).__name__,'RuntimeError', 
-                             'Chr not working properly')
-
-    def test_position_with_chr_single(self):
-        try:
-            self.run_classifier(self.args_single)
-            self.assertEqual(True, False, 'chr should fail in classifier')
-        except Exception as ex:
-            self.assertEqual(type(ex).__name__,'RuntimeError', 
-                             'Chr not working properly')
 
     

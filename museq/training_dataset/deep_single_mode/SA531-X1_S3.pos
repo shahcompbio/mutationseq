@@ -1,0 +1,10 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA531-X1_S3.realigned.sorted.bam
+13	41533052
+19	37038416
+11	93463332
+20	60937597
+2	179587687
+9	131095112
+1	208213125
+9	17409366

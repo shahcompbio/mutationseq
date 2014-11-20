@@ -1,0 +1,10 @@
+# tumour /share/lustre/archive/SA501X1/illumina_wgss/A20868/bwa_aligned/SA501X1_A20868_3_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA501N/illumina_wgss/A20875/bwa_aligned/SA501N_A20875_3_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+12	49522215	WILDTYPE
+X	44929071	SOMATIC
+2	214486670	SOMATIC
+20	19953277	SOMATIC
+14	74753190	SOMATIC
+4	153690908	SOMATIC
+14	24458172	SOMATIC

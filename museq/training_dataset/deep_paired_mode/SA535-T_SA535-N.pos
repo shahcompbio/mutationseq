@@ -1,0 +1,7 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA535-T.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA535-N.sorted.bam
+11	47431776
+5	176318070
+7	74103545
+19	10624673

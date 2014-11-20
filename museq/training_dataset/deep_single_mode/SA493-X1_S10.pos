@@ -1,0 +1,5 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA493-X1_S10.realigned.sorted.bam
+1	154600372
+11	70016318
+5	140502177

@@ -1,7 +1,0 @@
-# normal /share/lustre/archive/INX/INX428/D08H8ACXX_1_TAATCG.bam
-# tumour /share/lustre/archive/INX/INX429/D08H8ACXX_2_TAATCG.bam
-# reference /share/lustre/reference/genomes/human_all.fasta
-11 107619959 WILDTYPE
-10 102047352 GERMLINE
-2 131238061 SOMATIC
-2 128742228 GERMLINE

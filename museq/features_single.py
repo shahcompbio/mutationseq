@@ -17,10 +17,10 @@ class Features:
         self.rt = reference_tuple
         self.type = sample_type
         self.name = "TCGA Benchmark 4 feature set with coverage info"
-        self.version = "4.0.2_single"
+        self.version = "single_4.0.2"
         
         if self.it is None or self.it[5][0] == 0:
-            self.it = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.it = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
 
         if self.rt is None:
             self.rt = (0, 0, 0, 0, 0)

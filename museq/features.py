@@ -16,14 +16,14 @@ class Features:
         self.nt = normal_tuple
         self.rt = reference_tuple
         self.name = "TCGA Benchmark 4 feature set with coverage info"
-        self.version = "4.1.1_sb"
+        self.version = "4.1.2"
  
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
-            self.tt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.tt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
 
         if self.nt is None or self.nt[5][0] == 0: 
-            self.nt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.nt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
         
         if self.rt is None:
             self.rt = (0, 0, 0, 0, 0)

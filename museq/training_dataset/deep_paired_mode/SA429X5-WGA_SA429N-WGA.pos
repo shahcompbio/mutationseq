@@ -1,0 +1,9 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA429X5-WGA.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA429N-WGA.sorted.bam
+1	186648318
+18	42532082
+X	23411885
+X	44929393
+4	41750454
+16	31236050

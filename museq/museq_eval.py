@@ -119,7 +119,6 @@ def run_museqeval(arguments,features_only):
         pdfout.savefig(plot)
     pdfout.close()
     
-    boxplot.remove_temp_files()
     
 #============================================
 #Run code according to the arguments provided

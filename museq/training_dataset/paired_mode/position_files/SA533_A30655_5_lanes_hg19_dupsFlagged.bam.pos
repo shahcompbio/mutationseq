@@ -1,0 +1,7 @@
+# tumour /share/lustre/archive/SA533/illumina_wgss/A30655/bwa_aligned/SA533_A30655_5_lanes_hg19_dupsFlagged.bam
+# normal /share/lustre/archive/SA533N/illumina_wgss/A30656/bwa_aligned/SA533N_A30656_3_lanes_hg19_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+17	48258070	SOMATIC
+19	15918710	SOMATIC
+15	48782196	SOMATIC
+X	100746935	SOMATIC

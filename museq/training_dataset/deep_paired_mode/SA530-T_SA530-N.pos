@@ -1,0 +1,8 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA530-T.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA530-N.sorted.bam
+X	30254075
+17	26961902
+21	31458762
+17	58700963
+1	181453065

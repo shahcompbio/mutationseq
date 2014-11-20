@@ -326,7 +326,9 @@ class museq_plots(object):
             roc_auc = metrics.auc(fpr,tpr)
             roc_auc_10 = metrics.auc(fpr_10,tpr_10)
             self.__write_info_log(fpr,tpr,thresholds,roc_auc)
-        except ValueError:
+        except Exception, e:
+            print roc_auc
+            print e
             logging.error('ERROR: fpr or tpr array contains NaN or infinity')
             return
         
@@ -599,17 +601,6 @@ class box_plots():
                 output[(tfile,nfile,rfile,chromosome,pos)].append(pr)
         return output                      
                                 
-    def remove_temp_files(self):
-        try:
-            for files in self.posneg_files:
-                for filenames in files:
-                    os.remove(filenames)
-            for files in self.finalargs:
-                for filenames in files:
-                    os.remove(filenames)
-        except:
-            logging.error('couldn\'t delete temp files')
-        
     def __generate_feature_db(self,outputname,reffiles):
         missing_positions = self.__get_missing_positions(reffiles)
         self.__write_feature_db(missing_positions,outputname)   
