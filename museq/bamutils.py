@@ -1264,6 +1264,7 @@ class Trainer(object):
                 else:
                     feature_set = self.feature_module.Features(tt, nt, rt)
 
+                    
                 temp_features = feature_set.get_features()
 
                 outstr = ';'.join([rfile, nfile, tfile, chromosome,
@@ -1356,6 +1357,7 @@ class Trainer(object):
                                                            indexes)
 
                 temp_features = feature_set.get_features()
+                
                 file_stream_w.write(rfile + ';' + nfile + ';' + tfile + ';' +
                                     chromosome + ';' + str(pos) + '\t' +
                                     str(temp_features) + '\t' + label_name +
@@ -1401,13 +1403,18 @@ class Trainer(object):
 
     def learn_coefs(self):
         alphas = [0.0001, 0.0003, 0.0005, 0.0007, 0.0009, 0.002, 0.004,
-                  0.01, 0.05, 0.1, 0.4, 0.5, 1, 5, 15, 30, 50, 100]
-        l1_ratio = [.1, .5, .7, .9, .95, .99, 1]
-        clf = ElasticNetCV(l1_ratio=1, alphas=[0.0007])
+                  0.01, 0.05]
+        l1_ratio = [.1, 0.25, .3]
+        clf = ElasticNetCV(l1_ratio=l1_ratio, alphas=alphas)
         clf.fit(self.features, self.labels)
         logging.info('l1_ratio ' + str(clf.l1_ratio_))
         logging.info('alpha ' + str(clf.alpha_))
-        return clf.coef_
+        
+
+        coefs = clf.coef_
+        coefs[-6] = 1
+        logging.info('coefficients ' + str(coefs))
+        return coefs
 
     def fit(self):
         self.model = RandomForestClassifier(random_state=0, n_estimators=3000,
@@ -1441,6 +1448,10 @@ class Trainer(object):
         with open(self.args.out + "_importance.txt", 'w') as importance_file:
             feature_importance = self.get_feature_importance()
             feature_names = self.get_feature_names()
+
+            
+            if self.args.enet:
+                feature_names = [val for i,val in enumerate(feature_names) if i not in self.zeros]
 
             for importance, feature_name in sorted(
                     zip(feature_importance, feature_names)):
