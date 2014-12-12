@@ -437,12 +437,25 @@ class Classifier(object):
         tc = self.bam.get_trinucleotide_context(chromosome_id, position)
 
         # generate information for the INFO column in the output vcf
-        if self.args.single:
-            pr_aa, pr_ab, pr_bb, gt = self.__get_genotype(TA, tt[5][0])
-            info = [TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+ #        if self.args.single:
+ #            pr_aa, pr_ab, pr_bb, gt = self.__get_genotype(TA, tt[5][0])
+ #            info = [TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+ #
+ #        else:
+ #            info = [TR, TA, NR, NA, tc, insertion, deletion, nt[-6], nt[-4]]
 
+        ## generate information for the INFO column in the output vcf               
+        if self.args.single:
+            pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])
+            
+            ## generate information for the INFO column in the output vcf               
+            if self.type == 'n':
+                info = [NR, NA, TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+            else:
+                info = [TR, TA, NR, NA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
+            
         else:
-            info = [TR, TA, NR, NA, tc, insertion, deletion, nt[-6], nt[-4]]
+            info = [TR, TA, NR, NA, tc, insertion, deletion]
 
         info = map(str, info)
 
@@ -956,20 +969,29 @@ class Classifier(object):
                     else:
                         filter_flag = "FAIL"
 
-                if self.args.single:
-                    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][2] + \
-                        "\tRC:AC:ND:NI:GT:PL\t" + outstr[-1][0] + ":" + \
-                        outstr[-1][1] + ":" + outstr[-1][4] + ":" +\
-                        outstr[-1][3] + ":" + outstr[-1][5] + ":" +\
-                        outstr[-1][6] + "," + outstr[-1][7] + "," +\
-                        outstr[-1][8]
-                else:
-                    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][4] + \
-                        "\tRC:AC:ND:NI\t" + outstr[-1][0] + ":" +\
-                        outstr[-1][1] + ":" + outstr[-1][6] + ":" +\
-                        outstr[-1][5] + "\t" + outstr[-1][2] + ":" +\
-                        outstr[-1][3] + ":" + outstr[-1][8] + ":" +\
-                        outstr[-1][7]
+                #if self.args.single:
+                #    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][2] + \
+                #        "\tRC:AC:ND:NI:GT:PL\t" + outstr[-1][0] + ":" + \
+                #        outstr[-1][1] + ":" + outstr[-1][4] + ":" +\
+                #        outstr[-1][3] + ":" + outstr[-1][5] + ":" +\
+                #        outstr[-1][6] + "," + outstr[-1][7] + "," +\
+                #        outstr[-1][8]
+                #else:
+                #    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][4] + \
+                #        "\tRC:AC:ND:NI\t" + outstr[-1][0] + ":" +\
+                #        outstr[-1][1] + ":" + outstr[-1][6] + ":" +\
+                #        outstr[-1][5] + "\t" + outstr[-1][2] + ":" +\
+                #        outstr[-1][3] + ":" + outstr[-1][8] + ":" +\
+                #        outstr[-1][7]
+
+                info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
+                            ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
+                            ";NA=" + outstr[-1][3] + ";TC=" + outstr[-1][4] + \
+                            ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
+
+                if self.args.single:  
+                    info_str = info_str+";GT=" + outstr[-1][7] +";PL="+outstr[-1][8]+\
+                               ','+outstr[-1][9]+','+outstr[-1][10]
                 
                 # calculate phred quality
                 if p == 0:

@@ -343,7 +343,8 @@ class Features:
             self.tt_bg_avg_var_freq = sum(tt_bg_avg_var_freq)/len(tt_bg_avg_var_freq)
             self.nt_bg_avg_var_freq = sum(nt_bg_avg_var_freq)/len(nt_bg_avg_var_freq)
         except Exception,e:
-            print e
+            logging.error('Zero division error due to error in retreiving tuples (See MUT-255) for position: '+str(self.tt[0])) 
+            return
             
         if self.man_ref:
             if self.b != self.man_ref:
