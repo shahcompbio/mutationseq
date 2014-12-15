@@ -32,7 +32,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 
-mutationSeq_version = "4.3.0"
+mutationSeq_version = "4.3.1"
 
 """
 ==============================================================================
@@ -726,6 +726,8 @@ class Classifier(object):
         yield self.__flush()
 
     def __get_features_single_deep(self, tuples):
+        it_bg = []
+        rt_bg = []
         for it in tuples:
             self.__update_coverage_info(it)
             chromosome_id = it[-1]

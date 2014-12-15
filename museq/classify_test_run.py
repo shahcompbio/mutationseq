@@ -6,7 +6,7 @@ Created on Jun 10, 2014
 import classify_test
 import unittest
 import logging
-mutationSeq_version="4.3.0"
+mutationSeq_version="4.3.1"
 
 def suite_all_tests():   
     suite = unittest.TestSuite()

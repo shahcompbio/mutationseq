@@ -7,7 +7,7 @@ Created on Mon Dec  2 10:41:52 2013
 import argparse
 import sys
 
-mutationSeq_version="4.3.0"
+mutationSeq_version="4.3.1"
 
 #==============================================================================
 # make a UI 

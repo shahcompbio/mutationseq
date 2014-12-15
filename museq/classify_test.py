@@ -8,7 +8,7 @@ import resource
 import re
 from classify_test_api import base_class,initargs
 
-mutationSeq_version="4.3.0"
+mutationSeq_version="4.3.1"
 
 #============================================
 # Check the versions of all the dependencies
