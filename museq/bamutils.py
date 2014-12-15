@@ -500,25 +500,17 @@ class Classifier(object):
             self.coverage_info[2] += nt[-3]
             self.coverage_info[3] += 1
 
-    def get_background_tuples(self, chromosome, chromosome_id, start, end,
-                              position):
-        tt_bg = []
-        nt_bg = []
+    def get_tuples(self, chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg):
+        
         if self.args.single:
             if self.type is 'n':
                 bam_file = self.samples.get("normal")
             else:
                 bam_file = self.samples.get("tumour")
-            bam = pybamapi.Bam(
-                bam=bam_file,
-                reference=self.ref,
-                coverage=self.coverage,
-                rmdups=False,
-                mapq_threshold=self.mapq_threshold,
-                baseq_threshold=self.baseq_threshold)
-            tuples = bam.get_tuples([[chromosome, start, end]])
-            tt_bg = [val for val in tuples if val[0] != position]
-
+            bam = pybamapi.Bam(bam=bam_file, reference=self.ref,
+                               coverage=self.coverage, rmdups=self.rmdups,
+                               mapq_threshold=self.mapq_threshold,
+                               baseq_threshold=self.baseq_threshold)
         else:
             bam = pybamapi.PairedBam(tumour=self.samples.get("tumour"),
                                      normal=self.samples.get("normal"),
@@ -526,21 +518,49 @@ class Classifier(object):
                                      coverage=self.coverage, rmdups=self.rmdups,
                                      mapq_threshold=self.mapq_threshold,
                                      baseq_threshold=self.baseq_threshold)
+            
+        tuples = bam.get_tuples([[chromosome, start, end]])
+        
+        if self.args.single:
+            for tval in tuples:
+                tt_bg.append(tval)
+        else:
+            for tval,nval in tuples:
+                tt_bg.append(tval)
+                nt_bg.append(nval)
+                
+        for i in range(start, end+1):
+            rt_bg.append([i, bam.get_reference_tuple(chromosome_id,
+                                                              i)])
+        return tt_bg, rt_bg, nt_bg
+    
+        
 
-            tuples = bam.get_tuples([[chromosome, start, end]])
-            for tt, nt in tuples:
-                if tt[0] != position:
-                    tt_bg.append(tt)
-                    nt_bg.append(nt)
+    def get_background_tuples(self, chromosome, chromosome_id, start, end,
+                              position, tt_bg, rt_bg, nt_bg = []):
+        if tt_bg !=[] and start > tt_bg[0][0] and start<tt_bg[-1][0]:
+            for i,val in enumerate(tt_bg):
+                if val[0] == start:
+                    break
+                if val[0] > start:
+                    tt_bg = []
+                    nt_bg = []
+                    rt_bg = []
+                    tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg)
+                    return tt_bg, rt_bg, nt_bg
+                
+            tt_bg = tt_bg[i:]
+            nt_bg = nt_bg[i:]
+            rt_bg = rt_bg[i:]
+            
+            tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, tt_bg[-1][0]+1, end, tt_bg, nt_bg, rt_bg)
+        else:
+            tt_bg = []
+            nt_bg = []
+            rt_bg = []
+            tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg)
 
-        rt_bg = []
-        for posval in range(start, end + 1):
-            if posval == position:
-                continue
-            rt_bg.append([posval, bam.get_reference_tuple(chromosome_id,
-                                                          posval)])
-
-        return tt_bg, nt_bg, rt_bg
+        return tt_bg, rt_bg, nt_bg
 
     def get_features(self, tuples):
         logging.info("getting features")
@@ -644,6 +664,9 @@ class Classifier(object):
         yield self.__flush()
 
     def __get_features_paired_deep(self, tuples):
+        tt_bg=[]
+        rt_bg=[]
+        nt_bg=[]
         for tt, nt in tuples:
             self.__update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
@@ -657,7 +680,7 @@ class Classifier(object):
 
             # ignore tumour tuples with no/few variants in the tumour or too
             # many variants in the normal
-            if not self.args.no_filter:
+            if not self.no_filter:
                 if tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                         tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
                         tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
@@ -678,8 +701,9 @@ class Classifier(object):
             chromosome = self.bam.get_chromosome_name(chromosome_id)
             start, end = self.__get_flanking_regions(chromosome, position,
                                                      self.manifest)
-            tt_bg, nt_bg, rt_bg = self.get_background_tuples(
-                chromosome, chromosome_id, start, end, position)
+
+            tt_bg, rt_bg, nt_bg = self.get_background_tuples(
+                chromosome, chromosome_id, start, end, position, tt_bg, rt_bg, nt_bg)
 
             if self.manifest:
                 indexes = self.manifest.get((chromosome, position))
@@ -713,7 +737,7 @@ class Classifier(object):
 
             # ignore tumour tuples with no/few variants in the tumour or too
             # many variants in the normal
-            if not self.args.no_filter:
+            if not self.no_filter:
                 if it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
                         it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
                         it[nonrefbases[2] + 1][0] < self.args.tumour_variant:
@@ -735,9 +759,8 @@ class Classifier(object):
 
             # get all tuples in flanking region and remove the
             # position(foreground)
-            it_bg, _, rt_bg = self.get_background_tuples(chromosome,
-                                                         chromosome_id,
-                                                         start, end, position)
+            it_bg, rt_bg, _ = self.get_background_tuples(
+                chromosome, chromosome_id, start, end, position, it_bg, rt_bg)
 
             if self.manifest:
                 indexes = self.manifest.get((chromosome, position))

@@ -235,8 +235,8 @@ class museq_plots(object):
                 info = l[7].split(';')
                 try:
                     pr = float(info[0].split('=')[1])
-                    tr = float(l[9].split(':')[0])
-                    ta = float(l[9].split(':')[1])
+                    tr = float(info[1].split('=')[1])
+                    ta = float(info[2].split('=')[1])
                 except:
                     print line
                     logging.error("invalid vcf file")
