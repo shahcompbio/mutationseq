@@ -1,0 +1,5 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA533-X1_S99.realigned.sorted.bam
+4	85701410
+3	59908126
+12	52886510

@@ -1,0 +1,5 @@
+# normal /share/lustre/archive/INX/INX424/C04HMACXX_7_AAATGC.bam
+# tumour /share/lustre/archive/INX/INX425/C04HMACXX_8_AAATGC.bam
+# reference /share/lustre/reference/genomes/human_all.fasta
+11 16296696 SOMATIC
+1 66881115 SOMATIC

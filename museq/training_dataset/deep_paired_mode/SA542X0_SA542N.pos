@@ -1,0 +1,5 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA542X0.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA542N.sorted.bam
+5	134032871
+15	35083447

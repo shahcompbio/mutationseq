@@ -7,7 +7,7 @@ from __future__ import division
 import numpy
 from math import log
 from scipy.stats import binom
-
+from scipy.special import gammaln
 
 
 class Features:
@@ -16,17 +16,18 @@ class Features:
         self.nt = normal_tuple
         self.rt = reference_tuple
         self.name = "TCGA Benchmark 4 feature set with coverage info"
-        self.version = "4.1.1"
+        self.version = "4.1.2"
+ 
         ## check for zero coverage or None tuple
         if self.tt is None or self.tt[5][0] == 0:
-            self.tt = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.tt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
 
         if self.nt is None or self.nt[5][0] == 0: 
-            self.nt = (None, [1]*6, [1]*6, [1]*6, [1]*6, [1]*6, 1, 1, 1, 1, 1, 1, None)
+            self.nt = (None, [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1,1,1,1,1,[1,1]], [1]*6, 1, 1, 1, 1, 1, 1, 1, 1, [1], None)
         
         if self.rt is None:
             self.rt = (0, 0, 0, 0, 0)
-            
+         
         ## reference base index + 1 = index of the same base in the tumour/normal bam tuple
         self.b  = self.rt[0] + 1  
         
@@ -42,8 +43,9 @@ class Features:
         self.__get_normal_nonref_count()
 
         ## calculate jointsnvmix values
-        self.__jointsnvmix()
-                
+        #self.__jointsnvmix()
+        self.__multinom_sb()
+
         ## expectation of success for binomial test
 #         self.p = 0.01
         
@@ -51,10 +53,10 @@ class Features:
 # features
 #=============================================================================
         self.coverage_features = (
-        ("normal_depth_coverage", self.nt[5][0] / self.cd[0]),
-        ("tumour_depth_coverage", self.tt[5][0] / self.cd[1]),
-        ("normal_contamination", self.cd[2] / 100),
-        ("whole_genome", self.cd[3])
+        #enet:("normal_depth_coverage", self.nt[5][0] / self.cd[0]),
+        #enet:("tumour_depth_coverage", self.tt[5][0] / self.cd[1]),
+        #enet:("normal_contamination", self.cd[2] / 100),
+        #enet:("whole_genome", self.cd[3])
         )
         
         self.feature_set = (
@@ -65,55 +67,73 @@ class Features:
         ("homopolymer_b", self.rt[2]),
         ("homopolymer_f", self.rt[1]),
         ("normal_depth", self.nt[5][0]),
-        ("normal_direction_ratio", self.nt[5][4] / self.nt[5][0]),
+        #enet:("normal_direction_ratio", self.nt[5][4] / self.nt[5][0]),
         ("normal_distance_ratio", self.nt[5][3] / self.nt[5][0]),
         ("normal_entropy", self.nt[10]),
-        ("normal_indels", self.nt[9] / self.nt[5][0]),
+        #enet:("normal_indels", (self.nt[9]+self.nt[11]) / self.nt[5][0]),
         ("normal_mapq_ratio", self.nt[5][2] / self.nt[5][0]),
         ("normal_quality_ratio", self.nt[5][1] / self.nt[5][0]),
-        ("normal_ref_depth", self.nt[self.b][0] / self.nt[5][0]),
-        ("normal_ref_direction", self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)),
-        ("normal_ref_direction_total", self.nt[self.b][4] / self.nt[5][0]),
+        #enet:("normal_ref_depth", self.nt[self.b][0] / self.nt[5][0]),
+        #enet:("normal_ref_direction", self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)),
+        #enet:("normal_ref_direction_total", self.nt[self.b][4] / self.nt[5][0]),
         ("normal_ref_quality", self.nt[self.b][1] / (self.nt[self.b][0] + self.ep)), #self.nt[5][0]),
         ("normal_tumour_depth", self.tt[5][0] / self.nt[5][0]),
         ("normal_tumour_direction", (self.tt[5][4] / self.tt[5][0]) / ((self.nt[5][4] / self.nt[5][0]) + self.ep)),
         ("normal_tumour_entropy", self.nt[10] / (self.tt[10] + 1e-8)),
         ("normal_tumour_mapq", (self.tt[5][2] / self.tt[5][0]) / ((self.nt[5][2] / self.nt[5][0]) + self.ep)),
-        ("normal_tumour_quality", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
+        #enet:("normal_tumour_quality", (self.tt[5][1] / self.tt[5][0]) / ((self.nt[5][1] / self.nt[5][0]) + self.ep)),
         ("normal_tumour_ref_depth", ((self.tt[self.b][0] / self.tt[5][0]) + self.ep) / ((self.nt[self.b][0] / self.nt[5][0]) + self.ep)),
         ("normal_tumour_ref_direction", (self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)) / ((self.nt[self.b][4] / (self.nt[self.b][0] + self.ep)) + self.ep)),
-        ("normal_variant_allele_frequency", self.nt_nonref_count / self.nt[5][0]),
-        ("normal_variant_depth_ratio", self.nt_nonref_count / (self.nt[5][0] + self.ep)),
-        ("normal_variant_direction_ratio", self.nt[self.nonref_index][4] / (self.nt_nonref_count + self.ep)),
+        #enet:("normal_variant_allele_frequency", self.nt_nonref_count / self.nt[5][0]),
+        #enet:("normal_variant_depth_ratio", self.nt_nonref_count / (self.nt[5][0] + self.ep)),
+        #enet:("normal_variant_direction_ratio", self.nt[self.nonref_index][4] / (self.nt_nonref_count + self.ep)),
         ("normal_variant_distance", self.nt[self.nonref_index][3] / (self.nt_nonref_count + self.ep)),
         ("normal_variant_mapq_mean", self.nt[self.nonref_index][2] / (self.nt_nonref_count + self.ep)),
         ("normal_variant_quality_ratio", self.nt[self.nonref_index][1] / (self.nt_nonref_count + self.ep)),
-        ("region_entropy", self.rt[4]),
-        ("region_gc_content", self.rt[3]),
+        #enet:("region_entropy", self.rt[4]),
+        #enet:("region_gc_content", self.rt[3]),
         ("tumour_depth", self.tt[5][0]),
-        ("tumour_direction_ratio", self.tt[5][4] / self.tt[5][0]),
+        #enet:("tumour_direction_ratio", self.tt[5][4] / self.tt[5][0]),
         ("tumour_distance_ratio", self.tt[5][3] / self.tt[5][0]),
-        ("tumour_entropy", self.tt[10]),
-        ("tumour_indels", self.tt[9] / self.tt[5][0]),
+        #enet:("tumour_entropy", self.tt[10]),
+        #enet:("tumour_indels", (self.tt[9]+self.tt[11]) / self.tt[5][0]),
         ("tumour_mapq_ratio", self.tt[5][2] / self.tt[5][0]),
         ("tumour_quality_ratio", self.tt[5][1] / self.tt[5][0]),
-        ("tumour_ref_depth", self.tt[self.b][0] / self.tt[5][0]),
-        ("tumour_ref_direction", self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)),
-        ("tumour_ref_direction_total", self.tt[self.b][4] / self.tt[5][0]),
+        #enet:("tumour_ref_depth", self.tt[self.b][0] / self.tt[5][0]),
+        #enet:("tumour_ref_direction", self.tt[self.b][4] / (self.tt[self.b][0] + self.ep)),
+        #enet:("tumour_ref_direction_total", self.tt[self.b][4] / self.tt[5][0]),
         ("tumour_ref_quality", self.tt[self.b][1] / (self.tt[self.b][0] + self.ep)), #self.tt[5][0]),
-        ("tumour_variant_allele_frequency", self.tt_nonref_count / self.tt[5][0]),
-        ("tumour_variant_depth_ratio", self.tt_nonref_count / (self.tt[5][0] + self.ep)),
-        ("tumour_variant_direction_ratio", self.tt[self.nonref_index][4] / (self.tt_nonref_count + self.ep)),
+        #enet:("tumour_variant_allele_frequency", self.tt_nonref_count / self.tt[5][0]),
+        #enet:("tumour_variant_depth_ratio", self.tt_nonref_count / (self.tt[5][0] + self.ep)),
+        #enet:("tumour_variant_direction_ratio", self.tt[self.nonref_index][4] / (self.tt_nonref_count + self.ep)),
         ("tumour_variant_distance", self.tt[self.nonref_index][3] / (self.tt_nonref_count + self.ep)),
         ("tumour_variant_mapq_mean", self.tt[self.nonref_index][2] / (self.tt_nonref_count + self.ep)),
         ("tumour_variant_quality_ratio", self.tt[self.nonref_index][1] / (self.tt_nonref_count + self.ep)),
+
+        #enet:("normal_direction_ratio_mean", self.nt[self.nonref_index][4]/(self.nt[self.nonref_index][0]+self.ep) / (self.nt[5][0]+self.ep)),
+        ("normal_mapq_ratio_mean", self.nt[self.nonref_index][2]/(self.nt[self.nonref_index][0]+self.ep) / (self.nt[5][0]+self.ep) ),
+        #enet:("normal_quality_ratio_mean", self.nt[self.nonref_index][1]/(self.nt[self.nonref_index][0]+self.ep) / (self.nt[5][0]+self.ep) ),
+        #enet:("normal_distance_ratio_mean", self.nt[self.nonref_index][3]/(self.nt[self.nonref_index][0]+self.ep) / (self.nt[5][0]+self.ep)),
+        #("normal_nonref_depth_mean", self.nt[self.nonref_index][0]/(self.nt[self.nonref_index][0]+self.ep) / (self.nt[5][0]+self.ep)),
         
-        ## jointsnvmix
-        ("tumour_normal_jointsnvmix_somatic", self.p_somatic),
-        ("tumour_normal_jointsnvmix_germline", self.p_germline),
-        ("tumour_normal_jointsnvmix_wildtype", self.p_wildtype),
-        ("tumour_normal_jointsnvmix_loh", self.p_loh),
-        ("tumour_normal_jointsnvmix_error", self.p_error),
+        #enet:("tumour_direction_ratio_mean", self.tt[self.nonref_index][4]/(self.tt[self.nonref_index][0]+self.ep) / (self.tt[5][0]+self.ep)),
+        ("tumour_mapq_ratio_mean", self.tt[self.nonref_index][2]/(self.tt[self.nonref_index][0]+self.ep) / (self.tt[5][0]+self.ep)),
+        ("tumour_quality_ratio_mean", self.tt[self.nonref_index][1]/(self.tt[self.nonref_index][0]+self.ep) / (self.tt[5][0]+self.ep)),
+        #enet:("tumour_distance_ratio_mean", self.tt[self.nonref_index][3]/(self.tt[self.nonref_index][0]+self.ep) / (self.tt[5][0]+self.ep)),
+        #("tumour_nonref_depth_mean", self.tt[self.nonref_index][0]/(self.tt[self.nonref_index][0]+self.ep) / (self.tt[5][0]+self.ep)),
+                
+        #("normal_tumour_depth_mean", ((self.nt[self.nonref_index][0]/(self.nt[self.nonref_index][0]+self.ep))/self.nt[5][0]) / ((self.tt[self.nonref_index][0]/(self.tt[self.nonref_index][0]+self.ep))/self.tt[5][0]) ),
+        ("normal_tumour_direction_mean", ((self.nt[self.nonref_index][4]/(self.nt[self.nonref_index][0]+self.ep))/self.nt[5][0]) / ((self.tt[self.nonref_index][4]/(self.tt[self.nonref_index][0]+self.ep))/self.tt[5][0] +self.ep) ),
+        ("normal_tumour_mapq_mean",((self.nt[self.nonref_index][2]/(self.nt[self.nonref_index][0]+self.ep))/self.nt[5][0]) / ((self.tt[self.nonref_index][2]/(self.tt[self.nonref_index][0]+self.ep))/self.tt[5][0]+self.ep) ),
+        ("normal_tumour_quality_mean", ((self.nt[self.nonref_index][1]/(self.nt[self.nonref_index][0]+self.ep))/self.nt[5][0]) / ((self.tt[self.nonref_index][1]/(self.tt[self.nonref_index][0]+self.ep))/self.tt[5][0]+self.ep) ),
+        ("normal_tumour_distance_mean", ((self.nt[self.nonref_index][3]/(self.nt[self.nonref_index][0]+self.ep))/self.nt[5][0]) / ((self.tt[self.nonref_index][3]/(self.tt[self.nonref_index][0]+self.ep))/self.tt[5][0]+self.ep) ),
+        
+#         ## jointsnvmix
+#         ("tumour_normal_jointsnvmix_somatic", self.p_somatic),
+#         ("tumour_normal_jointsnvmix_germline", self.p_germline),
+#         ("tumour_normal_jointsnvmix_wildtype", self.p_wildtype),
+#         ("tumour_normal_jointsnvmix_loh", self.p_loh),
+#         ("tumour_normal_jointsnvmix_error", self.p_error),
 
 #         ("normal_tumour_variant_direction_ratio", (self.tt[self.nonref_index][4]) / (self.nt[self.nonref_index][4] + 1)), 
 #         ("normal_tumour_variant_mapq_ratio", (self.tt[self.nonref_index][2] ) / (self.nt[self.nonref_index][2] + 1)), 
@@ -131,6 +151,10 @@ class Features:
         ("tumour_variant_distance", self.tt[self.nonref_index][3]),
         ("tumour_variant_mapq", self.tt[self.nonref_index][2]),
         ("tumour_variant_quality", self.tt[self.nonref_index][1]),
+
+        ("probability_pos", self.pos),
+        #("normal_indel_ratio",sum(self.nt[-2])/self.nt[5][0] ),
+        #("tumour_indel_ratio",sum(self.tt[-2])/self.tt[5][0] ),
         
 #         ("normal_direction", self.nt[5][4]),
 #         ("tumour_direction", self.tt[5][4]),
@@ -164,7 +188,9 @@ class Features:
     def __get_tumour_nonref_index(self):
         nonrefbases = [x for x in range(4) if x != self.b - 1]
         max_nonrefbase_depth = 0
-        nonref_index = nonrefbases[1]  
+        nonref_index = nonrefbases[1]
+        if nonref_index == self.b:
+            nonref_index = nonrefbases[2]  
         
         for nb in nonrefbases:
             index = nb + 1
@@ -209,6 +235,50 @@ class Features:
                 else:
                     ent -= log(normal_base_probability) * tumour_base_probability
         return ent
+
+    def __log_factorial(self, x):
+        return gammaln(numpy.array(x)+1)
+    
+    def __multinomial(self, xs, ps):
+        n = sum(xs)
+        xs, ps = numpy.array(xs), numpy.array(ps)
+        result = self.__log_factorial(n) - sum(self.__log_factorial(xs)) + sum(xs * numpy.log(ps))
+        return numpy.exp(result)
+
+    def __multinom_sb(self):
+	t_ref_pos = self.tt[self.b][5][0]
+        t_ref_neg = self.tt[self.b][5][1]
+        t_nref_pos =self.tt[self.nonref_index][5][0] 
+        t_nref_neg =self.tt[self.nonref_index][5][1]
+        n_ref_pos = self.nt[self.b][5][0]
+        n_ref_neg = self.nt[self.b][5][1]
+        n_nref_pos =self.nt[self.nonref_index][5][0]
+        n_nref_neg =self.nt[self.nonref_index][5][1]
+
+        counts = [n_ref_pos,n_ref_neg,n_nref_pos,n_nref_neg,t_ref_pos,t_ref_neg,t_nref_pos,t_nref_neg]
+        #prior
+        ep = 0.001
+        prob = [[1/6,1/6,ep,ep,1/6,1/6,1/6,1/6],
+                [1/6,1/6,ep,ep,ep,ep,1/6,1/6],
+                [1/6,1/6,ep,ep,1/6,1/6,0.1,0.1],
+                [1/8,1/8,1/8,1/8,1/8,1/8,1/8,1/8],
+                [ep,ep,1/4,1/4,ep,ep,1/4,1/4],
+                [1/3,1/3,ep,ep,ep,ep,1/3,ep],
+                [1/3,1/3,ep,ep,ep,ep,ep,1/3],
+                [1/5,1/5,ep,ep,1/5,1/5,1/5,ep],
+                [1/5,1/5,ep,ep,1/5,1/5,ep,1/5],
+                [1/4,1/4,ep,ep,1/4,1/4,ep,ep]]
+
+        prob = [[val/sum(prob[i]) for val in classval]for i,classval in enumerate(prob)]
+        
+        #output
+        result = [self.__multinomial(counts, ps) for ps in prob]
+        if sum(result) == 0:
+            result = [val/(sum(result)+1e-300) for val in result]
+        else:    
+            result = [val/sum(result) for val in result]
+
+        self.pos = result[0]+result[1]+result[2]
     
     def __jointsnvmix(self):
         ## a_priori

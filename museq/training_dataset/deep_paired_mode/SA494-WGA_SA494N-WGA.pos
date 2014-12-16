@@ -1,0 +1,11 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA494-WGA.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA494N-WGA.sorted.bam
+16	19627862
+17	54559783
+20	20610136
+2	68897606
+X	119855163
+1	146466017
+16	25887956
+8	2130440

@@ -28,7 +28,7 @@ using namespace boost;
 using namespace BamTools;
 
 
-bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int coverage, bool rmdups, int readQualThreshold)
+bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int coverage, bool rmdups, int mapQualThreshold, int baseQualThreshold)
 {
 	int ntData[5][6] = {{0}};
 	int ambiguous = 0;
@@ -36,7 +36,15 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	int deletionCount = 0;
 	int tempQual = 0;
 	int tempMQ = 0;
-	
+
+	int aData[2] = {0};
+	int cData[2] = {0};
+	int gData[2] = {0};
+	int tData[2] = {0};
+	int allData[2] = {0};
+	int indlData[4] = {0};
+	int allCoverage = 0;
+		
 	for (vector<PileupAlignment>::const_iterator pileupIter = pileupData.PileupAlignments.begin(); pileupIter != pileupData.PileupAlignments.end(); ++pileupIter)
 	{
 		const PileupAlignment& pa = (*pileupIter);
@@ -48,12 +56,26 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			continue;
 		}
 		
+		allCoverage++;
 		// remove the reads with qual<threshold
-		if (ba.MapQuality < readQualThreshold)
+		if (ba.MapQuality < mapQualThreshold)
 		{
 			continue;
 		}
-
+		
+		
+		//remove the reads with basequal<threshold
+		//reads with deletion dont have basequalities
+		if (!pa.IsCurrentDeletion)
+		{
+			int baseq = (ba.Qualities.at(pa.PositionInAlignment) - 33);
+			if (pa.IsCurrentDeletion || baseq < baseQualThreshold)
+			{
+				continue;
+			}
+		
+		}
+		
 		//TODO: remove this, this is for mut-174
 		//if (ba.Qualities.at(pa.PositionInAlignment) - 33 < 10)
 		//	continue;
@@ -75,9 +97,25 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		{
 			continue;
 		}
-		
+
 		char base = toupper(ba.QueryBases.at(pa.PositionInAlignment));
 		
+		//number of alignments with indel for each base
+		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
+		{
+			if (opIter->Type == 'I' or opIter->Type == 'D')
+			{
+				switch(base)
+				{
+					case 'A': indlData[0]++; break;
+					case 'C': indlData[1]++; break;
+					case 'G': indlData[2]++; break;
+					case 'T': indlData[3]++; break;	
+				}
+				break;
+			}
+		}
+
 		if (base == 'N')
 		{
 			ambiguous++;
@@ -115,6 +153,15 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 		// direction
 		ntData[baseIdx][4] += (ba.IsReverseStrand()) ? 1 : 0;
 		ntData[4][4] += (ba.IsReverseStrand()) ? 1 : 0;
+
+		//If reverse strand :
+		switch(baseIdx){
+			case 0 : ba.IsReverseStrand()? aData[1]++:aData[0]++; break;
+			case 1 : ba.IsReverseStrand()? cData[1]++:cData[0]++; break;
+			case 2 : ba.IsReverseStrand()? gData[1]++:gData[0]++; break;
+			case 3 : ba.IsReverseStrand()? tData[1]++:tData[0]++; break;
+		}
+		ba.IsReverseStrand()?allData[0]++:allData[1]++;
 	}
 	
 	// ignore positions with low or zero coverage 
@@ -157,19 +204,27 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 	
 	// Interface is 1-based, bamtools is 0-based
 	int position = pileupData.Position + 1;
-	
+	python::tuple atpl = python::make_tuple(aData[0], aData[1]);
+	python::tuple ctpl = python::make_tuple(cData[0], cData[1]);
+	python::tuple gtpl = python::make_tuple(gData[0], gData[1]);
+	python::tuple ttpl = python::make_tuple(tData[0], tData[1]);
+	python::tuple alltpl = python::make_tuple(allData[0],allData[1]);
+	python::tuple indlTpl = python::make_tuple(indlData[0], indlData[1], indlData[2], indlData[3]);
+
 	tpl = python::make_tuple(position,
-							  python::make_tuple(ntData[0][0], ntData[0][1], ntData[0][2], ntData[0][3], ntData[0][4], ntData[0][5]),
-							  python::make_tuple(ntData[1][0], ntData[1][1], ntData[1][2], ntData[1][3], ntData[1][4], ntData[1][5]),
-							  python::make_tuple(ntData[2][0], ntData[2][1], ntData[2][2], ntData[2][3], ntData[2][4], ntData[2][5]),
-							  python::make_tuple(ntData[3][0], ntData[3][1], ntData[3][2], ntData[3][3], ntData[3][4], ntData[3][5]),
-							  python::make_tuple(ntData[4][0], ntData[4][1], ntData[4][2], ntData[4][3], ntData[4][4], ntData[4][5]),
+							  python::make_tuple(ntData[0][0], ntData[0][1], ntData[0][2], ntData[0][3], ntData[0][4], atpl),
+							  python::make_tuple(ntData[1][0], ntData[1][1], ntData[1][2], ntData[1][3], ntData[1][4], ctpl),
+							  python::make_tuple(ntData[2][0], ntData[2][1], ntData[2][2], ntData[2][3], ntData[2][4], gtpl),
+							  python::make_tuple(ntData[3][0], ntData[3][1], ntData[3][2], ntData[3][3], ntData[3][4], ttpl),
+							  python::make_tuple(ntData[4][0], ntData[4][1], ntData[4][2], ntData[4][3], ntData[4][4], alltpl),
 							  majorBaseIdx,
 							  minorBaseIdx,
 							  ambiguous,
 							  insertionCount,
 							  entropy,
 							  deletionCount,
+							  allCoverage,
+							  indlTpl,
 							  pileupData.RefId
 							  );
 	// return success
@@ -179,7 +234,7 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 
 struct PileupQueue : PileupVisitor
 {
-	PileupQueue(int refId=-1, int start=-1, int stop=-1, int c=4, bool r=true, int rq = 10) : RefId(refId), StartPosition(start), StopPosition(stop), Coverage(c), Rmdups(r), ReadQualThreshold(rq)
+	PileupQueue(int refId=-1, int start=-1, int stop=-1, int c=4, bool r=true, int mq = 10, int bq = 10) : RefId(refId), StartPosition(start), StopPosition(stop), Coverage(c), Rmdups(r), MapQualThreshold(mq), BaseQualThreshold(bq)
 	{
 	}
 	
@@ -198,7 +253,7 @@ struct PileupQueue : PileupVisitor
 		}
 		
 		python::tuple tpl;
-		if(CreatePileupTuple(pileupData, tpl, Coverage, Rmdups, ReadQualThreshold))
+		if(CreatePileupTuple(pileupData, tpl, Coverage, Rmdups, MapQualThreshold, BaseQualThreshold))
 		{
 			Pileups.push(tpl);
 		}
@@ -216,14 +271,15 @@ struct PileupQueue : PileupVisitor
 	int StopPosition;
 	int Coverage;
 	bool Rmdups;
-	int ReadQualThreshold;
+	int MapQualThreshold;
+	int BaseQualThreshold;
 };
 
 
 class PyPileup
 {
 public:
-	PyPileup(int c=4, bool r=true, int rq = 10) : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1), Coverage(c), Rmdups(r), ReadQualThreshold(rq)
+	PyPileup(int c=4, bool r=true, int mq = 10, int bq = 10) : m_PileupEngine(0), m_PileupQueue(0), RefId(-1), StartPosition(-1), StopPosition(-1), Coverage(c), Rmdups(r), MapQualThreshold(mq), BaseQualThreshold(bq)
 	{
 	}
 
@@ -361,7 +417,7 @@ private:
 		
 		delete m_PileupQueue;
 
-		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition, Coverage, Rmdups, ReadQualThreshold);
+		m_PileupQueue = new PileupQueue(RefId, StartPosition, StopPosition, Coverage, Rmdups, MapQualThreshold, BaseQualThreshold);
 		
 		m_PileupEngine->AddVisitor(m_PileupQueue);
 	}
@@ -389,9 +445,11 @@ private:
 	// flag to remove/keep duplicates. Used for the deepseq data.
 	bool Rmdups;
 
-	//flag to filter out reads with low quality
-	int ReadQualThreshold;
+	//Mapping Q Threshold (filter out reads with low quality)
+	int MapQualThreshold;
 
+	//BaseQual Threshold (filter out reads with low quality)
+	int BaseQualThreshold;
 };
 
 class PyFasta
@@ -723,7 +781,7 @@ BOOST_PYTHON_MODULE(pybam)
 {
 	using namespace python;
 	
-	class_<PyPileup>("pileup", init<int, bool, int>())
+	class_<PyPileup>("pileup", init<int, bool, int, int>())
 		.def_readonly("refnames", &PyPileup::RefNames)
 		.def_readonly("samheader", &PyPileup::SamHeader)
 		.def("open", &PyPileup::Open)

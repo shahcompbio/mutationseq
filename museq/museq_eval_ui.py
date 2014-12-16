@@ -3,21 +3,9 @@ Created on Feb 21, 2014
 
 @author: dgrewal
 '''
-#Extra Arguments (Rest of arguments are from classify)
-#reference_files are required and contain the True/False labels
-#plot_features_only: Do not classify, only generate boxplots (True/False Positives/Negatives boxplots are not generated)
-#input_files(-i): Do not classify, only generate plots(All plots)
-#If both -i and plot_features_only are specified then only boxplots are generated(with True/False Positives/Negatives)
-#model: path to the model being used
-#separate_plots: if this flag is set then the code generates separate boxplots for each of the space sep values(same plot for comma sep values)
-#top_features: No of features to be plotted(Default is all features)
-#out : path to the output directory. Required. output vcf files have same name as corresponding ref file(ensure that all ref files have different names)
-#log file is concatenated to museq log
-#boxplot_labels: labels for the left most boxplot(len should be equal to no of plots)
-
 
 import argparse
-mutationSeq_version="4.2.2"
+mutationSeq_version="4.3.1"
 
 parser = argparse.ArgumentParser(prog='mutationSeq Classify and Validate', 
                                  description = '''Validates the mutationseq model'
@@ -46,6 +34,11 @@ parser.add_argument("-e" , "--export_features",
                     default=None, 
                     help='''save exported feature vector to the specified path''')
 
+parser.add_argument("--indl_threshold",
+                    default = 0.05,
+                    help = '''the threshold for the INDL flag (variant reads\
+                            with indel/ number of variant reads) ''')
+
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
                     help='''specify name or path of the log file''')
@@ -70,10 +63,15 @@ parser.add_argument("-p", "--purity",
                     type=int,
                     help='''pass sample purity to features''')
 
-parser.add_argument("-q", "--quality_threshold", 
+parser.add_argument("-q", "--mapq_threshold", 
                     default=0, 
                     type=int,
                     help='''set threshold for the mapping quality''')
+
+parser.add_argument("--baseq_threshold", 
+                    default=0, 
+                    type=int,
+                    help='''set threshold for the base quality''')
 
 parser.add_argument("-s", "--single",
                     default=False, action="store_true",
@@ -104,10 +102,21 @@ parser.add_argument("-c", "--config",
                     help='''specify the path/to/metadata.config file used to add 
                             meta information to the output file''')
 
+parser.add_argument("--manifest", 
+                    default=None,
+                    help='''specify the path/to/metadata.config file used to add 
+                            meta information to the output file''')
+
 ## MuseqEval arguments
 parser.add_argument('-r','--reference_files',
                     nargs = '*', required = True,
                     help = 'path to the reference file. Format: pos file. Files must have different names')
+
+parser.add_argument('--rescale',
+                    default = False,
+                    action = 'store_true',
+                    help = 'rescale the plots to ensure that the boxplots fit in the region\
+                            (might remove some outliers from the figure)')
 
 parser.add_argument('-m','--model',
                     required = True,
@@ -139,13 +148,19 @@ parser.add_argument('--input_files','-i',
                     help = 'the input vcf files for museqeval (classifier won\'t run if provided)')
 
 parser.add_argument('--plot_features_only',
-                    action='store_true', default = False,
+                    action='store_true', 
+                    default = False,
                     help = 'Plots feature distributions only, Museq will not run in this mode')
 
 parser.add_argument('--separate_plots',
-                    action='store_true',default = False,
+                    action='store_true',
+                    default = False,
                     help = 'If set, then separate boxplots are generated for each set of space sep files'
                     )
+
+parser.add_argument('--samtools',
+                    default = None,
+                    help = 'path to the samtools executable, If provided then the average coverage is reported in header')
 
 parser.add_argument("-o", "--out", 
                     default=None,
@@ -153,7 +168,8 @@ parser.add_argument("-o", "--out",
                     help='''specify the path/to/output folder(vcf files will have same names as corresponding ref files)''')
 
 parser.add_argument( '--positive_labels',
-                    default = 'TRUE',nargs = '*',
+                    default = ['TRUE', 'SOMATIC'],
+                    nargs = '*',
                     help = '''Specify labels to be considered positive''' )
 
 

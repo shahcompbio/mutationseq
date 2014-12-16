@@ -6,7 +6,7 @@ Created on Wed Oct 23 11:34:48 2013
 """
 import argparse
 
-mutationSeq_version="4.2.2"
+mutationSeq_version="4.3.1"
 
 #==============================================================================
 # make a UI 
@@ -44,9 +44,18 @@ parser.add_argument("-e" , "--export_features",
                     default=None, 
                     help='''save exported feature vector to the specified path''')
 
+parser.add_argument("--indl_threshold",
+                    default = 0.05,
+                    help = '''the threshold for the INDL flag (variant reads with indel/ number of variant reads) ''')
+
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
                     help='''specify name or path of the log file''')
+
+parser.add_argument("--manifest",
+                    default = None,
+                    help = '''specify file containing the amplicon coordinates, if not provided
+                    +-25bp will be used as flanking region ''')
                     
 parser.add_argument("--no_filter", 
                     default=False, action="store_true", 
@@ -68,15 +77,20 @@ parser.add_argument("-p", "--purity",
                     type=int,
                     help='''pass sample purity to features''')
 
-parser.add_argument("-q", "--quality_threshold", 
+parser.add_argument("-q", "--mapq_threshold", 
                     default=10, 
                     type=int,
                     help='''set threshold for the mapping quality''')
 
+parser.add_argument("--baseq_threshold",
+                    default=10,
+                    type=int,
+                    help='''set threshold for the base quality''')
+
 parser.add_argument("-s", "--single",
                     default=False, action="store_true",
                     help='''single sample analysis''')
-                    
+
 parser.add_argument("-t", "--threshold", 
                     default=0.5, type=float,
                     help='''set threshold for positive call''') 
@@ -97,6 +111,15 @@ parser.add_argument("-v", "--verbose",
 parser.add_argument("--version", 
                     action="version", version=mutationSeq_version)
 
+parser.add_argument("-f", "--positions_file", 
+                     default=None, 
+                     help='''input a file containing a list of positions each of which in
+                     a separate line, e.g. chr1:12345\nchr2:23456''')                  
+                     
+parser.add_argument("-i", "--interval",
+                     default=None,
+                     help='''specify an interval "chr[:start-stop]"''')
+
 ## mandatory options                   
 mandatory_options = parser.add_argument_group("required arguments")
 mandatory_options.add_argument("-c", "--config", 
@@ -110,15 +133,4 @@ mandatory_options.add_argument("-o", "--out",
                                #required=True, 
                                help='''specify the path/to/out.vcf to save output to a file''')  
                                
-## mutually exclusive options
-exgroup = parser.add_mutually_exclusive_group()
-exgroup.add_argument("-f", "--positions_file", 
-                     default=None, 
-                     help='''input a file containing a list of positions each of which in
-                     a separate line, e.g. chr1:12345\nchr2:23456''')                  
-                     
-exgroup.add_argument("-i", "--interval",
-                     default=None,
-                     help='''specify an interval "chr[:start-stop]"''')
-
 args = parser.parse_args()

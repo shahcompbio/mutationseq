@@ -1,0 +1,5 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA532-X4A_S10.realigned.sorted.bam
+1	201717721
+21	43161805
+11	88338165

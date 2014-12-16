@@ -11,7 +11,7 @@ import os
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-mutationSeq_version="4.2.2"
+mutationSeq_version="4.3.1"
 args = museq_eval_ui.args 
 
 if args.verbose:
@@ -42,6 +42,7 @@ def run_classifier(arguments,reffiles):
         tfile =None
         nfile = None
         rfile = None
+        manfile = None
         output = []
         for line in file_stream:
             l=line.strip().split()
@@ -52,13 +53,14 @@ def run_classifier(arguments,reffiles):
                     nfile = l[2]
                 if l[1] == 'reference':
                     rfile = l[2]
+                if l[1] == 'manifest':
+                    manfile = l[2]
             else:
                 output.append(l[0]+':'+l[1]+'\n')
         file_stream.close()
         #update arguments 
         if not all((tfile,nfile,rfile)):
             logging.error('Invalid input (one of paths is missing)')    
-               
             
         arguments.out = output_folder+reffiles[i].strip().split('/')[-1]+'.vcf'
         #create a positions file for classifier
@@ -72,7 +74,7 @@ def run_classifier(arguments,reffiles):
         arguments.interval = None
         arguments.positions_file = arguments.out + '.tmp'
         arguments.samples = ['tumour:'+tfile, 'normal:'+nfile, 'reference:'+rfile, 'model:'+arguments.model]
-        
+        arguments.manifest = manfile
         
         logging.info("initializing a Classifier")
         classifier = bamutils.Classifier(arguments)
@@ -117,7 +119,6 @@ def run_museqeval(arguments,features_only):
         pdfout.savefig(plot)
     pdfout.close()
     
-    boxplot.remove_temp_files()
     
 #============================================
 #Run code according to the arguments provided

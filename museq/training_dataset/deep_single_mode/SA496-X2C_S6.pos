@@ -1,0 +1,6 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA496-X2C_S6.realigned.sorted.bam
+11	73686600
+16	3779514
+20	47888089
+21	39086965

@@ -1,0 +1,11 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA530-X1_S3.realigned.sorted.bam
+1	16356268
+16	68857441
+21	33339340
+20	4879837
+10	122624679
+5	76464070
+13	95171411
+7	112386091
+21	43776519

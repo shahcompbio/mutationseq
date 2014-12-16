@@ -7,7 +7,7 @@ Created on Mon Dec  2 10:41:52 2013
 import argparse
 import sys
 
-mutationSeq_version="4.2.1"
+mutationSeq_version="4.3.1"
 
 #==============================================================================
 # make a UI 
@@ -59,5 +59,9 @@ parser.add_argument("--version",
 parser.add_argument("-v", "--verbose", 
                     action="store_true", default=False,
                     help="verbose")
+
+parser.add_argument("--enet", 
+                    action="store_true", default=False,
+                    help="elastic net based feature selection")
 
 args = parser.parse_args()

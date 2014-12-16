@@ -1,0 +1,15 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-246/bam/SA429X2-SPRI.sorted.bam
+# normal /share/lustre/dgrewal/Results/MUT-246/bam/SA429-N-SPRI.sorted.bam
+3	160565060
+6	116441933
+14	73927972
+17	37357556
+15	73324943
+17	47166033
+12	53010041
+12	73296355
+2	191845379
+2	232995432
+6	169781075
+10	58569673

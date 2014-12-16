@@ -13,7 +13,9 @@ class Bam(object):
         self.ref = kwargs.get("reference") 
         rmdups   = kwargs.get("rmdups") 
         coverage = kwargs.get("coverage")
-        qual_threshold = kwargs.get("qual_threshold")
+        mapq_threshold = kwargs.get("mapq_threshold")
+        baseq_threshold = kwargs.get("baseq_threshold")
+        
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
@@ -24,13 +26,17 @@ class Bam(object):
         if coverage is None:
             coverage = 4
         
-        ## set the default for qual_threshold
-        if qual_threshold is None:
-            qual_threshold = 10
+        ## set the default for mapq_threshold
+        if mapq_threshold is None:
+            mapq_threshold = 10
+        
+        ## set the default for baseq_threshold
+        if baseq_threshold is None:
+            baseq_threshold = 10
             
         ## make a pileup for bam file
         if self.bam is not None:
-            self.pileup = np.pileup(coverage, rmdups, qual_threshold)
+            self.pileup = np.pileup(coverage, rmdups, mapq_threshold, baseq_threshold)
             self.pileup.open(self.bam)
     
         if  self.ref is not None:
@@ -141,8 +147,7 @@ class Bam(object):
         return self.pileup.get_tuple()
     
     def get_tuples(self, target_positions):
-        """ get the tuples from the bam file for a given set of target positions """
-        
+        """ get the tuples from the bam file for a given set of target positions """ 
         for tp in target_positions: 
             if tp[1] is None:
                 self.pileup.set_region(tp[0])
@@ -150,16 +155,22 @@ class Bam(object):
                 self.pileup.set_region(tp[0], tp[1], tp[2])
 
             while True:
-                t = self.pileup.get_tuple() 
+                try:
+                    t = self.pileup.get_tuple() 
+                except:
+                    print t
+                    raise Exception()
                 if t is None:
                     break
                 else:
                     yield t
 
 class PairedBam(object):
-    def __init__(self, tumour, normal, reference, rmdups, coverage,qual_threshold):
-        self.t_bam = Bam(bam=tumour, reference=reference, coverage=coverage, rmdups=rmdups, qual_threshold=qual_threshold)
-        self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups, qual_threshold=qual_threshold)
+    def __init__(self, tumour, normal, reference, rmdups, coverage, mapq_threshold, baseq_threshold):
+        self.t_bam = Bam(bam=tumour, reference=reference, coverage=coverage, rmdups=rmdups,
+                         mapq_threshold=mapq_threshold, baseq_threshold=baseq_threshold)
+        self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups, 
+                         mapq_threshold=mapq_threshold, baseq_threshold=baseq_threshold)
     
     def get_chromosome_name(self, chromosome_id):
         return self.t_bam.get_chromosome_name(chromosome_id)
@@ -178,7 +189,7 @@ class PairedBam(object):
     
     def is_matched_reference(self):
         return self.t_bam.is_matched_reference()
-        
+
     def get_tuples(self, target_positions):
         for tp in target_positions:
             if tp[1] is None:
@@ -213,25 +224,4 @@ class PairedBam(object):
                     break
                 yield (tt, nt)    
 
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+            

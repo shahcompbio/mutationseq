@@ -1,0 +1,9 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA532-X2D_S5.realigned.sorted.bam
+5	13793711
+13	74420280
+6	70980044
+4	167397991
+X	79080348
+12	4830000
+11	88338165

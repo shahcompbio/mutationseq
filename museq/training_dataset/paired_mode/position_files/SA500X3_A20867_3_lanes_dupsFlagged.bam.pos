@@ -1,0 +1,4 @@
+# tumour /share/lustre/archive/SA500X3/illumina_wgss/A20867/bwa_aligned/SA500X3_A20867_3_lanes_dupsFlagged.bam
+# normal /share/lustre/archive/SA500N/illumina_wgss/A20874/bwa_aligned/SA500N_A20874_3_lanes_dupsFlagged.bam
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+18	46476459	WILDTYPE

@@ -1,0 +1,15 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA495-X4_S11.realigned.sorted.bam
+X	95431900
+3	52470128
+16	55903466
+3	112710242
+19	41173880
+1	152192555
+16	6664720
+7	77782063
+11	20623007
+5	78340257
+10	54879944
+6	31106499
+17	39659183

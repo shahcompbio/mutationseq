@@ -8,7 +8,7 @@ import time
 import logging
 import bamutils
 
-mutationSeq_version="4.2.2"
+mutationSeq_version="4.3.1"
 
 #==============================================================================
 # Get the arguments
@@ -35,12 +35,14 @@ class initargs():
         self.out = "./unit_test/output_unittest.vcf"
         self.positions_file = None
         self.purity = 70
-        self.quality_threshold = 0
+        self.mapq_threshold = 0
+        self.baseq_threshold = 0
         self.single = False
         self.threshold = 0.5
         self.tumour_variant =2
         self.verbose = True
         self.invalid = False
+        self.indl_threshold = 0.5
     
     def set_single(self):
         self.single = True

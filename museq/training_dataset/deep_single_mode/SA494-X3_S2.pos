@@ -1,0 +1,13 @@
+# reference /share/lustre/reference/genomes/GRCh37-lite.fa
+# tumour /share/lustre/dgrewal/Results/MUT-263/bam/SA494-X3_S2.realigned.sorted.bam
+3	62530531
+11	66361154
+10	115390144
+3	52415780
+10	123205188
+12	7172244
+14	21526079
+3	52415865
+8	2130444
+10	123205203
+4	68788719
