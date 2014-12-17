@@ -33,7 +33,7 @@ from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.2"
+mutationSeq_version = "4.3.1"
 
 """
 ==============================================================================
@@ -196,6 +196,7 @@ class Classifier(object):
         if len(vals) > 1:
             raise Exception('The position %s:%s falls in more than one '  
                             'region in manifest file' %(chromosome,position))
+                
         elif vals == []:
             logging.info('Skipping position %s:%s as it doesn\'t fall in any '
                          'amplicon region' %(chromosome,position))
@@ -501,7 +502,6 @@ class Classifier(object):
             self.coverage_info[3] += 1
 
     def get_tuples(self, chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg):
-        
         if self.args.single:
             if self.type is 'n':
                 bam_file = self.samples.get("normal")
@@ -552,6 +552,7 @@ class Classifier(object):
             tt_bg = tt_bg[i:]
             nt_bg = nt_bg[i:]
             rt_bg = rt_bg[i:]
+            
             if tt_bg[-1][0]+1 < end:
                 tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, tt_bg[-1][0]+1, end, tt_bg, nt_bg, rt_bg)
         else:
@@ -664,9 +665,9 @@ class Classifier(object):
         yield self.__flush()
 
     def __get_features_paired_deep(self, tuples):
-        tt_bg=[]
-        rt_bg=[]
-        nt_bg=[]
+        tt_flank=[]
+        rt_flank=[]
+        nt_flank=[]
         for tt, nt in tuples:
             self.__update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
@@ -705,15 +706,19 @@ class Classifier(object):
             if start == None:
                 continue
 
-            tt_bg, rt_bg, nt_bg = self.get_background_tuples(
-                chromosome, chromosome_id, start, end, position, tt_bg, rt_bg, nt_bg)
+            tt_flank, rt_flank, nt_flank = self.get_background_tuples(
+                chromosome, chromosome_id, start, end, position, tt_flank, rt_flank, nt_flank)
 
             if self.manifest:
                 indexes = self.manifest.get((chromosome, position))
             else:
                 indexes = None
+            
+            tt_bg = [val for val in tt_flank if not val == tt]
+            nt_bg = [val for val in nt_flank if not val == nt]
+            
             feature_set = self.features_module.Features(tt, nt, rt, tt_bg,
-                                                        nt_bg, rt_bg, indexes)
+                                                        nt_bg, rt_flank, indexes)
 
             temp_feature = feature_set.get_features()
             self.features_buffer.append(temp_feature)
@@ -729,8 +734,8 @@ class Classifier(object):
         yield self.__flush()
 
     def __get_features_single_deep(self, tuples):
-        it_bg = []
-        rt_bg = []
+        it_flank = []
+        rt_flank = []
         for it in tuples:
             self.__update_coverage_info(it)
             chromosome_id = it[-1]
@@ -767,15 +772,16 @@ class Classifier(object):
 
             # get all tuples in flanking region and remove the
             # position(foreground)
-            it_bg, rt_bg, _ = self.get_background_tuples(
-                chromosome, chromosome_id, start, end, position, it_bg, rt_bg)
+            it_flank, rt_flank, _ = self.get_background_tuples(
+                chromosome, chromosome_id, start, end, position, it_flank, rt_flank)
 
             if self.manifest:
                 indexes = self.manifest.get((chromosome, position))
             else:
                 indexes = None
-
-            feature_set = self.features_module.Features(it, rt, it_bg, rt_bg,
+            
+            it_bg = [val for val in it_flank if not val == it]
+            feature_set = self.features_module.Features(it, rt, it_bg, rt_flank,
                                                         self.type, indexes)
 
             temp_feature = feature_set.get_features()
@@ -809,7 +815,7 @@ class Classifier(object):
             logging.info("loading model")
             return joblib.load(self.model)
 
-        except Exception as e:          
+        except Exception as e:
             logging.error("error loading model: "+e.strerror)
             raise Exception("failed to load model")
 
