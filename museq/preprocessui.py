@@ -5,7 +5,7 @@ Created on May 20, 2014
 '''
 import argparse
 
-mutationSeq_version="4.2.2"
+mutationSeq_version="4.3.2"
 
 #==============================================================================
 # make a UI 

@@ -8,7 +8,7 @@ import resource
 import re
 from classify_test_api import base_class,initargs
 
-mutationSeq_version="4.3.1"
+mutationSeq_version="4.3.2"
 
 #============================================
 # Check the versions of all the dependencies
@@ -505,7 +505,7 @@ class verify_outputs(unittest.TestCase,base_class):
         try:
             os.remove(self.args_single.out)
         except:
-            logging.error('couldn\'t delete: '+self.args.out)
+            logging.error('couldn\'t delete: '+self.args_single.out)
 
                
 #==================================================

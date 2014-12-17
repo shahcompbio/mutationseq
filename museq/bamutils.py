@@ -31,8 +31,9 @@ from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
+from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.1"
+mutationSeq_version = "4.3.2"
 
 """
 ==============================================================================
@@ -170,40 +171,39 @@ class Classifier(object):
             self.manifest = self.__parse_manifest()
 
     def __parse_manifest(self):
-        manifest = defaultdict(list)
-        if not self.args.deep:
-            logging.error('manifest is only required in deep mode')
-            raise Exception('Manifest file is only required in deep mode')
-
         if not self.args.manifest:
-            return None
+            raise Exception('Manifest file is required in deep mode')
 
         man_stream = open(self.args.manifest)
+        gtree = GenomeIntervalTree()
         for line in man_stream:
             line = line.strip().split()
             if line[0] == 'chrom':
                 continue
+            if len(line) > 3:
+                raise Exception('Please ensure that the '
+                                'manifest is formatted properly')
             chrom = line[0]
-            coord = line[1]
-            ref = line[2]
-            alt = line[3]
-            start = line[4]
-            end = line[5]
-            manifest[(chrom, coord)] = (ref, alt, start, end)
-        return manifest
+            start = int(line[1])
+            end = int(line[2])
+            gtree[chrom].addi(start, end)
+        return gtree
 
     def __get_flanking_regions(self, chromosome, position, manifest):
-        if manifest is not None:
-            vals = manifest.get((chromosome, position))
-            if vals is not None:
-                start = vals[2]
-                end = vals[3]
-                return start, end
-
-        # If manifest file is not provided or region not available in manifest
-        start = position - 25
-        end = position + 26
-        return start, end
+        vals = manifest[chromosome][position]
+        vals = sorted(vals)
+            
+        if len(vals) > 1:
+            raise Exception('The position %s:%s falls in more than one '  
+                            'region in manifest file' %(chromosome,position))
+        elif vals == []:
+            logging.info('Skipping position %s:%s as it doesn\'t fall in any '
+                         'amplicon region' %(chromosome,position))
+            return None,None
+        else:
+            start = vals[0].begin
+            end = vals[0].end
+            return start, end
 
     def __get_buffer_size(self):
         s = re.split('(\d+)', self.args.buffer_size)
@@ -538,7 +538,7 @@ class Classifier(object):
 
     def get_background_tuples(self, chromosome, chromosome_id, start, end,
                               position, tt_bg, rt_bg, nt_bg = []):
-        if tt_bg !=[] and start > tt_bg[0][0] and start<tt_bg[-1][0]:
+        if tt_bg !=[] and start >= tt_bg[0][0] and start<tt_bg[-1][0]:
             for i,val in enumerate(tt_bg):
                 if val[0] == start:
                     break
@@ -552,8 +552,8 @@ class Classifier(object):
             tt_bg = tt_bg[i:]
             nt_bg = nt_bg[i:]
             rt_bg = rt_bg[i:]
-            
-            tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, tt_bg[-1][0]+1, end, tt_bg, nt_bg, rt_bg)
+            if tt_bg[-1][0]+1 < end:
+                tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, tt_bg[-1][0]+1, end, tt_bg, nt_bg, rt_bg)
         else:
             tt_bg = []
             nt_bg = []
@@ -701,6 +701,9 @@ class Classifier(object):
             chromosome = self.bam.get_chromosome_name(chromosome_id)
             start, end = self.__get_flanking_regions(chromosome, position,
                                                      self.manifest)
+            
+            if start == None:
+                continue
 
             tt_bg, rt_bg, nt_bg = self.get_background_tuples(
                 chromosome, chromosome_id, start, end, position, tt_bg, rt_bg, nt_bg)
@@ -758,6 +761,9 @@ class Classifier(object):
             chromosome = self.bam.get_chromosome_name(chromosome_id)
             start, end = self.__get_flanking_regions(chromosome, position,
                                                      self.manifest)
+            
+            if start == None:
+                continue
 
             # get all tuples in flanking region and remove the
             # position(foreground)
@@ -803,8 +809,8 @@ class Classifier(object):
             logging.info("loading model")
             return joblib.load(self.model)
 
-        except Exception as e:
-            logging.error("error: failed to load model")
+        except Exception as e:          
+            logging.error("error loading model: "+e.strerror)
             raise Exception("failed to load model")
 
     def __verify_model_features(self, model):

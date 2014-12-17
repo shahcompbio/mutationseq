@@ -8,7 +8,7 @@ import time
 import logging
 import bamutils
 
-mutationSeq_version="4.3.1"
+mutationSeq_version="4.3.2"
 
 #==============================================================================
 # Get the arguments
@@ -18,7 +18,7 @@ class initargs():
     def __init__(self):
         self.samples = ["tumour:unit_test/DAH147_A12957_3_lanes_dupsFlagged_1Mbp.bam",
                      "normal:unit_test/DAH147N_A12969_3_lanes_hg18_dupsFlagged_1Mbp.bam", 
-                     "reference:unit_test/human_all.fasta", "model:model_v4.1.1.npz"]
+                     "reference:unit_test/human_all.fasta", "model:model_v4.1.2.npz"]
         
         #self.samples = args.samples[1:]+["model:model_v4.1.1.npz"]
         self.all = False

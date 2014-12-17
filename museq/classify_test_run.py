@@ -6,7 +6,7 @@ Created on Jun 10, 2014
 import classify_test
 import unittest
 import logging
-mutationSeq_version="4.3.1"
+mutationSeq_version="4.3.2"
 
 def suite_all_tests():   
     suite = unittest.TestSuite()
@@ -29,13 +29,15 @@ def suite_all_tests():
     suite.addTests(single_pos_error)
     suite.addTests(boundary_invalid_reads)
     suite.addTests(verify_outputs_test)
-#    suite.addTests(ref_file)
     suite.addTests(features_test)
     suite.addTests(flags)
-    #suite.addTests(chr_pos)
     suite.addTests(tuples)
     suite.addTests(individual_function)
-    
+   
+
+    #suite.addTests(ref_file)
+    #suite.addTests(chr_pos)
+ 
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
     
