@@ -33,7 +33,7 @@ from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.1"
+mutationSeq_version = "4.3.2"
 
 """
 ==============================================================================
