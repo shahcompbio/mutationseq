@@ -5,7 +5,7 @@ Created on Feb 21, 2014
 '''
 
 import argparse
-mutationSeq_version="4.3.2"
+mutationSeq_version="4.3.3"
 
 parser = argparse.ArgumentParser(prog='mutationSeq Classify and Validate', 
                                  description = '''Validates the mutationseq model'
@@ -42,7 +42,11 @@ parser.add_argument("--indl_threshold",
 parser.add_argument("-l", "--log_file",
                     default="mutationSeq_run.log",
                     help='''specify name or path of the log file''')
-                    
+
+parser.add_argument("--manifest",
+                    default = None,
+                    help = '''the manifest file (with beg and end of amplicon regions. (only needed in deep mode) ''')                    
+
 parser.add_argument("--no_filter", 
                     default=True, action="store_true", 
                     help= '''force to print out even if the position(s) does(do) not satisfy 
@@ -99,11 +103,6 @@ parser.add_argument("--version",
 
 parser.add_argument("-c", "--config", 
                     default=None, required=True,
-                    help='''specify the path/to/metadata.config file used to add 
-                            meta information to the output file''')
-
-parser.add_argument("--manifest", 
-                    default=None,
                     help='''specify the path/to/metadata.config file used to add 
                             meta information to the output file''')
 

@@ -140,7 +140,8 @@ class single_position_error(unittest.TestCase,base_class):
         self.args_single.interval = None
         self.args_single.positions_file = "unit_test/positions_missed.pos"
         self.classifier = bamutils.Classifier(self.args_single)
-        self.target_positions = self.classifier.get_positions()
+        self.classifier.get_positions()
+        self.target_positions = self.classifier.target_positions
         temp_target_positions=[]
         for target_position in self.target_positions:
             if target_position[1]==None and target_position[2]==None:
@@ -164,7 +165,9 @@ class single_position_error(unittest.TestCase,base_class):
         self.args_paired.interval = None
         self.args_paired.positions_file = "unit_test/positions_missed.pos"
         self.classifier = bamutils.Classifier(self.args_paired)
-        self.target_positions = self.classifier.get_positions()
+        self.classifier.get_positions()
+        self.classifier.get_positions()
+        self.target_positions = self.classifier.target_positions
         #get the alignment for the single alignment(n) and 
         #then for the range(n-1,n), compare
         temp_target_positions=[]

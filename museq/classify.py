@@ -7,7 +7,7 @@ Created on Wed Sep 18 11:22:08 2013
 import logging
 import classifyui
 
-mutationSeq_version="4.3.2"
+mutationSeq_version="4.3.3"
 args = classifyui.args 
 
 if args.verbose:
@@ -33,13 +33,10 @@ logging.info("initializing a Classifier")
 classifier = bamutils.Classifier(args)
 
 logging.info("getting positions")
-target_positions = classifier.get_positions()
-
-logging.info("generating tuple iterator")
-tuples = classifier.bam.get_tuples(target_positions)
+classifier.get_positions()
 
 logging.info("generating features iterator")
-features = classifier.get_features(tuples)
+features = classifier.get_features()
 
 if args.export_features is not None:
     logging.info("exporting features")

@@ -29,7 +29,7 @@ SOURCE = \
 all : $(BINS)
 
 pybam.so : $(SOURCE)
-		/share/lustre/jtaghiyar/Apps/python/bin/python setup.py --boost_source=$(BOOSTPATH) install --prefix=./ --install-platlib=./
+		 python setup.py --boost_source=$(BOOSTPATH) install --prefix=./ --install-platlib=./
 
 clean : 
 		rm -f *.o *.so

@@ -203,7 +203,6 @@ class PairedBam(object):
             while True:
                 tt = self.t_bam.pileup.get_tuple() 
                 nt = self.n_bam.pileup.get_tuple() 
-            
                 if not all((tt, nt)):
                     break
                 

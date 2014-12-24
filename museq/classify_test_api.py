@@ -124,9 +124,8 @@ class base_class():
     
     def run_classifier(self,args):
         classifier = bamutils.Classifier(args)
-        target_positions = classifier.get_positions()
-        tuples = classifier.bam.get_tuples(target_positions)
-        features = classifier.get_features(tuples)
+        classifier.get_positions()
+        features = classifier.get_features()
         if args.export_features is not None:
             self.classifier.export_features(features)
         probabilities = classifier.predict(features)
@@ -134,8 +133,9 @@ class base_class():
     
     def get_tuples(self,args):
         classifier = bamutils.Classifier(args)
-        target_positions = classifier.get_positions()
-        tuples = classifier.bam.get_tuples(target_positions)
+        classifier.get_positions()
+        pos = classifier.target_positions 
+        tuples = classifier.bam.get_tuples(pos)
         return tuples,classifier
     
     def compare_vcf_dicts(self,vcf_list1,vcf_list2):

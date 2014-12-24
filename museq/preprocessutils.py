@@ -16,7 +16,7 @@ import resource
 from string import Template
 from datetime import datetime
 
-mutationSeq_version = "4.3.2"
+mutationSeq_version = "4.3.3"
 
 class PreProcess(object):
     def __init__(self,args):

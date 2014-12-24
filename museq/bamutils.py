@@ -33,14 +33,13 @@ from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.2"
+mutationSeq_version = "4.3.3"
 
 """
 ==============================================================================
 Classifier class
 ==============================================================================
 """
-
 
 class Classifier(object):
 
@@ -189,17 +188,17 @@ class Classifier(object):
             gtree[chrom].addi(start, end)
         return gtree
 
-    def __get_flanking_regions(self, chromosome, position, manifest):
-        vals = manifest[chromosome][position]
+    def __get_flanking_regions(self, chromosome, start,stop):
+        vals = self.manifest[chromosome][start:stop]
         vals = sorted(vals)
             
         if len(vals) > 1:
-            raise Exception('The position %s:%s falls in more than one '  
-                            'region in manifest file' %(chromosome,position))
+            raise Exception('The position %s:%s-%s falls in more than one '  
+                            'region in manifest file' %(chromosome,start,stop))
                 
         elif vals == []:
-            logging.info('Skipping position %s:%s as it doesn\'t fall in any '
-                         'amplicon region' %(chromosome,position))
+            logging.info('Skipping position %s:%s-%s as it doesn\'t fall in any '
+                         'amplicon region' %(chromosome,start,stop))
             return None,None
         else:
             start = vals[0].begin
@@ -229,89 +228,156 @@ class Classifier(object):
         elif l == 'M':
             self.buffer_size = (d / 1024) * 200000
 
-    def __parse_positions(self, positions_list, pch=':'):
-        chromosome = positions_list.split(pch)[0]
-#        try:
-# check for "chr" in the input interval
-#            chromosome = chromosome.split('r')[1]
-#
-#        except:
-#            pass
 
-        try:
-            position = positions_list.split(pch)[1]
-            start = int(position.split('-')[0])
-
-            try:
-                stop = int(position.split('-')[1])
-
-            except:
-                stop = start
-            return [chromosome, start, stop]
-
-        except:
-            return [chromosome, None, None]
-
-    def __parse_positions_file(self, pch, interval_positions=None):
-        target_positions = []
-        logging.info("parsing the position_file")
-        try:
-            positions_file = open(self.args.positions_file, 'r')
-            for l in positions_file.readlines():
-                temp_tp = self.__parse_positions(l.strip(), pch)
-
-                if interval_positions:
-                    if interval_positions[0] == temp_tp[0]:
-                        # if only chr is provided
-                        if None in interval_positions:
-                            target_positions.append(temp_tp)
-                            continue
-                        start = max(interval_positions[1], temp_tp[1])
-                        stop = min(interval_positions[2], temp_tp[2])
-                        if start > stop:
-                            continue
-                        target_positions.append(
-                            [interval_positions[0], start, stop])
-                else:
-                    target_positions.append(temp_tp)
-            positions_file.close()
-
-        except Exception as e:
-            logging.error(
-                "error: failed to load the positions file " +
-                self.args.positions_file)
-            raise Exception("failed to load the positions file")
-        return target_positions
-
-    def get_positions(self, pch=':'):
-        target_positions = []
-
-        if self.args.interval and self.args.positions_file:
-            interval_positions = self.__parse_positions(self.args.interval,
-                                                        pch)
-            target_positions = self.__parse_positions_file(pch,
-                                                           interval_positions)
-
-        elif self.args.interval:
-            temp_tp = self.__parse_positions(self.args.interval, pch)
-            target_positions.append(temp_tp)
-
-        elif self.args.positions_file:
-            target_positions = self.__parse_positions_file(pch)
-
+    def __parse_positions(self, posfile, poslist = None, pch=[':','-'], subset = True):
+        """
+        parses the positions file/manifest file/interval and generates an interval tree
+        NOTE: points (e.g. 100-100) are not supported by range tree. So these positions are saved as 
+        (e.g. 100-101) and flagged, then later changed back to point form
+        """
+        target_positions = GenomeIntervalTree()
+        
+        if posfile:
+            posfile_stream = open(posfile)
+        elif poslist:
+            posfile_stream = [poslist]
         else:
+            raise Exception('No input provided')
+        
+        for line in posfile_stream:
+            if line.split()[0] == 'chrom':
+                continue
+            point = False
+            chrom = line.split(pch[0])[0]
+            try:
+                if pch[0] == pch[1]:
+                    pos = line.split(pch[0])[1:]
+                    start = int(pos[0])
+                    stop = int(pos[1])
+                else:
+                    pos = line.split(pch[0])[1]
+                    start = int(pos.split(pch[1])[0])
+                    try:
+                        stop = int(pos.split(pch[1])[1])
+                    except:
+                        stop = start+1
+                        point = True
+            except:
+                raise Exception('Please refrain from providing the chromosome'\
+                                '(without the corresponding position) in '\
+                                'the positions/manifest file')
+
+            if point:
+                overlaps = sorted(target_positions[chrom].search(start,stop))
+                overlaps += sorted(target_positions[chrom].search(start-1,stop-1))
+            else:
+                overlaps = target_positions[chrom].search(start,stop)
+                overlaps = sorted(overlaps)
+                
+            if len(overlaps)==0:
+                target_positions[chrom].addi(start, stop,point)
+            else:
+                for val in overlaps:
+                    target_positions[chrom].remove(val)
+                    if val[2]:
+                        end = val.end - 1
+                    else:
+                        end = val.end
+                        
+                    if point:
+                        stop = stop - 1
+                        
+                    if subset:
+                        new_start = max(val.begin, start)
+                        new_stop = min(end, stop)
+                    else:
+                        new_start = min(val.begin, start)
+                        new_stop = max(end, stop)
+                            
+                    if new_stop < new_start:
+                        raise Exception()
+                    if new_start == new_stop:
+                        target_positions[chrom].addi(new_start, new_stop+1, True)
+                    else:
+                        target_positions[chrom].addi(new_start, new_stop, False)
+
+        return target_positions            
+    
+    def __remove_overlaps(self, interval_tree_pos, interval_tree_man):
+        """
+        if a range doesn't exist in manifest -> remove it
+        take the smaller region in case of overlaps
+        """
+        interval_tree = GenomeIntervalTree()
+        
+        if len(interval_tree_pos) == 0:
+            return interval_tree_man
+        for val in interval_tree_pos.items():
+            chrom = val[0]
+            for interval in val[1]:
+                overlap = interval_tree_man[chrom].search(interval)
+                if overlap == []:
+                    continue
+                for vals in overlap:
+                    start = max(interval.begin, vals.begin)
+                    stop = min(interval.end, vals.end)
+                    if start > stop:
+                        raise Exception()
+                    interval_tree[chrom].addi(start,stop)
+        return interval_tree
+        
+    
+    def get_positions(self, pch=[':','-']):
+        interval_tree = GenomeIntervalTree()
+        self.target_positions = []
+
+        if self.args.positions_file:
+            interval_tree = self.__parse_positions(self.args.positions_file,\
+                                                   subset = False)
+
+        # If positions:1-6000 and manifest: 1-600, 800-1000 then 
+        # output-> 1-600, 800-1000. but since we are iterating over manifest,
+        # we cant remove 1-6000 beacuse in that case 800-1000 will be thrown away.
+        ##TODO: perform this calculation in place by flagging the values that
+        #need to be removed and then remove them after the iteration over the manifest
+        # is complete.
+        if self.args.deep and self.manifest:
+            interval_tree_man = self.__parse_positions(self.args.manifest,\
+                                                       pch=['\t','\t'])
+            interval_tree = self.__remove_overlaps(interval_tree, 
+                                                   interval_tree_man)
+        
+        #now remove all that dont fall in interval
+        if self.args.interval:
+            if ':' not in self.args.interval:
+                _ = [interval_tree.pop(k) for k in interval_tree.keys()\
+                     if k != self.args.interval]
+            else: 
+                interval_tree_int = self.__parse_positions(None,\
+                                                           poslist = self.args.interval)
+                interval_tree = self.__remove_overlaps(interval_tree,\
+                                                       interval_tree_int)      
+        
+        #converting the tree to list    
+        for val in interval_tree.items():
+            for pos in val[1]:
+                if pos[2]:
+                    self.target_positions.append([val[0], pos.begin, pos.end-1])
+                else:
+                    self.target_positions.append([val[0], pos.begin, pos.end])
+        
+        #if no pos found- then run over whole genome
+        if self.target_positions == []:
             # get all the common chromosome names
             # chromosome names in tumour bam
             tcn = self.bam.get_refnames().keys()
             # chromosome names in normal bam
             ncn = self.bam.get_refnames().keys()
-            chromosome_names = set(tcn).intersection(set(ncn))
-
-            for cn in chromosome_names:
+            chr_names = set(tcn).intersection(set(ncn))
+        
+            for cn in chr_names:
                 temp_tp = [cn, None, None]
-                target_positions.append(temp_tp)
-
-        return target_positions
+                self.target_positions.append(temp_tp)
 
     def __get_genotype(self, nonref_count, count_all):
         aa = 0.01
@@ -437,14 +503,6 @@ class Classifier(object):
         position = tt[0]
         tc = self.bam.get_trinucleotide_context(chromosome_id, position)
 
-        # generate information for the INFO column in the output vcf
- #        if self.args.single:
- #            pr_aa, pr_ab, pr_bb, gt = self.__get_genotype(TA, tt[5][0])
- #            info = [TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
- #
- #        else:
- #            info = [TR, TA, NR, NA, tc, insertion, deletion, nt[-6], nt[-4]]
-
         ## generate information for the INFO column in the output vcf               
         if self.args.single:
             pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])
@@ -501,83 +559,22 @@ class Classifier(object):
             self.coverage_info[2] += nt[-3]
             self.coverage_info[3] += 1
 
-    def get_tuples(self, chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg):
-        if self.args.single:
-            if self.type is 'n':
-                bam_file = self.samples.get("normal")
-            else:
-                bam_file = self.samples.get("tumour")
-            bam = pybamapi.Bam(bam=bam_file, reference=self.ref,
-                               coverage=self.coverage, rmdups=self.rmdups,
-                               mapq_threshold=self.mapq_threshold,
-                               baseq_threshold=self.baseq_threshold)
-        else:
-            bam = pybamapi.PairedBam(tumour=self.samples.get("tumour"),
-                                     normal=self.samples.get("normal"),
-                                     reference=self.samples.get("reference"),
-                                     coverage=self.coverage, rmdups=self.rmdups,
-                                     mapq_threshold=self.mapq_threshold,
-                                     baseq_threshold=self.baseq_threshold)
-            
-        tuples = bam.get_tuples([[chromosome, start, end]])
-        
-        if self.args.single:
-            for tval in tuples:
-                tt_bg.append(tval)
-        else:
-            for tval,nval in tuples:
-                tt_bg.append(tval)
-                nt_bg.append(nval)
-                
-        for i in range(start, end+1):
-            rt_bg.append([i, bam.get_reference_tuple(chromosome_id,
-                                                              i)])
-        return tt_bg, rt_bg, nt_bg
-    
-        
-
-    def get_background_tuples(self, chromosome, chromosome_id, start, end,
-                              position, tt_bg, rt_bg, nt_bg = []):
-        if tt_bg !=[] and start >= tt_bg[0][0] and start<tt_bg[-1][0]:
-            for i,val in enumerate(tt_bg):
-                if val[0] == start:
-                    break
-                if val[0] > start:
-                    tt_bg = []
-                    nt_bg = []
-                    rt_bg = []
-                    tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg)
-                    return tt_bg, rt_bg, nt_bg
-                
-            tt_bg = tt_bg[i:]
-            nt_bg = nt_bg[i:]
-            rt_bg = rt_bg[i:]
-            
-            if tt_bg[-1][0]+1 < end:
-                tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, tt_bg[-1][0]+1, end, tt_bg, nt_bg, rt_bg)
-        else:
-            tt_bg = []
-            nt_bg = []
-            rt_bg = []
-            tt_bg, rt_bg, nt_bg = self.get_tuples(chromosome_id, chromosome, start, end, tt_bg, nt_bg, rt_bg)
-
-        return tt_bg, rt_bg, nt_bg
-
-    def get_features(self, tuples):
+    def get_features(self):
         logging.info("getting features")
 
         if self.args.single:
             if self.args.deep:
-                return self.__get_features_single_deep(tuples)
+                return self.__get_features_single_deep()
             else:
-                return self.__get_features_single(tuples)
+                return self.__get_features_single()
         else:
             if self.args.deep:
-                return self.__get_features_paired_deep(tuples)
+                return self.__get_features_paired_deep()
             else:
-                return self.__get_features_paired(tuples)
+                return self.__get_features_paired()
 
-    def __get_features_single(self, tuples):
+    def __get_features_single(self):
+        tuples = self.bam.get_tuples(self.target_positions)
         for it in tuples:
             self.__update_coverage_info(it)
 
@@ -620,7 +617,8 @@ class Classifier(object):
 
         yield self.__flush()
 
-    def __get_features_paired(self, tuples):
+    def __get_features_paired(self):
+        tuples = self.bam.get_tuples(self.target_positions)
         for tt, nt in tuples:
             self.__update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
@@ -664,151 +662,136 @@ class Classifier(object):
 
         yield self.__flush()
 
-    def __get_features_paired_deep(self, tuples):
-        tt_flank=[]
-        rt_flank=[]
-        nt_flank=[]
-        for tt, nt in tuples:
-            self.__update_coverage_info(tt, nt)
-            chromosome_id = tt[-1]
-            position = tt[0]
+    def __get_tuples(self, chromosome, start, end):
+        tt_int= []
+        rt_int = []
+        nt_int = []
+        tuples = self.bam.get_tuples([[chromosome,start,end]])
+        if self.args.single:
+            for tt in tuples:
+                tt_int.append(tt)
+                rt = [tt[0], self.bam.get_reference_tuple(tt[-1],tt[0])]
+                rt_int.append(rt)            
+        else:
+            for tt,nt in tuples:
+                tt_int.append(tt)
+                nt_int.append(nt)
+                rt = [tt[0], self.bam.get_reference_tuple(tt[-1],tt[0])]
+                rt_int.append(rt)
+        return tt_int,rt_int,nt_int
+    
+    
+    def __get_features_paired_deep(self):
+        """
+        get the target_positions and then get the flanking region for that position
+        get tuples for the flanking region 
+        classify the positions
+        target positions cannot have full chr as manifest is required
+        any range in target positions shouldn't fall in 2 manifest regions-see get_positions
+        """
+        for val in self.target_positions:
+            chromosome = val[0]
+            start,end = self.__get_flanking_regions(chromosome, val[1], val[2])
+            tt_int, rt_int, nt_int = self.__get_tuples(chromosome, start, end)
+            
+            for tt,rt,nt in zip(tt_int, rt_int, nt_int):
+                if tt[0] < val[1] or tt[0] > val[2]:
+                    continue
+                if tt[0] != rt[0]:
+                    raise Exception()
+                rt = rt[1]
+                self.__update_coverage_info(tt, nt)
+                position = tt[0]
+                chromosome_id = tt[-1]
+                refbase = self.bam.get_reference_base(chromosome_id,
+                                                      position,
+                                                      index=True)
+                nonrefbases = [x for x in range(4) if x != refbase]
 
-            refbase = self.bam.get_reference_base(
-                chromosome_id,
-                position,
-                index=True)
-            nonrefbases = [x for x in range(4) if x != refbase]
+                # ignore tumour tuples with no/few variants in the tumour or too
+                # many variants in the normal
+                if not self.no_filter:
+                    if tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
+                       tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
+                       tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
+                       (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] >\
+                       (self.args.normal_variant / 100):
+                        continue
 
-            # ignore tumour tuples with no/few variants in the tumour or too
-            # many variants in the normal
-            if not self.no_filter:
-                if tt[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
-                        tt[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
-                        tt[nonrefbases[2] + 1][0] < self.args.tumour_variant or \
-                        (nt[5][0] - nt[refbase + 1][0]) / nt[5][0] >\
-                        (self.args.normal_variant / 100):
+                # MUT-238 If the ref base is 4(N) ignore the position
+                if rt[0] >= 4:
+                    logging.error("%s position references base N and has been \
+                                 ignored", str(position))
                     continue
 
-            # get corresponding reference tuple
-            rt = self.bam.get_reference_tuple(chromosome_id, position)
-            # MUT-238 If the ref base is 4(N) ignore the position
-            if rt[0] >= 4:
-                logging.error("%s position references base N and has been \
-                             ignored", str(position))
-                continue
-
-            # calculate features and buffer it
-            # get chromosome name of the given chromosome ID
-            chromosome = self.bam.get_chromosome_name(chromosome_id)
-            start, end = self.__get_flanking_regions(chromosome, position,
-                                                     self.manifest)
+                tt_bg = [tval for tval in tt_int if not tval == tt]
+                nt_bg = [nval for nval in nt_int if not nval == nt]
             
-            if start == None:
-                continue
+                feature_set = self.features_module.Features(tt, nt, rt, tt_bg,
+                                                            nt_bg, rt_int)
+                temp_feature = feature_set.get_features()
+                self.features_buffer.append(temp_feature)
 
-            tt_flank, rt_flank, nt_flank = self.get_background_tuples(
-                chromosome, chromosome_id, start, end, position, tt_flank, rt_flank, nt_flank)
+                # generate output string and buffer it
+                outstr = self.__make_outstr(tt, rt[0], nt)
+                self.outstr_buffer.append(outstr)
 
-            if self.manifest:
-                indexes = self.manifest.get((chromosome, position))
-            else:
-                indexes = None
-            
-            tt_bg = [val for val in tt_flank if not val == tt]
-            nt_bg = [val for val in nt_flank if not val == nt]
-            
-            feature_set = self.features_module.Features(tt, nt, rt, tt_bg,
-                                                        nt_bg, rt_flank, indexes)
-
-            temp_feature = feature_set.get_features()
-            self.features_buffer.append(temp_feature)
-
-            # generate output string and buffer it
-            outstr = self.__make_outstr(tt, rt[0], nt)
-            self.outstr_buffer.append(outstr)
-
-            # check the buffer size and flush
-            if len(self.features_buffer) >= self.buffer_size:
-                yield self.__flush()
+                # check the buffer size and flush
+                if len(self.features_buffer) >= self.buffer_size:
+                    yield self.__flush()
 
         yield self.__flush()
 
-    def __get_features_single_deep(self, tuples):
-        it_flank = []
-        rt_flank = []
-        for it in tuples:
-            self.__update_coverage_info(it)
-            chromosome_id = it[-1]
-            position = it[0]
+    def __get_features_single_deep(self):
+        for val in self.target_positions:
+            chromosome = val[0]
+            start,end = self.__get_flanking_regions(chromosome, val[1], val[2])
+            it_int, rt_int, _ = self.__get_tuples(chromosome, start, end)
+            
+            for it,rt in zip(it_int, rt_int):
+                if it[0] < val[1] or it[0] > val[2]:
+                    continue
+                if it[0] != rt[0]:
+                    raise Exception()
+                rt = rt[1]
+                self.__update_coverage_info(it)
+                position = it[0]
+                chromosome_id = it[-1]
+                refbase = self.bam.get_reference_base(chromosome_id,
+                                                      position,
+                                                      index=True)
+                nonrefbases = [x for x in range(4) if x != refbase]
+        
+                # ignore tumour tuples with no/few variants in the tumour or too
+                # many variants in the normal
+                if not self.no_filter:
+                    if it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
+                       it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
+                       it[nonrefbases[2] + 1][0] < self.args.tumour_variant:
+                        continue
 
-            refbase = self.bam.get_reference_base(chromosome_id, position,
-                                                  index=True)
-            nonrefbases = [x for x in range(4) if x != refbase]
-
-            # ignore tumour tuples with no/few variants in the tumour or too
-            # many variants in the normal
-            if not self.no_filter:
-                if it[nonrefbases[0] + 1][0] < self.args.tumour_variant and \
-                        it[nonrefbases[1] + 1][0] < self.args.tumour_variant and \
-                        it[nonrefbases[2] + 1][0] < self.args.tumour_variant:
+                # MUT-238 If the ref base is 4(N) ignore the position
+                if rt[0] >= 4:
+                    logging.error("%s position references base N and has been \
+                                 ignored", str(position))
                     continue
 
-            # get corresponding reference tuple
-            rt = self.bam.get_reference_tuple(chromosome_id, position)
-            # MUT-238 If the ref base is 4(N) ignore the position
-            if rt[0] >= 4:
-                logging.error("%s position references base N and has been \
-                             ignored", str(position))
-                continue
+                it_bg = [tval for tval in it_int if not tval == it]
 
-            # calculate features and buffer it
-            # get chromosome name of the given chromosome ID
-            chromosome = self.bam.get_chromosome_name(chromosome_id)
-            start, end = self.__get_flanking_regions(chromosome, position,
-                                                     self.manifest)
-            
-            if start == None:
-                continue
+                feature_set = self.features_module.Features(it, rt, it_bg, rt_int,
+                                                            self.type)
 
-            # get all tuples in flanking region and remove the
-            # position(foreground)
-            it_flank, rt_flank, _ = self.get_background_tuples(
-                chromosome, chromosome_id, start, end, position, it_flank, rt_flank)
+                temp_feature = feature_set.get_features()
+                self.features_buffer.append(temp_feature)
 
-            if self.manifest:
-                indexes = self.manifest.get((chromosome, position))
-            else:
-                indexes = None
-            
-            it_bg = [val for val in it_flank if not val == it]
-            feature_set = self.features_module.Features(it, rt, it_bg, rt_flank,
-                                                        self.type, indexes)
+                # generate output string and buffer it
+                outstr = self.__make_outstr(it, rt[0], nt=None)
+                self.outstr_buffer.append(outstr)
 
-            temp_feature = feature_set.get_features()
-            self.features_buffer.append(temp_feature)
-
-            # generate output string and buffer it
-            outstr = self.__make_outstr(it, rt[0], nt=None)
-            self.outstr_buffer.append(outstr)
-
-            # check the buffer size and flush
-            if len(self.features_buffer) >= self.buffer_size:
-                yield self.__flush()
-            yield self.__flush()
-
-
-#     def __fit_model(self):
-#         train  = self.npz["arr_1"]
-#         labels = self.npz["arr_2"]
-#
-#         logging.info("running random forest")
-#         model = RandomForestClassifier(random_state=0, n_estimators=1000,
-#                                         n_jobs=1, compute_importances=True)
-#
-#         logging.info("fitting model")
-#         model.fit(train, labels)
-
-#         return model
+                # check the buffer size and flush
+                if len(self.features_buffer) >= self.buffer_size:
+                    yield self.__flush()
+        yield self.__flush()  
 
     def __load_model(self):
         try:
@@ -1005,21 +988,6 @@ class Classifier(object):
 
                     else:
                         filter_flag = "FAIL"
-
-                #if self.args.single:
-                #    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][2] + \
-                #        "\tRC:AC:ND:NI:GT:PL\t" + outstr[-1][0] + ":" + \
-                #        outstr[-1][1] + ":" + outstr[-1][4] + ":" +\
-                #        outstr[-1][3] + ":" + outstr[-1][5] + ":" +\
-                #        outstr[-1][6] + "," + outstr[-1][7] + "," +\
-                #        outstr[-1][8]
-                #else:
-                #    info_str = "PR=" + "%.2f" % p + ";TC=" + outstr[-1][4] + \
-                #        "\tRC:AC:ND:NI\t" + outstr[-1][0] + ":" +\
-                #        outstr[-1][1] + ":" + outstr[-1][6] + ":" +\
-                #        outstr[-1][5] + "\t" + outstr[-1][2] + ":" +\
-                #        outstr[-1][3] + ":" + outstr[-1][8] + ":" +\
-                #        outstr[-1][7]
 
                 info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
                             ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
@@ -1366,7 +1334,7 @@ class Trainer(object):
                                      mapq_threshold=self.mapq_threshold,
                                      baseq_threshold=self.baseq_threshold)
 
-            for chromosome, pos, label, c, label_name, indexes, start, end in self.data[
+            for chromosome, pos, label, _, label_name, indexes, start, end in self.data[
                     (tfile, nfile, rfile)]:
                 # unpack pos to get flanking regions in deep mode
                 chr_id = t_bam.get_chromosome_id(chromosome)
@@ -1523,7 +1491,7 @@ class Trainer(object):
         logging.info("predicting probabilities")
         probs = self.model.predict_proba(self.features)
         voted = probs[:, 1]
-        fpr, tpr, thresholds = roc_curve(self.labels, voted)
+        fpr, tpr, _ = roc_curve(self.labels, voted)
         roc_auc = auc(fpr, tpr)
         logging.info("AUC:%f" % roc_auc)
 
@@ -1742,7 +1710,7 @@ class Trainer(object):
                 print '\nfliers', fliers
                 print '\ni', i
                 print '\nfvalue_count', fvalue_count
-                raise exception()
+                raise Exception()
 
             label_ylim_upper = None
             label_upper_cap = None

@@ -33,7 +33,6 @@ def suite_all_tests():
     suite.addTests(flags)
     suite.addTests(tuples)
     suite.addTests(individual_function)
-   
 
     #suite.addTests(ref_file)
     #suite.addTests(chr_pos)
