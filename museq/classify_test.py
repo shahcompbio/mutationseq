@@ -8,7 +8,7 @@ import resource
 import re
 from classify_test_api import base_class,initargs
 
-mutationSeq_version="4.3.3"
+mutationSeq_version="4.3.4"
 
 #============================================
 # Check the versions of all the dependencies
@@ -818,24 +818,155 @@ class verify_individual_functions(unittest.TestCase,base_class):
                     except RuntimeError:
                         pass
 
-#========================================
-#tests for deep seuencing mode - paired
-#========================================
-
-class verify_individual_functions(unittest.TestCase,base_class):
+class verify_get_positions(unittest.TestCase,base_class):
     def setUp(self):
-        pass
-    
-    def test_tuples(self):
+        self.args_paired = initargs()
+        args_single = initargs()
+        args_single.set_single()
+        self.args_single = args_single
+              
+    def test_get_positions_case1(self):
         """
-        ensure correctness of the tuples
-        MUT-255
-        test will fail due to a bug in samtools api
+        The interval is a chromosome plus a positions file
+        interval:1
+        positions: 1:1-1000, 1:1000, 1:1-2000, 1:1-20000
+        output: 1:1000 (we are looking for the common region among the positions provided)
         """
-        pass
-    
-    def tearDown(self):
-        pass
+        args = self.args_paired
+        args.interval = '1'
+        args.positions_file = './unit_test/get_positions_posfile'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        positions = classifier.target_positions
+        
+        self.assertEqual(positions, [['1',1,20000]])
 
-
     
+    def test_get_positions_case2(self):
+        """
+        The interval is a range plus a positions file
+        interval:1:1-1000
+        positions: 1:1-1000, 1:1000, 1:1-2000, 1:1-20000
+        output: 1:1-1000 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1:1-1000'
+        args.positions_file = './unit_test/get_positions_posfile'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        
+        self.assertEqual(positions, [['1',1,1000]])
+
+    def test_get_positions_case3(self):
+        """
+        case1 + manifest file
+        interval:1
+        positions: 1:1-1000, 1:1000, 1:1-2000, 1:1-20000
+        manifest: 1:1-150, 1:500-650, 5:500-700, 6:6000-6500, 1:179076833-179076890
+        output: 1:500-650, 1:1-150 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1'
+        args.deep = True
+        args.positions_file = './unit_test/get_positions_posfile'
+        args.manifest = './unit_test/get_positions_manifest'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertListEqual(positions, [['1', 1, 90], ['1', 500, 650], ['1', 92, 130]])
+    
+    def test_get_positions_case4(self):
+        """
+        The interval is a range plus a positions file plus manifest
+        interval:1:1-100
+        positions: 1:1-1000, 1:1000, 1:1-2000, 1:1-20000
+        manifest: 1:1-90,1:92-130, 1:500-650, 5:500-700, 6:6000-6500, 1:179076833-179076890
+        output: 1:1000 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1:1-100'
+        args.deep = True
+        args.positions_file = './unit_test/get_positions_posfile'
+        args.manifest = './unit_test/get_positions_manifest'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+        
+    def test_get_positions_case5(self):
+        """
+        The interval is a range plus a positions file plus manifest
+        interval:1
+        manifest: 1:1-90,1:92-130, 1:500-650, 5:500-700, 6:6000-6500, 1:179076833-179076890
+        output: 1:1000 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1'
+        args.deep = True
+        args.manifest = './unit_test/get_positions_manifest'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 179076834, 179076890], ['1', 500, 650]])
+    
+    def test_get_positions_case6(self):
+        """
+        The interval is a range plus a positions file plus manifest
+        interval:1:1-100
+        manifest: 1:1-90,1:92-130, 1:500-650, 5:500-700, 6:6000-6500, 1:179076833-179076890
+        output: 1:1000 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1:1-100'
+        args.deep = True
+        args.manifest = './unit_test/get_positions_manifest'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+
+    def test_get_positions_case7(self):
+        """
+        whole genome
+        """
+        args = self.args_paired
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        for val in positions:
+            if not val[1] == None:
+                self.assertEqual(True, False, 'Region specified in whole genome')
+                
+    def test_get_positions_case8(self):
+        """
+        The interval is a range plus a positions file plus manifest
+        interval:1:1-100
+        manifest: 1:1-90,1:92-130, 1:500-650, 5:500-700, 6:6000-6500, 1:179076833-179076890
+        output: 1:1000 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1:1-100'
+        args.deep = True
+        args.manifest = './unit_test/get_positions_manifest'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+        
+    
+    def test_get_positions_case9(self):
+        """
+        The interval is a range plus a positions file plus manifest
+        interval:1
+        manifest: None
+        positions_file: None
+        output: 1 (we are looking for the common region among the positions provided)
+        """
+        args = self.args_paired
+        args.interval = '1'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertEqual(positions, [['1', None, None]])    

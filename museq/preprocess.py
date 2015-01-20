@@ -6,7 +6,7 @@ Created on May 20, 2014
 import logging
 import preprocessui
 
-mutationSeq_version="4.3.3"
+mutationSeq_version="4.3.4"
 args = preprocessui.args 
 
 if args.verbose:

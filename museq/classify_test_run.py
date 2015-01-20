@@ -6,7 +6,7 @@ Created on Jun 10, 2014
 import classify_test
 import unittest
 import logging
-mutationSeq_version="4.3.3"
+mutationSeq_version="4.3.4"
 
 def suite_all_tests():   
     suite = unittest.TestSuite()
@@ -23,6 +23,7 @@ def suite_all_tests():
     #chr_pos = loader.loadTestsFromTestCase(classify_test.verify_position_with_chr)
     tuples = loader.loadTestsFromTestCase(classify_test.verify_tuples_positions)
     individual_function = loader.loadTestsFromTestCase(classify_test.verify_individual_functions)
+    get_positions = loader.loadTestsFromTestCase(classify_test.verify_get_positions)
     
     suite.addTests(memory_footprint)
     suite.addTests(dependencies)
@@ -33,7 +34,7 @@ def suite_all_tests():
     suite.addTests(flags)
     suite.addTests(tuples)
     suite.addTests(individual_function)
-
+    suite.addTests(get_positions)
     #suite.addTests(ref_file)
     #suite.addTests(chr_pos)
  

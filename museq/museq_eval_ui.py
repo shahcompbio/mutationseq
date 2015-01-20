@@ -5,7 +5,7 @@ Created on Feb 21, 2014
 '''
 
 import argparse
-mutationSeq_version="4.3.3"
+mutationSeq_version="4.3.4"
 
 parser = argparse.ArgumentParser(prog='mutationSeq Classify and Validate', 
                                  description = '''Validates the mutationseq model'

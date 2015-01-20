@@ -33,7 +33,7 @@ from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
 from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.3"
+mutationSeq_version = "4.3.4"
 
 """
 ==============================================================================
@@ -350,8 +350,12 @@ class Classifier(object):
         #now remove all that dont fall in interval
         if self.args.interval:
             if ':' not in self.args.interval:
-                _ = [interval_tree.pop(k) for k in interval_tree.keys()\
-                     if k != self.args.interval]
+                if interval_tree.keys() == []:
+                    self.target_positions = [[self.args.interval, None, None]]
+                    return
+                else:
+                    _ = [interval_tree.pop(k) for k in interval_tree.keys()\
+                         if k != self.args.interval]
             else: 
                 interval_tree_int = self.__parse_positions(None,\
                                                            poslist = self.args.interval)
@@ -598,8 +602,9 @@ class Classifier(object):
 
             # MUT-238 If the ref base is 4(N) ignore the position
             if rt[0] >= 4:
-                logging.error("%s position references base N and has been \
-                             ignored", str(position))
+                chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                logging.error("%s:%s position references base N and has been " \
+                             "ignored" % (chromosome_name ,str(position)))
                 continue
 
             # calculate features
@@ -643,8 +648,9 @@ class Classifier(object):
 
             # MUT-238 If the ref base is 4(N) ignore the position
             if rt[0] >= 4:
-                logging.error("%s position references base N and has been \
-                             ignored", str(position))
+                chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                logging.error("%s:%s position references base N and has been " \
+                             "ignored" %  (chromosome_name ,str(position)))
                 continue
 
             # calculate features and buffer it
@@ -720,8 +726,9 @@ class Classifier(object):
 
                 # MUT-238 If the ref base is 4(N) ignore the position
                 if rt[0] >= 4:
-                    logging.error("%s position references base N and has been \
-                                 ignored", str(position))
+                    chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                    logging.error("%s:%s position references base N and has been " \
+                                 "ignored" % (chromosome_name ,str(position)))
                     continue
 
                 tt_bg = [tval for tval in tt_int if not tval == tt]
@@ -772,8 +779,9 @@ class Classifier(object):
 
                 # MUT-238 If the ref base is 4(N) ignore the position
                 if rt[0] >= 4:
-                    logging.error("%s position references base N and has been \
-                                 ignored", str(position))
+                    chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                    logging.error("%s:%s position references base N and has been " \
+                                 "ignored" % (chromosome_name ,str(position)))
                     continue
 
                 it_bg = [tval for tval in it_int if not tval == it]
@@ -1268,9 +1276,9 @@ class Trainer(object):
 
                 # MUT-238 If the ref base is 4(N) ignore the position
                 if rt[0] >= 4:
-                    logging.error(
-                        str(position) +
-                        ' position references base N and has been ignored')
+                    chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                    logging.error("%s:%s position references base N and has been " \
+                                 "ignored" % (chromosome_name ,str(position)))
                     continue
 
                 # check for None tuples
@@ -1363,8 +1371,9 @@ class Trainer(object):
 
                 # MUT-238 If the ref base is 4(N) ignore the pos
                 if rt[0] >= 4:
-                    logging.error('%s position references base N and has been\
-                                    ignored' % str(pos))
+                    chromosome_name = self.bam.get_chromosome_name(chromosome_id)
+                    logging.error("%s:%s position references base N and has been " \
+                                 "ignored" % (chromosome_name ,str(position)))
                     continue
 
                 # check for None tuples

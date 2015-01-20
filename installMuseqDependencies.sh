@@ -145,7 +145,7 @@ pause
 label "isntall scikit-learn"
 cd ${pPath}
 cd PythonDep
-gettar http://sourceforge.net/projects/scikit-learn/files/scikit-learn-0.13.1.tar.gz
+gettar http://sourceforge.net/projects/scikit-learn/files/scikit-learn-0.14.1.tar.gz
 getinst
 
 pause

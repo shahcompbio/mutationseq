@@ -16,7 +16,7 @@ import resource
 from string import Template
 from datetime import datetime
 
-mutationSeq_version = "4.3.3"
+mutationSeq_version = "4.3.4"
 
 class PreProcess(object):
     def __init__(self,args):
@@ -103,17 +103,16 @@ class PreProcess(object):
             return [chromosome, None, None]
     
     def __filter_positions(self,temp_tp, pch = ':'):
-        if self.args.interval:
-            int_pos = self.__parse_positions(self.args.interval, pch)          
-            if int_pos[0] == temp_tp[0]:
-                #if only chr is provided
-                if None in int_pos:
-                    return temp_tp
-                start = max(int_pos[1],temp_tp[1])
-                stop = min(int_pos[2],temp_tp[2])
-                if start > stop:
-                    return None
-                return [int_pos[0],start,stop]
+        int_pos = self.__parse_positions(self.args.interval, pch)          
+        if int_pos[0] == temp_tp[0]:
+            #if only chr is provided
+            if None in int_pos:
+                return temp_tp
+            start = max(int_pos[1],temp_tp[1])
+            stop = min(int_pos[2],temp_tp[2])
+            if start > stop:
+                return None
+            return [int_pos[0],start,stop]
                 
                 
         
@@ -126,8 +125,7 @@ class PreProcess(object):
             for l in positions_file.readlines():
                 temp_tp = self.__parse_positions(l.strip(), pch)
                 if self.args.interval:
-                    int_pos = self.__parse_positions(self.args.interval,pch)
-                temp_tp = self.__filter_positions(temp_tp)
+                    temp_tp = self.__filter_positions(temp_tp)
                 if temp_tp is not None:
                     target_positions.append(temp_tp)
             positions_file.close()
