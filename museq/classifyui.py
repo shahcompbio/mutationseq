@@ -46,6 +46,7 @@ parser.add_argument("-e" , "--export_features",
 
 parser.add_argument("--indl_threshold",
                     default = 0.05,
+                    type=float,
                     help = '''the threshold for the INDL flag (variant reads with indel/ number of variant reads) ''')
 
 parser.add_argument("-l", "--log_file",
