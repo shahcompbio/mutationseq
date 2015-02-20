@@ -1042,21 +1042,33 @@ class Classifier(object):
         return names
 
     def export_features(self, features):
-        version = self.features_module.version
-        names = self.get_feature_names()
+        version = self.features_module.Features().version
+        names = ['chromosome', 'position'] + self.get_feature_names()
+        model = self.__load_model()
 
         with open(self.args.export_features, 'w') as export_file:
             print >> export_file, "##features_version:" + version
             print >> export_file, "\t".join(names)
+            
+            
+            for features, outstrs in features:
+                if len(features) == 0:
+                    continue
 
-            for fs in features:
-                for f in fs:
-                    for i in range(len(f)):
-                        for j in range(len(f[i])):
-                            print >> export_file, str(f[i][j]) + "\t",
+                if hasattr(model, 'coefs'):
+                    zeros = [i for i, val in enumerate(model.coefs.tolist())
+                             if val == 0]
 
-            print >> export_file
-#                print >> export_file, fs
+                    features = [[featureval for i, featureval in enumerate(feature)
+                             if i not in zeros] for feature in features]
+                
+                for feature,outstr in zip(features,outstrs):
+                    chromosome = str(outstr[0])
+                    position = str(outstr[1])
+                    feature = map(str, feature.tolist())
+                    output_string = '\t'.join([chromosome, position] +feature)+'\n'
+                    export_file.write(output_string)
+
 
 """
 ==============================================================================

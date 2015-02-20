@@ -42,8 +42,8 @@ if args.export_features is not None:
     logging.info("exporting features")
     classifier.export_features(features)
 
-    
-probabilities = classifier.predict(features)
-classifier.print_results(probabilities)
+if not args.features_only:
+    probabilities = classifier.predict(features)
+    classifier.print_results(probabilities)
 
 logging.warning("successfully completed.\n")
