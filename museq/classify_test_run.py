@@ -11,7 +11,7 @@ mutationSeq_version="4.3.4"
 def suite_all_tests():   
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
-    
+
     memory_footprint = loader.loadTestsFromTestCase(classify_test.check_memory_footprint)
     dependencies = loader.loadTestsFromTestCase(classify_test.verify_dependencies)
     single_pos_error = loader.loadTestsFromTestCase(classify_test.single_position_error)
@@ -24,7 +24,7 @@ def suite_all_tests():
     tuples = loader.loadTestsFromTestCase(classify_test.verify_tuples_positions)
     individual_function = loader.loadTestsFromTestCase(classify_test.verify_individual_functions)
     get_positions = loader.loadTestsFromTestCase(classify_test.verify_get_positions)
-    
+
     suite.addTests(memory_footprint)
     suite.addTests(dependencies)
     suite.addTests(single_pos_error)

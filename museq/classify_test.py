@@ -838,7 +838,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier.get_positions()
         positions = classifier.target_positions
 
-        self.assertEqual(positions, [['1',1,20000], ['1',21000,30000]])
+        self.assertEqual(sorted(positions), sorted([['1',1,20000], ['1',21000,30000]]))
 
     
     def test_get_positions_case2(self):
@@ -855,7 +855,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier.get_positions()
         positions = classifier.target_positions
         
-        self.assertEqual(positions, [['1',1,1000]])
+        self.assertListEqual(sorted(positions), sorted([['1',1,1000]]))
 
     def test_get_positions_case3(self):
         """
@@ -873,7 +873,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertListEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 500, 650]])
+        self.assertListEqual(sorted(positions), sorted([['1', 1, 90], ['1', 92, 130], ['1', 500, 650]]))
     
     def test_get_positions_case4(self):
         """
@@ -891,7 +891,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+        self.assertListEqual(sorted(positions), sorted([['1', 1, 90], ['1', 92, 100]]))
         
     def test_get_positions_case5(self):
         """
@@ -907,7 +907,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 179076833, 179076890], ['1', 500, 650]])
+        self.assertListEqual(sorted(positions), sorted([['1', 1, 90], ['1', 92, 130], ['1', 179076833, 179076890], ['1', 500, 650]]))
     
     def test_get_positions_case6(self):
         """
@@ -923,7 +923,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+        self.assertListEqual(sorted(positions), sorted([['1', 1, 90], ['1', 92, 100]]))
 
     def test_get_positions_case7(self):
         """
@@ -951,7 +951,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 100]])
+        self.assertListEqual(sorted(positions), sorted([['1', 1, 90], ['1', 92, 100]]))
         
     
     def test_get_positions_case9(self):
@@ -967,4 +967,4 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', None, None]])    
+        self.assertListEqual(sorted(positions), sorted([['1', None, None]]))    
