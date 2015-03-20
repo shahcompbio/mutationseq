@@ -8,7 +8,6 @@
 # Macros
 #
 
-BOOSTPATH = /share/apps/build/boost_1_51_0
 INCLUDE = -I. 
 CC = g++
 CXX = g++
@@ -29,7 +28,8 @@ SOURCE = \
 all : $(BINS)
 
 pybam.so : $(SOURCE)
-		 python setup.py --boost_source=$(BOOSTPATH) install --prefix=./ --install-platlib=./
+                if [ -z $(BOOSTPATH) ] || [ -z $(PYTHON) ] ; then echo "please set the boost and python paths i.e. run make PYTHON=/path/to/python BOOST=/path/to/boost"; exit -1; fi
+                $(PYTHON) setup.py --boost_source=$(BOOSTPATH) install --prefix=./ --install-platlib=./
 
 clean : 
 		rm -f *.o *.so
