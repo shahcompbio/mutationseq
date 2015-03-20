@@ -17,7 +17,6 @@ import features_single
 import features_deep
 import features_deep_single
 import matplotlib
-import subprocess
 matplotlib.use('Agg', warn=False)
 import matplotlib.pyplot as plt
 from math import log10
@@ -31,7 +30,8 @@ from collections import defaultdict
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import binom
 from sklearn.linear_model import ElasticNetCV
-from intervaltree.bio import GenomeIntervalTree
+from intervaltree import IntervalTree
+#from intervaltree.bio import GenomeIntervalTree
 
 mutationSeq_version = "4.3.4"
 
@@ -174,7 +174,8 @@ class Classifier(object):
             raise Exception('Manifest file is required in deep mode')
 
         man_stream = open(self.args.manifest)
-        gtree = GenomeIntervalTree()
+        gtree = defaultdict(lambda: IntervalTree())
+#        gtree = GenomeIntervalTree()
         for line in man_stream:
             line = line.strip().split()
             if line[0] == 'chrom':
@@ -228,150 +229,91 @@ class Classifier(object):
         elif l == 'M':
             self.buffer_size = (d / 1024) * 200000
 
-
-    def __parse_positions(self, posfile, poslist = None, pch=[':','-'], subset = True):
-        """
-        parses the positions file/manifest file/interval and generates an interval tree
-        NOTE: points (e.g. 100-100) are not supported by range tree. So these positions are saved as 
-        (e.g. 100-101) and flagged, then later changed back to point form
-        """
-        target_positions = GenomeIntervalTree()
-        
-        if posfile:
-            posfile_stream = open(posfile)
-        elif poslist:
-            posfile_stream = [poslist]
-        else:
-            raise Exception('No input provided')
-        
-        for line in posfile_stream:
-            if line.split()[0] == 'chrom':
-                continue
-            point = False
-            chrom = line.split(pch[0])[0]
+       
+    def __parse_position_file(self, pch=':'):
+        positions = []
+        posfile = open(self.args.positions_file)
+        for line in posfile:
+            temp_tp = self.__parse_position(line)
+            if temp_tp is not None:
+                positions.extend([temp_tp])
+        return positions
+    
+    def __parse_position(self, pos, pch=':'):
+        chromosome = pos.split(pch)[0]
+        try:
+            pos_range = pos.split(pch)[1]
+            start = int(pos_range.split('-')[0])
+            
             try:
-                if pch[0] == pch[1]:
-                    pos = line.split(pch[0])[1:]
-                    start = int(pos[0])
-                    stop = int(pos[1])
-                else:
-                    pos = line.split(pch[0])[1]
-                    start = int(pos.split(pch[1])[0])
-                    try:
-                        stop = int(pos.split(pch[1])[1])
-                    except:
-                        stop = start+1
-                        point = True
+                stop = int(pos_range.split('-')[1])
+
             except:
-                raise Exception('Please refrain from providing the chromosome'\
-                                '(without the corresponding position) in '\
-                                'the positions/manifest file')
+                stop = start
+            return [chromosome, start, stop]
 
-            if point:
-                overlaps = sorted(target_positions[chrom].search(start,stop))
-                overlaps += sorted(target_positions[chrom].search(start-1,stop-1))
-            else:
-                overlaps = target_positions[chrom].search(start,stop)
-                overlaps = sorted(overlaps)
-                
-            if len(overlaps)==0:
-                target_positions[chrom].addi(start, stop,point)
-            else:
-                for val in overlaps:
-                    target_positions[chrom].remove(val)
-                    if val[2]:
-                        end = val.end - 1
-                    else:
-                        end = val.end
-                        
-                    if point:
-                        stop = stop - 1
-                        
-                    if subset:
-                        new_start = max(val.begin, start)
-                        new_stop = min(end, stop)
-                    else:
-                        new_start = min(val.begin, start)
-                        new_stop = max(end, stop)
-                            
-                    if new_stop < new_start:
-                        raise Exception()
-                    if new_start == new_stop:
-                        target_positions[chrom].addi(new_start, new_stop+1, True)
-                    else:
-                        target_positions[chrom].addi(new_start, new_stop, False)
-
-        return target_positions            
+        except:
+            return [chromosome, None, None]
     
-    def __remove_overlaps(self, interval_tree_pos, interval_tree_man):
-        """
-        if a range doesn't exist in manifest -> remove it
-        take the smaller region in case of overlaps
-        """
-        interval_tree = GenomeIntervalTree()
-        
-        if len(interval_tree_pos) == 0:
-            return interval_tree_man
-        for val in interval_tree_pos.items():
-            chrom = val[0]
-            for interval in val[1]:
-                overlap = interval_tree_man[chrom].search(interval)
-                if overlap == []:
+    def __filter_positions(self, target_positions, pch = ':'):
+        int_pos = self.__parse_position(self.args.interval, pch)
+        output = []
+        for temp_tp in target_positions:
+            if int_pos[0] == temp_tp[0]:
+                #if only chr is provided
+                if None in int_pos:
+                    output.append(temp_tp)
                     continue
-                for vals in overlap:
-                    start = max(interval.begin, vals.begin)
-                    stop = min(interval.end, vals.end)
-                    if start > stop:
-                        raise Exception()
-                    interval_tree[chrom].addi(start,stop)
-        return interval_tree
+                start = max(int_pos[1],temp_tp[1])
+                stop = min(int_pos[2],temp_tp[2])
+                if start > stop:
+                    continue
+                output.append([int_pos[0],start,stop])
+        return output
         
+    def get_positions_deep_filter(self, target_positions):
+        output = []
+        for val in target_positions:
+            if None in val:
+                output.append(val)
+                
+            regions = self.manifest[val[0]][val[1]:val[2]]
+            for region in regions:
+                start = max(region.begin,val[1])
+                stop = min(region.end,val[2])
+                if start > stop:
+                    continue
+                output.append([val[0],start,stop])
+        return output
+
+        
+    def get_positions_deep(self, target_positions):
+        if target_positions:
+            target_positions = self.get_positions_deep_filter(target_positions)
+        else:
+            #converting the tree to list    
+            [target_positions.extend([[val[0], i.begin, i.end] for i in val[1]])
+             for val in self.manifest.items()]
+        return target_positions
     
-    def get_positions(self, pch=[':','-']):
-        interval_tree = GenomeIntervalTree()
-        self.target_positions = []
-
+    def get_positions(self, pch=':'):
+        target_positions = []
+        
         if self.args.positions_file:
-            interval_tree = self.__parse_positions(self.args.positions_file,\
-                                                   subset = False)
-
-        # If positions:1-6000 and manifest: 1-600, 800-1000 then 
-        # output-> 1-600, 800-1000. but since we are iterating over manifest,
-        # we cant remove 1-6000 beacuse in that case 800-1000 will be thrown away.
-        ##TODO: perform this calculation in place by flagging the values that
-        #need to be removed and then remove them after the iteration over the manifest
-        # is complete.
-        if self.args.deep and self.manifest:
-            interval_tree_man = self.__parse_positions(self.args.manifest,\
-                                                       pch=['\t','\t'])
-            interval_tree = self.__remove_overlaps(interval_tree, 
-                                                   interval_tree_man)
-        
-        #now remove all that dont fall in interval
-        if self.args.interval:
-            if ':' not in self.args.interval:
-                if interval_tree.keys() == []:
-                    self.target_positions = [[self.args.interval, None, None]]
-                    return
-                else:
-                    _ = [interval_tree.pop(k) for k in interval_tree.keys()\
-                         if k != self.args.interval]
-            else: 
-                interval_tree_int = self.__parse_positions(None,\
-                                                           poslist = self.args.interval)
-                interval_tree = self.__remove_overlaps(interval_tree,\
-                                                       interval_tree_int)      
-        
-        #converting the tree to list    
-        for val in interval_tree.items():
-            for pos in val[1]:
-                if pos[2]:
-                    self.target_positions.append([val[0], pos.begin, pos.end-1])
-                else:
-                    self.target_positions.append([val[0], pos.begin, pos.end])
-        
+            target_positions = self.__parse_position_file()
+            if self.args.interval:
+                target_positions = self.__filter_positions(target_positions)
+            
+        if self.args.deep:
+            target_positions = self.get_positions_deep(target_positions)
+            if self.args.interval:
+                target_positions = self.__filter_positions(target_positions)
+                
+        if target_positions == [] and self.args.interval:
+            target_positions.append(self.__parse_position(self.args.interval))
+            
         #if no pos found- then run over whole genome
-        if self.target_positions == []:
+        if target_positions == []:
             # get all the common chromosome names
             # chromosome names in tumour bam
             tcn = self.bam.get_refnames().keys()
@@ -381,7 +323,9 @@ class Classifier(object):
         
             for cn in chr_names:
                 temp_tp = [cn, None, None]
-                self.target_positions.append(temp_tp)
+                target_positions.append(temp_tp)
+                
+        self.target_positions = target_positions
 
     def __get_genotype(self, nonref_count, count_all):
         aa = 0.01
@@ -431,7 +375,7 @@ class Classifier(object):
 
         return int(pr_aa), int(pr_ab), int(pr_bb), gt
 
-    def __make_outstr(self, tt, refbase, nt=None):
+    def _make_outstr(self, tt, refbase, nt=None):
         t_coverage = tt[5][0]
         n_coverage = 0
 
@@ -536,7 +480,7 @@ class Classifier(object):
 
         return outstr
 
-    def __flush(self):
+    def _flush(self):
         logging.info("flushing memory. Usage was: %s M",
                      str(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
                          / 1024))
@@ -555,7 +499,7 @@ class Classifier(object):
         # gc.collect()
         return features, outstrs
 
-    def __update_coverage_info(self, tt=None, nt=None):
+    def _update_coverage_info(self, tt=None, nt=None):
         if tt is not None:
             self.coverage_info[0] += tt[-3]
             self.coverage_info[1] += 1
@@ -580,7 +524,7 @@ class Classifier(object):
     def __get_features_single(self):
         tuples = self.bam.get_tuples(self.target_positions)
         for it in tuples:
-            self.__update_coverage_info(it)
+            self._update_coverage_info(it)
 
             chromosome_id = it[-1]
             position = it[0]
@@ -613,19 +557,19 @@ class Classifier(object):
             self.features_buffer.append(temp_feature)
 
             # generate output string and buffer it
-            outstr = self.__make_outstr(it, rt[0], nt=None)
+            outstr = self._make_outstr(it, rt[0], nt=None)
             self.outstr_buffer.append(outstr)
 
             # check the buffer size and flush
             if len(self.features_buffer) >= self.buffer_size:
-                yield self.__flush()
+                yield self._flush()
 
-        yield self.__flush()
+        yield self._flush()
 
     def __get_features_paired(self):
         tuples = self.bam.get_tuples(self.target_positions)
         for tt, nt in tuples:
-            self.__update_coverage_info(tt, nt)
+            self._update_coverage_info(tt, nt)
             chromosome_id = tt[-1]
             position = tt[0]
 
@@ -659,14 +603,14 @@ class Classifier(object):
             self.features_buffer.append(temp_feature)
 
             # generate output string and buffer it
-            outstr = self.__make_outstr(tt, rt[0], nt)
+            outstr = self._make_outstr(tt, rt[0], nt)
             self.outstr_buffer.append(outstr)
 
             # check the buffer size and flush
             if len(self.features_buffer) >= self.buffer_size:
-                yield self.__flush()
+                yield self._flush()
 
-        yield self.__flush()
+        yield self._flush()
 
     def __get_tuples(self, chromosome, start, end):
         tt_int= []
@@ -706,7 +650,7 @@ class Classifier(object):
                 if tt[0] != rt[0]:
                     raise Exception()
                 rt = rt[1]
-                self.__update_coverage_info(tt, nt)
+                self._update_coverage_info(tt, nt)
                 position = tt[0]
                 chromosome_id = tt[-1]
                 refbase = self.bam.get_reference_base(chromosome_id,
@@ -740,14 +684,14 @@ class Classifier(object):
                 self.features_buffer.append(temp_feature)
 
                 # generate output string and buffer it
-                outstr = self.__make_outstr(tt, rt[0], nt)
+                outstr = self._make_outstr(tt, rt[0], nt)
                 self.outstr_buffer.append(outstr)
 
                 # check the buffer size and flush
                 if len(self.features_buffer) >= self.buffer_size:
-                    yield self.__flush()
+                    yield self._flush()
 
-        yield self.__flush()
+        yield self._flush()
 
     def __get_features_single_deep(self):
         for val in self.target_positions:
@@ -761,7 +705,7 @@ class Classifier(object):
                 if it[0] != rt[0]:
                     raise Exception()
                 rt = rt[1]
-                self.__update_coverage_info(it)
+                self._update_coverage_info(it)
                 position = it[0]
                 chromosome_id = it[-1]
                 refbase = self.bam.get_reference_base(chromosome_id,
@@ -793,13 +737,13 @@ class Classifier(object):
                 self.features_buffer.append(temp_feature)
 
                 # generate output string and buffer it
-                outstr = self.__make_outstr(it, rt[0], nt=None)
+                outstr = self._make_outstr(it, rt[0], nt=None)
                 self.outstr_buffer.append(outstr)
 
                 # check the buffer size and flush
                 if len(self.features_buffer) >= self.buffer_size:
-                    yield self.__flush()
-        yield self.__flush()  
+                    yield self._flush()
+        yield self._flush()  
 
     def __load_model(self):
         try:
@@ -807,7 +751,10 @@ class Classifier(object):
             return joblib.load(self.model)
 
         except Exception as e:
-            logging.error("error loading model: "+e.strerror)
+            if hasattr(e, 'strerror'):
+                logging.error("error loading model: "+e.strerror)
+            else:
+                logging.error("error loading model: "+str(e))
             raise Exception("failed to load model")
 
     def __verify_model_features(self, model):
@@ -820,10 +767,10 @@ class Classifier(object):
 
     def predict(self, features_outstrs):
         # model = self.__fit_model()
-        self.model_obj = self.__load_model()
+        model = self.__load_model()
 
         # verify the model against the features
-        if not self.__verify_model_features(self.model_obj):
+        if not self.__verify_model_features(model):
             logging.error('The features and the model do not match')
             raise Exception('mismatched model')
 
@@ -832,16 +779,16 @@ class Classifier(object):
             if len(features) == 0:
                 continue
 
-            if hasattr(self.model_obj, 'coefs'):
-                zeros = [i for i, val in enumerate(self.model_obj.coefs.tolist())
+            if hasattr(model, 'coefs'):
+                zeros = [i for i, val in enumerate(model.coefs.tolist())
                          if val == 0]
 
                 features = [[featureval for i, featureval in enumerate(feature)
                              if i not in zeros] for feature in features]
 
-                probabilities = self.model_obj.predict_proba(features)
+                probabilities = model.predict_proba(features)
             else:
-                probabilities = self.model_obj.predict_proba(features)
+                probabilities = model.predict_proba(features)
 
             # return only probabilities of being somatic
             probabilities = [x[1] for x in probabilities]
@@ -885,7 +832,7 @@ class Classifier(object):
             outfile.seek(0)
             for val in header:
                 outfile.write(val)
-            outfile.flush()
+            outfile._flush()
 
         except Exception as e:
             logging.error('Error writing coverage information to the header\n')
@@ -1044,15 +991,15 @@ class Classifier(object):
     def export_features(self, features):
         version = self.features_module.Features().version
         names = ['chromosome', 'position'] + self.get_feature_names()
-        
+
         if not hasattr(self, 'model_obj'):
             self.model_obj = self.__load_model()
 
         with open(self.args.export_features, 'w') as export_file:
             print >> export_file, "##features_version:" + version
             print >> export_file, "\t".join(names)
-            
-            
+
+
             for features, outstrs in features:
                 if len(features) == 0:
                     continue
@@ -1063,7 +1010,7 @@ class Classifier(object):
 
                     features = [[featureval for i, featureval in enumerate(feature)
                              if i not in zeros] for feature in features]
-                
+
                 for feature,outstr in zip(features,outstrs):
                     self.features_buffer.append(feature)
                     self.outstr_buffer.append(outstr)
@@ -1082,6 +1029,7 @@ class Classifier(object):
         '''
         for _, _ in features:
             pass
+
 """
 ==============================================================================
 Trainer class
@@ -1397,7 +1345,7 @@ class Trainer(object):
                 if rt[0] >= 4:
                     chromosome_name = self.bam.get_chromosome_name(chromosome_id)
                     logging.error("%s:%s position references base N and has been " \
-                                 "ignored" % (chromosome_name ,str(position)))
+                                 "ignored" % (chromosome_name ,str(pos)))
                     continue
 
                 # check for None tuples

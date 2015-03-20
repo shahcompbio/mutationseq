@@ -4,10 +4,10 @@ Created on May 20, 2014
 @author: dgrewal
 '''
 import logging
-import preprocessui
+import classifyui
 
 mutationSeq_version="4.3.4"
-args = preprocessui.args 
+args = classifyui.args 
 
 if args.verbose:
     level = logging.DEBUG    
@@ -32,13 +32,10 @@ logging.info("initializing a Classifier")
 classifier = preprocessutils.PreProcess(args)
 
 logging.info("getting positions")
-target_positions = classifier.get_positions()
-
-logging.info("generating tuple iterator")
-tuples = classifier.bam.get_tuples(target_positions)
+classifier.get_positions()
 
 logging.info("generating features iterator")
-features = classifier.get_features(tuples)
+features = classifier.get_features()
     
 probabilities = classifier.predict(features)
 classifier.print_results(probabilities)
