@@ -473,7 +473,7 @@ class Classifier(object):
         chromosome_name = self.bam.get_chromosome_name(chromosome_id)
 
         # remove chr from chromosome
-        chromosome_name = chromosome_name.replace('chr', '')
+        #chromosome_name = chromosome_name.replace('chr', '')
 
         outstr = [chromosome_name, position, out_id, refbase, altbase,
                   filter_flag, info]
