@@ -820,10 +820,10 @@ class Classifier(object):
 
     def predict(self, features_outstrs):
         # model = self.__fit_model()
-        model = self.__load_model()
+        self.model_obj = self.__load_model()
 
         # verify the model against the features
-        if not self.__verify_model_features(model):
+        if not self.__verify_model_features(self.model_obj):
             logging.error('The features and the model do not match')
             raise Exception('mismatched model')
 
@@ -832,16 +832,16 @@ class Classifier(object):
             if len(features) == 0:
                 continue
 
-            if hasattr(model, 'coefs'):
-                zeros = [i for i, val in enumerate(model.coefs.tolist())
+            if hasattr(self.model_obj, 'coefs'):
+                zeros = [i for i, val in enumerate(self.model_obj.coefs.tolist())
                          if val == 0]
 
                 features = [[featureval for i, featureval in enumerate(feature)
                              if i not in zeros] for feature in features]
 
-                probabilities = model.predict_proba(features)
+                probabilities = self.model_obj.predict_proba(features)
             else:
-                probabilities = model.predict_proba(features)
+                probabilities = self.model_obj.predict_proba(features)
 
             # return only probabilities of being somatic
             probabilities = [x[1] for x in probabilities]
@@ -1044,7 +1044,9 @@ class Classifier(object):
     def export_features(self, features):
         version = self.features_module.Features().version
         names = ['chromosome', 'position'] + self.get_feature_names()
-        model = self.__load_model()
+        
+        if not hasattr(self, 'model_obj'):
+            self.model_obj = self.__load_model()
 
         with open(self.args.export_features, 'w') as export_file:
             print >> export_file, "##features_version:" + version
@@ -1055,21 +1057,31 @@ class Classifier(object):
                 if len(features) == 0:
                     continue
 
-                if hasattr(model, 'coefs'):
-                    zeros = [i for i, val in enumerate(model.coefs.tolist())
+                if hasattr(self.model_obj, 'coefs'):
+                    zeros = [i for i, val in enumerate(self.model_obj.coefs.tolist())
                              if val == 0]
 
                     features = [[featureval for i, featureval in enumerate(feature)
                              if i not in zeros] for feature in features]
                 
                 for feature,outstr in zip(features,outstrs):
+                    self.features_buffer.append(feature)
+                    self.outstr_buffer.append(outstr)
                     chromosome = str(outstr[0])
                     position = str(outstr[1])
                     feature = map(str, feature.tolist())
                     output_string = '\t'.join([chromosome, position] +feature)+'\n'
                     export_file.write(output_string)
+                    if len(self.outstr_buffer)>self.buffer_size:
+                        yield self.__flush()
+        yield self.__flush()
 
-
+    def print_features(self, features):
+        '''
+        since we aren't predicting, just exhaust the generator.
+        '''
+        for _, _ in features:
+            pass
 """
 ==============================================================================
 Trainer class

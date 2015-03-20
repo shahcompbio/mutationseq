@@ -40,9 +40,11 @@ features = classifier.get_features()
 
 if args.export_features is not None:
     logging.info("exporting features")
-    classifier.export_features(features)
+    features = classifier.export_features(features)
 
-if not args.features_only:
+if args.features_only:
+    classifier.print_features(features)
+else:
     probabilities = classifier.predict(features)
     classifier.print_results(probabilities)
 
