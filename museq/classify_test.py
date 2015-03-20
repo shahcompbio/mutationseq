@@ -166,7 +166,6 @@ class single_position_error(unittest.TestCase,base_class):
         self.args_paired.positions_file = "unit_test/positions_missed.pos"
         self.classifier = bamutils.Classifier(self.args_paired)
         self.classifier.get_positions()
-        self.classifier.get_positions()
         self.target_positions = self.classifier.target_positions
         #get the alignment for the single alignment(n) and 
         #then for the range(n-1,n), compare
@@ -829,8 +828,8 @@ class verify_get_positions(unittest.TestCase,base_class):
         """
         The interval is a chromosome plus a positions file
         interval:1
-        positions: 1:1-1000, 1:1000, 1:1-2000, 1:1-20000
-        output: 1:1000 (we are looking for the common region among the positions provided)
+        positions: 1:1-20000, 1:21000-30000, 3:1-1000, 5:500-2000, 10:1-20000
+        output: 1:1-20000, 1:21000-30000 (we are looking for the common region among the positions provided)
         """
         args = self.args_paired
         args.interval = '1'
@@ -838,9 +837,8 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        positions = classifier.target_positions
-        
-        self.assertEqual(positions, [['1',1,20000]])
+
+        self.assertEqual(positions, [['1',1,20000], ['1',21000,30000]])
 
     
     def test_get_positions_case2(self):
@@ -875,7 +873,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertListEqual(positions, [['1', 1, 90], ['1', 500, 650], ['1', 92, 130]])
+        self.assertListEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 500, 650]])
     
     def test_get_positions_case4(self):
         """
@@ -909,7 +907,7 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier = bamutils.Classifier(args)
         classifier.get_positions()
         positions = classifier.target_positions
-        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 179076834, 179076890], ['1', 500, 650]])
+        self.assertEqual(positions, [['1', 1, 90], ['1', 92, 130], ['1', 179076833, 179076890], ['1', 500, 650]])
     
     def test_get_positions_case6(self):
         """
