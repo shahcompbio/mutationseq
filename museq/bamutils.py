@@ -414,10 +414,10 @@ class Classifier(object):
             deletion = tt[-4]
 
             # calculate ratio of variant reads
-            alt_indels = tt[-2][altbase]
-            alt_reads = tt[altbase + 1][0]
+            ##alt_indels = tt[-2][altbase]
+            ##alt_reads = tt[altbase + 1][0]
 
-            ratio = alt_indels / (alt_reads + 1e-300)
+            ratio = sum(tt[-2]) / t_coverage
 
             # filter flag
             if ratio > self.args.indl_threshold:
