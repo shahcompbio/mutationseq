@@ -832,7 +832,7 @@ class Classifier(object):
             outfile.seek(0)
             for val in header:
                 outfile.write(val)
-            outfile._flush()
+            outfile.flush()
 
         except Exception as e:
             logging.error('Error writing coverage information to the header\n')
@@ -1170,8 +1170,8 @@ class Trainer(object):
                 # check if required bam files/reference are specified in the
                 # training data
                 if not all((tfile, nfile, rfile)):
-                    logging.warning("%s' does not contain the required paths\
-                                    to bam/reference files"
+                    logging.warning("%s' does not contain the required paths "\
+                                    "to bam/reference files"
                                     % os.path.basename(case.name))
                     continue
 
