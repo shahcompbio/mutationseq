@@ -1020,8 +1020,8 @@ class Classifier(object):
                     output_string = '\t'.join([chromosome, position] +feature)+'\n'
                     export_file.write(output_string)
                     if len(self.outstr_buffer)>self.buffer_size:
-                        yield self.__flush()
-        yield self.__flush()
+                        yield self._flush()
+        yield self._flush()
 
     def print_features(self, features):
         '''
