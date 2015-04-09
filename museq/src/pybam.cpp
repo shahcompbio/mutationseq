@@ -716,6 +716,10 @@ private:
 
 	    if (!m_Fasta.GetBase(refId, position+1, nextBase))
 		{
+                        if (position+1 > m_RefLengths[refId])
+                            {
+                                return count;
+                            }
 			throw runtime_error("unable to get base at:" + lexical_cast<string>(position+1));
 		}
 		currentBase = toupper(currentBase);
@@ -728,6 +732,10 @@ private:
 	        currentBase = nextBase;
 	        if (!m_Fasta.GetBase(refId, position+1, nextBase))
 			{
+                                if (position+1 > m_RefLengths[refId])
+                                    {
+                                        break;
+                                    }
 				throw runtime_error("unable to get base at:" + lexical_cast<string>(position+1));
 			}
 			nextBase = toupper(nextBase);
