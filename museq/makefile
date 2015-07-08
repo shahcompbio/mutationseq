@@ -22,4 +22,4 @@ pybam.so : $(SOURCE)
 		$(PYTHON) setup.py --boost_source=$(BOOSTPATH) install --prefix=./ --install-platlib=./
 
 clean :
-		rm -f *.o *.so
+		rm -rf *.o *.so build
