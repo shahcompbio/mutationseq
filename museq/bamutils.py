@@ -272,6 +272,10 @@ class Classifier(object):
         return output
         
     def get_positions_deep_filter(self, target_positions):
+        '''
+        gets the overlapping amplicons for each positions and 
+        adds the intersection to the target list
+        '''
         output = []
         for val in target_positions:
             if None in val:
@@ -282,12 +286,17 @@ class Classifier(object):
                 start = max(region.begin,val[1])
                 stop = min(region.end,val[2])
                 if start > stop:
+                    ##TODO: exception might make more sense here.
                     continue
                 output.append([val[0],start,stop])
         return output
 
         
     def get_positions_deep(self, target_positions):
+        '''
+        If target positions isn't empty then filter them based on the manifest
+        else return all positions from the manifest
+        '''
         if target_positions:
             target_positions = self.get_positions_deep_filter(target_positions)
         else:
@@ -308,12 +317,13 @@ class Classifier(object):
             target_positions = self.get_positions_deep(target_positions)
             if self.args.interval:
                 target_positions = self.__filter_positions(target_positions)
-                
-        if target_positions == [] and self.args.interval:
+
+        if target_positions == [] and self.args.interval and not self.args.positions_file:
             target_positions.append(self.__parse_position(self.args.interval))
-            
+
+                
         #if no pos found- then run over whole genome
-        if target_positions == []:
+        if target_positions == [] and not self.args.interval and not self.args.positions_file:
             # get all the common chromosome names
             # chromosome names in tumour bam
             tcn = self.bam.get_refnames().keys()
@@ -324,7 +334,10 @@ class Classifier(object):
             for cn in chr_names:
                 temp_tp = [cn, None, None]
                 target_positions.append(temp_tp)
-                
+            
+        #print target_positions
+        #print self.args.interval
+        #print self.args.positions_file    
         self.target_positions = target_positions
 
     def __get_genotype(self, nonref_count, count_all):

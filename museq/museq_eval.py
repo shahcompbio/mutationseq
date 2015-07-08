@@ -80,13 +80,10 @@ def run_classifier(arguments,reffiles):
         classifier = bamutils.Classifier(arguments)
 
         logging.info("getting positions")
-        target_positions = classifier.get_positions()
-
-        logging.info("generating tuple iterator")
-        tuples = classifier.bam.get_tuples(target_positions)
+        classifier.get_positions()
 
         logging.info("generating features iterator")
-        features = classifier.get_features(tuples)
+        features = classifier.get_features()
 
         if arguments.export_features is not None:
             logging.info("exporting features")

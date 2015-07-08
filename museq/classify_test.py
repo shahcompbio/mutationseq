@@ -968,3 +968,20 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier.get_positions()
         positions = classifier.target_positions
         self.assertListEqual(sorted(positions), sorted([['1', None, None]]))    
+
+    def test_get_positions_case10(self):
+        """
+        The interval is a chromosome plus a positions file 
+        interval.intersection(positions file) == []
+        interval:1
+        manifest: None
+        positions_file: 1:1-20000,1:21000-30000,3:1-1000,5:500-2000,10:1-20000
+        output: []
+        """
+        args = self.args_paired
+        args.interval = '11'
+        args.positions_file = './unit_test/get_positions_posfile'
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertListEqual(positions, [])
