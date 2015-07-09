@@ -6,7 +6,7 @@ Created on Wed Oct 23 11:34:48 2013
 """
 import argparse
 
-mutationSeq_version="4.3.5"
+mutationSeq_version="4.3.6"
 
 #==============================================================================
 # make a UI 

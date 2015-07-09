@@ -6,7 +6,7 @@ Created on May 20, 2014
 import logging
 import classifyui
 
-mutationSeq_version="4.3.5"
+mutationSeq_version="4.3.6"
 args = classifyui.args 
 
 if args.verbose:
