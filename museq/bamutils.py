@@ -175,7 +175,7 @@ class Classifier(object):
 
         man_stream = open(self.args.manifest)
         gtree = defaultdict(lambda: IntervalTree())
-#        gtree = GenomeIntervalTree()
+
         for line in man_stream:
             line = line.strip().split()
             if line[0] == 'chrom':
@@ -186,6 +186,11 @@ class Classifier(object):
             chrom = line[0]
             start = int(line[1])
             end = int(line[2])
+
+            #empty intervals (points) are not allowed.
+            assert end>start, 'amplicon end should be greater than start.'\
+                              ' Please check the manifest file'
+
             gtree[chrom].addi(start, end)
         return gtree
 

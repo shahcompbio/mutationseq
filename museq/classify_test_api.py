@@ -3,7 +3,7 @@ Created on Jan 28, 2014
 
 @author: dgrewal
 '''
-import classify_test
+#import classify_test
 import time
 import logging
 import bamutils
