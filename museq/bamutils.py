@@ -33,7 +33,7 @@ from sklearn.linear_model import ElasticNetCV
 from intervaltree import IntervalTree
 #from intervaltree.bio import GenomeIntervalTree
 
-mutationSeq_version = "4.3.6"
+mutationSeq_version = "4.3.7"
 
 """
 ==============================================================================

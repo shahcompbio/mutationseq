@@ -7,7 +7,7 @@ Created on Mon Dec  2 10:43:37 2013
 import logging
 import trainui
 
-mutationSeq_version="4.3.6"
+mutationSeq_version="4.3.7"
 args = trainui.args 
 
 if args.verbose:
