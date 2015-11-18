@@ -285,8 +285,12 @@ class Classifier(object):
         for val in target_positions:
             if None in val:
                 output.append(val)
-                
-            regions = self.manifest[val[0]][val[1]:val[2]]
+            
+            if val[1] == val[2]:
+                regions = self.manifest[val[0]][val[1]]
+            else:
+                regions = self.manifest[val[0]][val[1]:val[2]]
+
             for region in regions:
                 start = max(region.begin,val[1])
                 stop = min(region.end,val[2])

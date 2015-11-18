@@ -985,3 +985,28 @@ class verify_get_positions(unittest.TestCase,base_class):
         classifier.get_positions()
         positions = classifier.target_positions
         self.assertListEqual(positions, [])
+
+
+    def test_get_positions_case11(self):
+        """
+        There is no overlap between manifest and positions file.
+        manifest: 1:1-2000
+        positions_file: 1:1000
+        output: 1:1-2000 (since there is no amplicon around the position in pos file,
+                    so we dont return anything)
+
+        There was a bug in the code where lookup of points wasn't correct.
+        i.e self.manifest[val[0]][val[1]:val[2]] return [] if val[1] == val[2]
+        but self.manifest[val[0]][val[1]] doesn't
+        """
+        args = self.args_paired
+        args.deep=True
+        args.positions_file = './unit_test/get_positions_posfile_case11'
+        args.manifest = './unit_test/get_positions_manifest_case11'
+
+        classifier = bamutils.Classifier(args)
+        classifier.get_positions()
+        positions = classifier.target_positions
+        self.assertListEqual(sorted(positions), sorted([['1', 1000, 1000]]))
+        pass 
+
