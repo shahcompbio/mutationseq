@@ -285,6 +285,7 @@ class Classifier(object):
         for val in target_positions:
             if None in val:
                 output.append(val)
+                continue
             
             if val[1] == val[2]:
                 regions = self.manifest[val[0]][val[1]]
