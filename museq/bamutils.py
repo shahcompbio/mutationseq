@@ -195,7 +195,10 @@ class Classifier(object):
         return gtree
 
     def __get_flanking_regions(self, chromosome, start,stop):
-        vals = self.manifest[chromosome][start:stop]
+        if start == stop:
+            vals = self.manifest[chromosome][start]
+        else:
+            vals = self.manifest[chromosome][start:stop]
         vals = sorted(vals)
             
         if len(vals) > 1:
