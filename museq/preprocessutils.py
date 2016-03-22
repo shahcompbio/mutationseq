@@ -10,7 +10,7 @@ import pybamapi
 import numpy
 import resource
 
-mutationSeq_version = "4.3.7"
+mutationSeq_version = "4.3.8"
 
 class PreProcess(Classifier):
     def __init__(self,args):

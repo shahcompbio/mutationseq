@@ -18,7 +18,7 @@ import matplotlib.gridspec as gridspec
 import os
 from scipy.integrate import trapz,simps
 
-mutationSeq_version="4.3.7"
+mutationSeq_version="4.3.8"
 #====================================================
 #Probability and ROC plots
 #====================================================

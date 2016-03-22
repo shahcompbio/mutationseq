@@ -8,7 +8,7 @@ import time
 import logging
 import bamutils
 
-mutationSeq_version="4.3.7"
+mutationSeq_version="4.3.8"
 
 #==============================================================================
 # Get the arguments
