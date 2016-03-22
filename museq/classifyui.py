@@ -121,6 +121,10 @@ parser.add_argument("-i", "--interval",
                      default=None,
                      help='''specify an interval "chr[:start-stop]"''')
 
+parser.add_argument("--keep_duplicate_reads", 
+                    action="store_true", default=False,
+                    help='''mutationseq removes duplicate reads by default, set this flag to True to keep them''')
+
 ## mandatory options                   
 mandatory_options = parser.add_argument_group("required arguments")
 mandatory_options.add_argument("-c", "--config", 

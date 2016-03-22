@@ -108,15 +108,16 @@ class Classifier(object):
                         input but it does not seem to be the single mode.")
             raise Exception("one bam file specified but not the single mode")
 
+
+        rmdups = True if self.args.keep_duplicates else False
+
         # single mode
         if self.args.single:
             if self.args.deep:
                 self.features_module = features_deep_single
-                self.rmdups = False
 
             else:
                 self.features_module = features_single
-                self.rmdups = True
 
             if not self.samples.get("tumour"):
                 self.type = 'n'
@@ -125,7 +126,7 @@ class Classifier(object):
                 self.bam = pybamapi.Bam(bam=self.samples.get("normal"),
                                         reference=self.ref,
                                         coverage=self.coverage,
-                                        rmdups=self.rmdups,
+                                        rmdups=rmdups,
                                         mapq_threshold=self.mapq_threshold,
                                         baseq_threshold=self.baseq_threshold)
 
@@ -136,7 +137,7 @@ class Classifier(object):
                 self.bam = pybamapi.Bam(bam=self.samples.get("tumour"),
                                         reference=self.ref,
                                         coverage=self.coverage,
-                                        rmdups=self.rmdups,
+                                        rmdups=rmdups,
                                         mapq_threshold=self.mapq_threshold,
                                         baseq_threshold=self.baseq_threshold)
 
@@ -144,11 +145,8 @@ class Classifier(object):
         else:
             if self.args.deep:
                 self.features_module = features_deep
-                self.rmdups = False
-
             else:
                 self.features_module = features
-                self.rmdups = True
 
             logging.info("initializing a PairedBam")
             self.bam = pybamapi.PairedBam(tumour=self.samples.get("tumour"),
@@ -156,7 +154,7 @@ class Classifier(object):
                                           reference=self.samples.get(
                                               "reference"),
                                           coverage=self.coverage,
-                                          rmdups=self.rmdups,
+                                          rmdups=rmdups,
                                           mapq_threshold=self.mapq_threshold,
                                           baseq_threshold=self.baseq_threshold)
 
