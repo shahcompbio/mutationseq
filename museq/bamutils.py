@@ -109,7 +109,7 @@ class Classifier(object):
             raise Exception("one bam file specified but not the single mode")
 
 
-        rmdups = True if self.args.keep_duplicates else False
+        rmdups = True if self.args.keep_duplicate_reads else False
 
         # single mode
         if self.args.single:
@@ -334,7 +334,7 @@ class Classifier(object):
 
                 
         #if no pos found- then run over whole genome
-        if target_positions == [] and not self.args.interval and not self.args.positions_file:
+        if target_positions == [] and not self.args.interval and not self.args.positions_file and not self.args.deep:
             # get all the common chromosome names
             # chromosome names in tumour bam
             tcn = self.bam.get_refnames().keys()
