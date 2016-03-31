@@ -108,8 +108,7 @@ class Classifier(object):
                         input but it does not seem to be the single mode.")
             raise Exception("one bam file specified but not the single mode")
 
-
-        rmdups = True if self.args.keep_duplicate_reads else False
+        rmdups = False if self.args.keep_duplicate_reads else True
 
         # single mode
         if self.args.single:
@@ -329,7 +328,7 @@ class Classifier(object):
             if self.args.interval:
                 target_positions = self.__filter_positions(target_positions)
 
-        if target_positions == [] and self.args.interval and not self.args.positions_file:
+        if target_positions == [] and self.args.interval and not self.args.positions_file and not self.args.deep:
             target_positions.append(self.__parse_position(self.args.interval))
 
                 
