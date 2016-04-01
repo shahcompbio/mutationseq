@@ -708,24 +708,6 @@ class verify_features(unittest.TestCase,base_class):
 #             self.__check_features_paired(feature)  
        
 
-#====================
-#check rmdups flag
-#====================
-class verify_flags(unittest.TestCase,base_class):
-
-    def setUp(self):
-        self.args = initargs()
-        self.args.positions_file = None
-        self.args.interval = None
-        self.classifier = bamutils.Classifier(self.args)
-    
-    def test_rmdups(self):
-        rmdups = self.classifier.rmdups
-        if self.args.deep:
-            self.assertEqual(rmdups,False,'rmdups not set for deepseq analysis')
-        else:
-            self.assertEqual(rmdups,True,'rmdups set for non deepseq analysis')
-
 class verify_individual_functions(unittest.TestCase,base_class):
     def setUp(self):
         self.args_paired = initargs()

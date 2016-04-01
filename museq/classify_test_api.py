@@ -43,6 +43,7 @@ class initargs():
         self.verbose = True
         self.invalid = False
         self.indl_threshold = 0.5
+        self.count_duplicate_reads = False
     
     def set_single(self):
         self.single = True
