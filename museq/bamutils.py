@@ -108,7 +108,7 @@ class Classifier(object):
                         input but it does not seem to be the single mode.")
             raise Exception("one bam file specified but not the single mode")
 
-        rmdups = False if self.args.keep_duplicate_reads else True
+        rmdups = False if self.args.count_duplicate_reads else True
 
         # single mode
         if self.args.single:
