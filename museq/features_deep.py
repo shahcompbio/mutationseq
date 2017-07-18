@@ -344,7 +344,8 @@ class Features:
             self.nt_bg_avg_var_freq = sum(nt_bg_avg_var_freq)/len(nt_bg_avg_var_freq)
         except Exception,e:
             logging.error('Zero division error due to error in retreiving tuples (See MUT-255) for position: '+str(self.tt[0])) 
-            return
+            self.tt_bg_avg_var_freq = float('nan')
+            self.nt_bg_avg_var_freq = float('nan')
             
         if self.man_ref:
             if self.b != self.man_ref:
@@ -364,7 +365,3 @@ class Features:
         self.tum_p_val = binom.sf(tum_nref_count-1,tum_depth,self.tt_bg_avg_var_freq)
         self.norm_p_val = binom.sf(norm_nref_count-1,norm_depth,self.nt_bg_avg_var_freq)
 
-        
-        
-        
-        

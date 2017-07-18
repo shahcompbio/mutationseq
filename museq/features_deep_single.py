@@ -207,8 +207,9 @@ class Features:
         try:
             self.it_bg_avg_var_freq = sum(it_bg_avg_var_freq)/len(it_bg_avg_var_freq)
         except Exception,e:
-            raise Exception(e)
-            
+            logging.error('Zero division error due to error in retreiving tuples (See MUT-255) for position: '+str(self.tt[0]))
+            self.it_bg_avg_var_freq = float('nan')
+ 
         if self.man_ref:
             if self.b != self.man_ref:
                 logging.error('Error: ref base in manifest and tuples don\'t match')
