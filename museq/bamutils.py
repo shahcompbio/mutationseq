@@ -80,7 +80,9 @@ class Classifier(object):
         self.ref = self.samples.get("reference")
 
         # check if the model is specified correctly
-        self.model = self.samples.get("model")
+        model = self.samples.get("model")
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        self.model = os.path.join(dirname, model)
         if not self.model:
             logging.error("error: bad input: model must be specified in the \
                           input")
@@ -890,6 +892,10 @@ class Classifier(object):
         else:
             tumourval = 'TUMOUR'
             normalval = 'NORMAL'
+
+        cfg_file = self.args.config
+        if not cfg_file:
+            cfg_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'metadata.config')
 
         try:
             cfg_file = open(self.args.config, 'r')
