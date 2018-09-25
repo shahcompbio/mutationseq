@@ -34,6 +34,8 @@ from intervaltree import IntervalTree
 #from intervaltree.bio import GenomeIntervalTree
 
 mutationSeq_version = "4.3.8"
+MUSEQ_VERSION = mutationSeq_version
+
 
 """
 ==============================================================================
@@ -79,10 +81,15 @@ class Classifier(object):
 
         self.ref = self.samples.get("reference")
 
+        dirname = os.path.dirname(os.path.realpath(__file__))
         # check if the model is specified correctly
         model = self.samples.get("model")
-        dirname = os.path.dirname(os.path.realpath(__file__))
-        self.model = os.path.join(dirname, model)
+        if not model:
+            self.model = "model_single_v4.0.2.pickle" if self.args.single else "model_v4.1.2.pickle" 
+            self.model = os.path.join(dirname, self.model)
+        if model and not os.path.exists(model):
+            self.model = os.path.join(dirname, model)
+
         if not self.model:
             logging.error("error: bad input: model must be specified in the \
                           input")
@@ -352,158 +359,120 @@ class Classifier(object):
         #print self.args.positions_file    
         self.target_positions = target_positions
 
-    def __get_genotype(self, nonref_count, count_all):
-        aa = 0.01
-        ab = 0.50
-        bb = 0.99
-        prob = [aa, ab, bb]
+    @staticmethod
+    def get_phred_score(prob, typ):
+        """
+        convert probability to phred scaled likelihood
+        when returning likelihood, higher value has lower probability
+        when quality: higher value for high prob
+        """
+        if typ == 'likelihood':
+            if prob == 0:
+                prob = 255
+            elif prob == 1:
+                prob = 0
+            else:
+                prob = -10 * log10(prob)
+        elif typ == 'quality':
+            if prob == 0:
+                prob = 0
+            elif prob == 1:
+                prob = 100
+            else:
+                prob = -10 * log10(1 - prob)
+
+        return prob
+
+    def __get_genotype(self, nonref_count, count_all, typ):
+        """
+        uses snvmix priors and binomial test to calculate
+        genotype and their likelihoods
+        """
+        if typ == 'n':
+            # snvmix priors - normal allele frequency
+            aa_freq = 0.01
+            ab_freq = 0.50
+            bb_freq = 0.99
+        elif typ == 't':
+            # tumour allele frequency
+            aa_freq = 0.01
+            ab_freq = 0.30
+            bb_freq = 0.90
+        else:
+            raise ValueError('Invalid input parameter.')
+
+        prior = [aa_freq, ab_freq, bb_freq]
 
         # binomial pmf for three different probabilities
-        binom_val = [binom.pmf(nonref_count, count_all, p) for p in prob]
+        bnom_pmf = [binom.pmf(nonref_count, count_all, p) for p in prior]
 
-        if sum(binom_val) == 0:
-            binom_val = [val / (sum(binom_val) + 1e-150) for val in binom_val]
-        else:
-            binom_val = [val / sum(binom_val) for val in binom_val]
+        # ensure binom results sum to 1 (get probabilities)
+        bnom_sum = 1e-150 if sum(bnom_pmf) == 0 else sum(bnom_pmf)
+        bnom_pmf = [round(val / bnom_sum, 4) for val in bnom_pmf]
 
-        pr_aa = round(binom_val[0], 4)
-        pr_ab = round(binom_val[1], 4)
-        pr_bb = round(binom_val[2], 4)
+        pr_aa, pr_ab, pr_bb = bnom_pmf
 
         if pr_aa == max(pr_aa, pr_ab, pr_bb):
-            gt = '0/0'
-        if pr_ab == max(pr_aa, pr_ab, pr_bb):
-            gt = '0/1'
-        if pr_bb == max(pr_aa, pr_ab, pr_bb):
-            gt = '1/1'
+            gtyp = '0/0'
+        elif pr_ab == max(pr_aa, pr_ab, pr_bb):
+            gtyp = '0/1'
+        elif pr_bb == max(pr_aa, pr_ab, pr_bb):
+            gtyp = '1/1'
 
-        if pr_aa == 0:
-            pr_aa = 255
-        elif pr_aa == 1:
-            pr_aa = 0
-        else:
-            pr_aa = -10 * log10(pr_aa)
+        pr_aa = self.get_phred_score(pr_aa, typ='likelihood')
+        pr_ab = self.get_phred_score(pr_ab, typ='likelihood')
+        pr_bb = self.get_phred_score(pr_bb, typ='likelihood')
 
-        if pr_ab == 0:
-            pr_ab = 255
-        elif pr_ab == 1:
-            pr_ab = 0
-        else:
-            pr_ab = -10 * log10(pr_ab)
+        prob_lkl = [int(pr_aa), int(pr_ab), int(pr_bb)]
+        prob_lkl = ','.join([str(v) for v in prob_lkl])
 
-        if pr_bb == 0:
-            pr_bb = 255
-        elif pr_bb == 1:
-            pr_bb = 0
-        else:
-            pr_bb = -10 * log10(pr_bb)
+        return gtyp, prob_lkl
 
-        return int(pr_aa), int(pr_ab), int(pr_bb), gt
 
-    def _make_outstr(self, tt, refbase, nt=None):
-        t_coverage = tt[5][0]
-        n_coverage = 0
+    def _make_outstr(self, tumtup, refbase, normtup=None):
+        """
+        generate output string with all the relavant values
+        for vcf output
+        """
+        # Assuming that coverage cannot be 0 since we skip those tuples in
+        # pybam
 
-        # tumour information to print
-        if t_coverage == 0:
-            # alternative base
-            altbase = "N/A"
+        # alternative base, tt[6] is major and tt[7] is minor
+        altbase = tumtup[7] if refbase == tumtup[6] else tumtup[6]
 
-            # tumour counts
-            TR = 0  # tumour to reference base count
-            TA = 0  # tumour to alternative base count
+        # calculate ratio of reads with an indl
+        ratio = sum(tumtup[-2]) / tumtup[5][0]
+        filter_flag = "INDL" if ratio > self.args.indl_threshold else None
 
-            # indel
-            insertion = 0
-            deletion = 0
+        tumdata = [tumtup[refbase + 1][0], tumtup[altbase + 1][0],
+                   tumtup[9], tumtup[11], tumtup[5][0]]
 
-            # filter flag
-            filter_flag = "NOCV"
+        in_typ = self.type if self.args.single else 't'
+        tumdata.extend(self.__get_genotype(tumdata[1], tumtup[5][0], in_typ))
 
-        else:
-            # alternative base
-            major = tt[6]
-            minor = tt[7]
-            if refbase == major:
-                altbase = minor
-
-            else:
-                altbase = major
-
-            # tumour counts
-            TR = tt[refbase + 1][0]  # tumour to reference base count
-            TA = tt[altbase + 1][0]  # tumour to alternative base count
-
-            # indel
-            insertion = tt[-6]
-            deletion = tt[-4]
-
-            # calculate ratio of variant reads
-            ##alt_indels = tt[-2][altbase]
-            ##alt_reads = tt[altbase + 1][0]
-
-            ratio = sum(tt[-2]) / t_coverage
-
-            # filter flag
-            if ratio > self.args.indl_threshold:
-                filter_flag = "INDL"
-
-            else:
-                filter_flag = None
-
-        # normal information to print
-        if nt is not None:
-            n_coverage = nt[5][0]
-
-        if n_coverage == 0:
-            # normal counts
-            NR = 0  # normal to reference base count
-            NA = 0  # normal to alternative base count
-
-        else:
-            NR = nt[refbase + 1][0]  # normal to reference base count
-
-            # if it is zero coverage in tumour bam then altbase is "N/A" and so
-            # NA should be 0
-            if t_coverage == 0:
-                NA = 0
-
-            else:
-                NA = nt[altbase + 1][0]  # normal to alternative base count
-
-        # tri_nucleotide context
-        chromosome_id = tt[-1]
-        position = tt[0]
-        tc = self.bam.get_trinucleotide_context(chromosome_id, position)
-
-        ## generate information for the INFO column in the output vcf               
-        if self.args.single:
-            pr_aa,pr_ab,pr_bb,gt = self.__get_genotype(TA,tt[5][0])
-            
-            ## generate information for the INFO column in the output vcf               
-            if self.type == 'n':
-                info = [NR, NA, TR, TA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
-            else:
-                info = [TR, TA, NR, NA, tc, insertion, deletion, gt, pr_aa, pr_ab, pr_bb]
-            
-        else:
-            info = [TR, TA, NR, NA, tc, insertion, deletion]
-
-        info = map(str, info)
+        normdata = []
+        if normtup:
+            normdata.extend([normtup[refbase + 1][0], normtup[altbase + 1][0],
+                             normtup[9], normtup[11], normtup[5][0]])
+            normdata.extend(self.__get_genotype(normdata[1],
+                                                normtup[5][0], 'n'))
 
         # reserved for database ID, to be filled later
         out_id = "."
 
+        # tri_nucleotide context
+        chromosome_id = tumtup[-1]
+        position = tumtup[0]
+        trinuc = self.bam.get_trinucleotide_context(chromosome_id, position)
+
         # get chromosome name of the given chromosome ID
         chromosome_name = self.bam.get_chromosome_name(chromosome_id)
 
-        # remove chr from chromosome
-        #chromosome_name = chromosome_name.replace('chr', '')
-
         outstr = [chromosome_name, position, out_id, refbase, altbase,
-                  filter_flag, info]
+                  filter_flag, trinuc, tumdata, normdata]
 
         return outstr
+
 
     def _flush(self):
         logging.info("flushing memory. Usage was: %s M",
@@ -873,7 +842,11 @@ class Classifier(object):
         tumour = self.samples.get("tumour")
         normal = self.samples.get("normal")
         reference = self.samples.get("reference")
-        model = self.samples.get("model")
+        model = self.model
+
+        contigs = self.bam.get_reference_chromosome_lengths()
+        contigs = ['##contig=<ID=%s,length=%s>' %(k,v) for k,v in contigs.iteritems()]
+        contigs = '\n'.join(contigs)
 
         if tumour is None:
             tumour = "N/A"
@@ -881,61 +854,67 @@ class Classifier(object):
         elif normal is None:
             normal = "N/A"
 
-        tumourval = None
-        normalval = None
-        if self.args.single and self.type == 't':
-            tumourval = 'TUMOUR'
-            normalval = ''
-        elif self.args.single and self.type == 'n':
-            tumourval = ''
-            normalval = 'NORMAL'
-        else:
-            tumourval = 'TUMOUR'
-            normalval = 'NORMAL'
-
         cfg_file = self.args.config
-        if not cfg_file:
+        if not cfg_file or not os.path.exists(cfg_file):
             cfg_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'metadata.config')
-
         try:
-            cfg_file = open(self.args.config, 'r')
+            cfg_file = open(cfg_file, 'r')
             header = ""
 
-            for l in cfg_file:
-                l = Template(l).safe_substitute(
-                    DATETIME=datetime.now().strftime("%Y%m%d"),
-                    VERSION=mutationSeq_version,
-                    REFERENCE=reference,
-                    TUMOUR=tumour,
-                    NORMAL=normal,
-                    TUMOURVAL=tumourval,
-                    NORMALVAL=normalval,
-                    MODEL=model,
-                    THRESHOLD=self.threshold)
+            for hdrline in cfg_file:
+                hdrline = Template(hdrline).substitute(
+                        DATETIME=datetime.now().strftime("%Y%m%d"),
+                        VERSION=MUSEQ_VERSION,
+                        REFERENCE=reference,
+                        TUMOUR=tumour,
+                        NORMAL=normal,
+                        MODEL=model,
+                        THRESHOLD=self.args.threshold,
+                        INDLTHRESHOLD=self.args.indl_threshold,
+                        MAPQTHRESHOLD=self.bam.mapq_threshold,
+                        BASEQTHRESHOLD=self.bam.baseq_threshold,
+                        COVERAGE=self.bam.coverage,
+                        RMDUPS=self.bam.rmdups,
+                        CONTIG=contigs)
 
-                # skip single sample specific IDs if paired mode
-                if not self.args.single:
-                    if 'ID=GT' in l or 'ID=PL' in l:
-                        continue
-                header += l
+                # add format section headings
+                if hdrline.startswith('#CHROM'):
+                    hdrline = hdrline.strip('\n')
+                    if self.args.single:
+                        hdrline += '\tTUMOUR' if self.type == 't' else '\tNORMAL'
+                    else:
+                        hdrline += '\tTUMOUR\tNORMAL'
+                    hdrline += '\n'
+
+                header += hdrline
             cfg_file.close()
-            return header
 
-        except:
-            logging.warning("warning: failed to load metadata file.")
+            return header
+        except AttributeError as exc:
+            exc = exc.strerror if hasattr(exc, 'strerror') else str(exc)
+            logging.warning(
+                "warning: failed to load metadata file due to error: %s",
+                exc)
             return
 
-    def print_results(self, probabilities_outstrs):
-        # open the output vcf file to write
-        if self.args.out is None:
-            logging.warning("warning: --out is not specified, standard output\
-                             is used to write the results")
-            out = sys.stdout
-            out_path = "stdout"
+        except KeyError as exc:
+            exc = exc.strerror if hasattr(exc, 'strerror') else str(exc)
+            logging.warning(
+                "warning: failed to load metadata file due to error: %s",
+                exc)
+            return
 
-        else:
-            out = open(self.args.out, 'w')
-            out_path = str(self.args.out)
+
+    def print_results(self, probabilities_outstrs):
+        """
+        collects the outstr and probabilities and writes to
+        output file in vcf format
+        """
+        # open the output vcf file to write
+        out = open(self.args.out, 'w')
+        out_path = str(self.args.out)
+
+        format_str = 'RC:AC:NI:ND:DP:GT:PL'
 
         # print the vcf header to the output
         header = self.__meta_data()
@@ -943,73 +922,60 @@ class Classifier(object):
             print >> out, header.strip()
 
         # print the results
-        any_result = False
         for probabilities, outstrs in probabilities_outstrs:
-            if len(probabilities) == 0:
-                continue
 
             logging.info("printing results to: " + out_path)
             for i in xrange(len(probabilities)):
                 outstr = outstrs[i]
-                p = probabilities[i]
+                prob = probabilities[i]
 
-                # set p = 0 for positions with coverage == 0
-                filter_flag = outstr[-2]
-                if filter_flag == "NOCV":
-                    p = 0
+                filter_flag = outstr[5]
 
                 # do not print positions with p < threshold if --all option is
                 # not set
-                if p < self.threshold:
+                if not self.args.all and prob < self.args.threshold:
                     continue
-
-                any_result = True
 
                 # set the filter_flag
                 if filter_flag is None:
-                    if p >= self.threshold:
+                    if prob >= self.args.threshold:
                         filter_flag = "PASS"
-
                     else:
                         filter_flag = "FAIL"
 
-                info_str = "PR=" + "%.2f" % p + ";TR=" + outstr[-1][0] + \
-                            ";TA=" + outstr[-1][1] + ";NR=" + outstr[-1][2] + \
-                            ";NA=" + outstr[-1][3] + ";TC=" + outstr[-1][4] + \
-                            ";NI=" + outstr[-1][5] + ";ND=" + outstr[-1][6]
+                info_str = ["PR=", "%.2f" % prob, ";TC=", outstr[6]]
 
-                if self.args.single:  
-                    info_str = info_str+";GT=" + outstr[-1][7] +";PL="+outstr[-1][8]+\
-                               ','+outstr[-1][9]+','+outstr[-1][10]
-                
-                # calculate phred quality
-                if p == 0:
-                    phred_quality = 0.0
-
-                elif p == 1:
-                    phred_quality = 99
-
+                if not self.args.single:
+                    tum_str = ':'.join([str(v) for v in outstr[7]])
+                    norm_str = ':'.join([str(v) for v in outstr[8]])
                 else:
-                    phred_quality = -10 * log10(1 - p)
+                    samp_str = ':'.join([str(v) for v in outstr[7]])
+
+                info_str = ''.join(info_str)
+
+                # calculate phred quality
+                phred_quality = self.get_phred_score(prob, typ='quality')
 
                 # alternative base
-                altbase = outstr[4]
-                if altbase != "N/A":
-                    altbase = self.base[altbase]
+                altbase = self.base[outstr[4]]
 
                 # make sure it is all strings
-                outstr = map(str, [outstr[0], outstr[1], outstr[2],
-                                   self.base[outstr[3]], altbase,
-                                   "%.2f" % phred_quality, filter_flag,
-                                   info_str])
+                outstr = [outstr[0], outstr[1], outstr[2],
+                          self.base[outstr[3]], altbase,
+                          "%.2f" % phred_quality, filter_flag, info_str,
+                          format_str]
+                if self.args.single:
+                    outstr.append(samp_str)
+                else:
+                    outstr.append(tum_str)
+                    outstr.append(norm_str)
+
+                outstr = [str(outstrval) for outstrval in outstr]
 
                 print >> out, "\t".join(outstr)
 
-        if not any_result:
-            print "**no somatic mutation calls**"
-
         out.close()
-        self.__update_header()
+
 
     def get_feature_names(self):
         tmp_obj = self.features_module.Features()
@@ -1345,7 +1311,7 @@ class Trainer(object):
 
             for chromosome, pos, label, _, label_name, indexes, start, end in self.data[
                     (tfile, nfile, rfile)]:
-                # unpack pos to get flanking regions in deep mode
+                # unpack pog to get flanking regions in deep mode
                 chr_id = t_bam.get_chromosome_id(chromosome)
 
                 # get all tuples in flanking region and remove the

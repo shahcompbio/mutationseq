@@ -11,32 +11,32 @@ class Bam(object):
     def __init__(self, **kwargs):       
         self.bam = kwargs.get("bam")
         self.ref = kwargs.get("reference") 
-        rmdups   = kwargs.get("rmdups") 
-        coverage = kwargs.get("coverage")
-        mapq_threshold = kwargs.get("mapq_threshold")
-        baseq_threshold = kwargs.get("baseq_threshold")
-        
+        self.rmdups   = kwargs.get("rmdups") 
+        self.coverage = kwargs.get("coverage")
+        self.mapq_threshold = kwargs.get("mapq_threshold")
+        self.baseq_threshold = kwargs.get("baseq_threshold")
+
         self.base = {'A':0, 'C':1, 'G':2, 'T':3, 'N':4}
         
         ## check if duplicates need to be removed
-        if rmdups is None:
-            rmdups = True
+        if self.rmdups is None:
+            self.rmdups = True
             
         ## set the default for the coverage
-        if coverage is None:
-            coverage = 4
+        if self.coverage is None:
+            self.coverage = 4
         
         ## set the default for mapq_threshold
-        if mapq_threshold is None:
-            mapq_threshold = 10
+        if self.mapq_threshold is None:
+            self.mapq_threshold = 10
         
         ## set the default for baseq_threshold
-        if baseq_threshold is None:
-            baseq_threshold = 10
+        if self.baseq_threshold is None:
+            self.baseq_threshold = 10
             
         ## make a pileup for bam file
         if self.bam is not None:
-            self.pileup = np.pileup(coverage, rmdups, mapq_threshold, baseq_threshold)
+            self.pileup = np.pileup(self.coverage, self.rmdups, self.mapq_threshold, self.baseq_threshold)
             self.pileup.open(self.bam)
     
         if  self.ref is not None:
@@ -171,10 +171,22 @@ class PairedBam(object):
                          mapq_threshold=mapq_threshold, baseq_threshold=baseq_threshold)
         self.n_bam = Bam(bam=normal, reference=reference, coverage=coverage, rmdups=rmdups, 
                          mapq_threshold=mapq_threshold, baseq_threshold=baseq_threshold)
-    
+   
+        self.mapq_threshold = mapq_threshold
+        self.baseq_threshold = baseq_threshold
+        self.coverage = coverage
+        self.rmdups = rmdups
+ 
     def get_chromosome_name(self, chromosome_id):
         return self.t_bam.get_chromosome_name(chromosome_id)
-     
+
+    def get_reference_chromosome_lengths(self):
+        """
+        return the length of all the chromosomes in
+        the reference used for initializing the Bam object
+        """
+        return self.t_bam.get_reference_chromosome_lengths()
+ 
     def get_trinucleotide_context(self, chromosome_id, position):
         return self.t_bam.get_trinucleotide_context(chromosome_id, position)
         

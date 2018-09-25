@@ -39,7 +39,7 @@ def main():
     
     logging.info("generating features iterator")
     features = classifier.get_features()
-    
+
     if args.export_features is not None:
         logging.info("exporting features")
         features = classifier.export_features(features)
