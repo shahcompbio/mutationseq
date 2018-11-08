@@ -16,11 +16,11 @@ except IndexError:
 
 currentdir = os.getcwd()
 os.chdir("museq")
-museq.setup.compile(boost_source)
+#museq.setup.compile(boost_source)
 os.chdir(currentdir)
 
 
-museq.pickle_models.setup_museq_models()
+#museq.pickle_models.setup_museq_models()
 
 setup(
     name='mutationseq',
@@ -30,8 +30,8 @@ setup(
     description='mutationseq',
     author='Jafar Taghiyar Renani',
     author_email='dgrewal@bccrc.ca',
-    entry_points={'console_scripts': ['museq = museq.classify:main']},
-    package_data={'':['*.pickle', '*.so']}
+    entry_points={'console_scripts': ['museq = museq.classify:main', 'museq_het = museq.preprocess:main']},
+    package_data={'':['*.pickle', '*.so', "*.config"]}
 )
 
 

@@ -551,7 +551,7 @@ class Classifier(object):
             self.features_buffer.append(temp_feature)
 
             # generate output string and buffer it
-            outstr = self._make_outstr(it, rt[0], nt=None)
+            outstr = self._make_outstr(it, rt[0], normtup=None)
             self.outstr_buffer.append(outstr)
 
             # check the buffer size and flush
@@ -731,7 +731,7 @@ class Classifier(object):
                 self.features_buffer.append(temp_feature)
 
                 # generate output string and buffer it
-                outstr = self._make_outstr(it, rt[0], nt=None)
+                outstr = self._make_outstr(it, rt[0], normtup=None)
                 self.outstr_buffer.append(outstr)
 
                 # check the buffer size and flush
@@ -838,7 +838,7 @@ class Classifier(object):
                 'The mean coverage for normal: ' +
                 str(normal_cov_mean))
 
-    def __meta_data(self):
+    def _meta_data(self):
         tumour = self.samples.get("tumour")
         normal = self.samples.get("normal")
         reference = self.samples.get("reference")
@@ -917,7 +917,7 @@ class Classifier(object):
         format_str = 'RC:AC:NI:ND:DP:GT:PL'
 
         # print the vcf header to the output
-        header = self.__meta_data()
+        header = self._meta_data()
         if header is not None:
             print >> out, header.strip()
 

@@ -3,23 +3,27 @@ Created on May 20, 2014
 
 @author: dgrewal
 '''
+import os
 import logging
 import warnings
 from bamutils import Classifier
+from datetime import datetime
+from string import Template
 import pybamapi
 import numpy
 import resource
 
 mutationSeq_version = "4.3.8"
+MUSEQ_VERSION = mutationSeq_version
 
 class PreProcess(Classifier):
     def __init__(self,args):
 
-        args.samples, tumour = self.update_samples(args)
+        args.samples, self.tumour = self.update_samples(args)
         args.single=True
 
         super(PreProcess, self).__init__(args) 
-        self.__update_args(tumour)
+        self.__update_args(self.tumour)
 
     def update_samples(self, args):
         samples = []
@@ -85,7 +89,7 @@ class PreProcess(Classifier):
             outstr = self._make_outstr(it, rt[0],tt)
             
 
-            if outstr[-1][7] == '0/1':
+            if outstr[-1][5] == '0/1':
                 ## calculate features     
                 feature_set = self.features_module.Features(it, rt,'n')
                 temp_feature = feature_set.get_features()
@@ -98,4 +102,136 @@ class PreProcess(Classifier):
                 yield self._flush()
         
         yield self._flush()
+
+
+    def print_results(self, probabilities_outstrs):
+        """
+        collects the outstr and probabilities and writes to
+        output file in vcf format
+        """
+        # open the output vcf file to write
+        out = open(self.args.out, 'w')
+        out_path = str(self.args.out)
+
+        format_str = 'RC:AC:NI:ND:DP:GT:PL'
+
+        # print the vcf header to the output
+        header = self._meta_data()
+        if header is not None:
+            print >> out, header.strip()
+
+        # print the results
+        for probabilities, outstrs in probabilities_outstrs:
+
+            logging.info("printing results to: " + out_path)
+            for i in xrange(len(probabilities)):
+                outstr = outstrs[i]
+                prob = probabilities[i]
+
+                filter_flag = outstr[5]
+
+                # do not print positions with p < threshold if --all option is
+                # not set
+                if not self.args.all and prob < self.args.threshold:
+                    continue
+
+                # set the filter_flag
+                if filter_flag is None:
+                    if prob >= self.args.threshold:
+                        filter_flag = "PASS"
+                    else:
+                        filter_flag = "FAIL"
+
+                info_str = ["PR=", "%.2f" % prob, ";TC=", outstr[6]]
+
+                tum_str = ':'.join([str(v) for v in outstr[7]])
+                norm_str = ':'.join([str(v) for v in outstr[8]])
+
+                info_str = ''.join(info_str)
+
+                # calculate phred quality
+                phred_quality = self.get_phred_score(prob, typ='quality')
+
+                # alternative base
+                altbase = self.base[outstr[4]]
+
+                # make sure it is all strings
+                outstr = [outstr[0], outstr[1], outstr[2],
+                          self.base[outstr[3]], altbase,
+                          "%.2f" % phred_quality, filter_flag, info_str,
+                          format_str]
+
+                outstr.append(tum_str)
+                outstr.append(norm_str)
+
+                outstr = [str(outstrval) for outstrval in outstr]
+
+                print >> out, "\t".join(outstr)
+
+        out.close()
+
+
+    def _meta_data(self):
+        print self.samples
+        tumour = self.tumour
+        normal = self.samples.get("normal")
+        reference = self.samples.get("reference")
+        model = self.model
+
+        contigs = self.bam.get_reference_chromosome_lengths()
+        contigs = ['##contig=<ID=%s,length=%s>' %(k,v) for k,v in contigs.iteritems()]
+        contigs = '\n'.join(contigs)
+
+        if tumour is None:
+            tumour = "N/A"
+
+        elif normal is None:
+            normal = "N/A"
+
+        cfg_file = self.args.config
+        if not cfg_file or not os.path.exists(cfg_file):
+            cfg_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'metadata.config')
+        try:
+            cfg_file = open(cfg_file, 'r')
+            header = ""
+
+            for hdrline in cfg_file:
+                hdrline = Template(hdrline).substitute(
+                        DATETIME=datetime.now().strftime("%Y%m%d"),
+                        VERSION=MUSEQ_VERSION,
+                        REFERENCE=reference,
+                        TUMOUR=tumour,
+                        NORMAL=normal,
+                        MODEL=model,
+                        THRESHOLD=self.args.threshold,
+                        INDLTHRESHOLD=self.args.indl_threshold,
+                        MAPQTHRESHOLD=self.bam.mapq_threshold,
+                        BASEQTHRESHOLD=self.bam.baseq_threshold,
+                        COVERAGE=self.bam.coverage,
+                        RMDUPS=self.bam.rmdups,
+                        CONTIG=contigs)
+
+                # add format section headings
+                if hdrline.startswith('#CHROM'):
+                    hdrline = hdrline.strip('\n')
+                    hdrline += '\tTUMOUR\tNORMAL'
+                    hdrline += '\n'
+
+                header += hdrline
+            cfg_file.close()
+
+            return header
+        except AttributeError as exc:
+            exc = exc.strerror if hasattr(exc, 'strerror') else str(exc)
+            logging.warning(
+                "warning: failed to load metadata file due to error: %s",
+                exc)
+            return
+
+        except KeyError as exc:
+            exc = exc.strerror if hasattr(exc, 'strerror') else str(exc)
+            logging.warning(
+                "warning: failed to load metadata file due to error: %s",
+                exc)
+            return
 
