@@ -16,11 +16,11 @@ except IndexError:
 
 currentdir = os.getcwd()
 os.chdir("museq")
-#museq.setup.compile(boost_source)
+museq.setup.compile(boost_source)
 os.chdir(currentdir)
 
 
-#museq.pickle_models.setup_museq_models()
+museq.pickle_models.setup_museq_models()
 
 setup(
     name='mutationseq',
