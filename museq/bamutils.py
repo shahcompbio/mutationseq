@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from math import log10
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
-from sklearn import cross_validation
+from sklearn import model_selection
 from sklearn.metrics import roc_curve, auc
 from string import Template
 from datetime import datetime
@@ -1490,7 +1490,7 @@ class Trainer(object):
 
     def cross_validate(self):
         # NOTE:copied from Jeff/Fatemeh old code
-        cv = cross_validation.StratifiedKFold(self.labels, n_folds=3)
+        cv = model_selection.StratifiedKFold(self.labels, n_folds=3)
         for i, (train, test) in enumerate(cv):
             cv_model = self.model.fit(self.features[train], self.labels[train])
             logging.info("predicting probabilities")
