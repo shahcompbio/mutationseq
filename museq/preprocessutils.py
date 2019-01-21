@@ -86,8 +86,14 @@ class PreProcess(Classifier):
                 logging.error(str(position)+' position references base N and has been ignored')
                 continue
 
-            outstr = self._make_outstr(it, rt[0],tt)
-            
+            # swapped tum and norm when calling outstr, so it returns the values on wrong index. swap them later
+            # we're using counts from normal to decide ref and alt, then grabbing counts for those in tumour
+            # normally its the other way around.
+            outstr = self._make_outstr(it, rt[0], tt)
+            normoutstr = outstr[-2]
+            tumoutstr = outstr[-1]
+            outstr[-2] = tumoutstr
+            outstr[-1] = normoutstr
 
             if outstr[-1][5] == '0/1':
                 ## calculate features     
