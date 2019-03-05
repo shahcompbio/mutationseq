@@ -75,11 +75,19 @@ bool CreatePileupTuple(const PileupPosition& pileupData, python::tuple& tpl, int
 			}
 		
 		}
-		
+
+		// SOFTCLIP FIX for PDX - Daniel Lai
+		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
+		{
+			if (opIter->Type == 'S')
+			{
+				continue;
+			}
+		}
+
 		//TODO: remove this, this is for mut-174
 		//if (ba.Qualities.at(pa.PositionInAlignment) - 33 < 10)
 		//	continue;
-
 		// adjacent insertions and deletions
 		for (vector<CigarOp>::const_iterator opIter = ba.CigarData.begin(); opIter != ba.CigarData.end(); opIter++)
 		{
