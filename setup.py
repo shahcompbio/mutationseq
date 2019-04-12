@@ -14,6 +14,8 @@ except IndexError:
     sys.stderr.write('Please specify the boost source directory using --boost_source=dir\n')
     sys.exit(1)
 
+# path must be absolute or make fails
+boost_source = os.path.abspath(boost_source)
 currentdir = os.getcwd()
 os.chdir("museq")
 museq.setup.compile(boost_source)
