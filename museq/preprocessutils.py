@@ -178,7 +178,6 @@ class PreProcess(Classifier):
 
 
     def _meta_data(self):
-        print self.samples
         tumour = self.tumour
         normal = self.samples.get("normal")
         reference = self.samples.get("reference")
