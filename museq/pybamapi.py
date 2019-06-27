@@ -48,7 +48,14 @@ class Bam(object):
         self.fasta.open(self.ref) 
 
     def is_matched_reference(self):
-        return self.get_reference_refnames() == self.get_refnames()
+        reference_refnames = self.get_reference_refnames()
+        refnames = self.get_refnames()
+
+        keys_of_interest = set(reference_refnames.keys()).intersection(set(refnames.keys()))
+        reference_refnames = {k:v for k,v in reference_refnames.iteritems() if k in keys_of_interest}
+        refnames = {k:v for k,v in refnames.iteritems() if k in keys_of_interest}
+
+        return refnames == reference_refnames
     
     def get_reference_base(self, chromosome_id, position, index=False):
         if position < 1:
