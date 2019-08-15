@@ -84,7 +84,7 @@ def setup_museq_models():
     labels = ['SOMATIC']
     X,Y = load_training_data(PAIRED_DEEP_TRAININGDATA, labels)
 
-    train_and_dump_model(X, Y, PAIRED_DEEP_MODEL)
+    train_and_dump_model(X, Y, PAIRED_DEEP_MODEL, deep=True)
 
 
 

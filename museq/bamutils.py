@@ -85,7 +85,16 @@ class Classifier(object):
         # check if the model is specified correctly
         model = self.samples.get("model")
         if not model:
-            self.model = "model_single_v4.0.2.pickle" if self.args.single else "model_v4.1.2.pickle" 
+            if self.args.single:
+                if self.args.deep:
+                    raise Exception("model not available")
+                else:
+                    self.model = 'model_single_v4.0.2.pickle'
+            else:
+                if self.args.deep:
+                    self.model = "model_deep_v0.2.0.pickle"
+                else:
+                    self.model = "model_v4.1.2.pickle"
             self.model = os.path.join(dirname, self.model)
         if model and not os.path.exists(model):
             self.model = os.path.join(dirname, model)
