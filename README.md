@@ -24,7 +24,7 @@
     ```
 3. clone the mutationseq repo.
     ```
-    git clone -b easy_install https://dgrewal@svn.bcgsc.ca/bitbucket/scm/museq/mutationseq.git
+    git clone https://github.com/shahcompbio/mutationseq.git
     ```
 4. create a conda environment:
     ```
