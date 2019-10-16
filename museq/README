@@ -17,14 +17,14 @@ Other changes:
 model: 
 - we now store the model: MUT-161
 
-Downlaod and usage
+Download and usage
 ------------------
 The package is available to academics under the terms of the GPL3. 
 Non-academic users should contact Dr. Patrick Rebstein at the BC Cancer Agency Technology Development Office for license agreements.
 
 Installation
 ------------
-Please see the "mutationSeq_user_manual.pdf" provided in the packege.
+Please see the "mutationSeq_user_manual.pdf" provided in the package.
 
 Known Issues
 ------------
